@@ -312,14 +312,37 @@
   <ItemGroup>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="trading\CBrokerClient.cpp" />
-    <ClInclude Include="trading\CBrokerClient.h" />
-    <ClInclude Include="trading\ITradingGateway.h" />
-    <ClCompile Include="trading\TradeProtocol.cpp" />
-    <ClInclude Include="trading\TradeProtocol.h" />
-    <ClCompile Include="trading\TradeTypes.cpp" />
-    <ClInclude Include="trading\TradeTypes.h" />
-    <ClCompile Include="trading\TradingTypes.cpp" />
-    <ClInclude Include="trading\TradingTypes.h" />
+    <ClCompile Include="trade\CBrokerClient.cpp">
+      <Filter>trade</Filter>
+    </ClCompile>
+    <ClInclude Include="trade\CBrokerClient.h">
+      <Filter>trade</Filter>
+    </ClInclude>
+    <ClInclude Include="trade\ITradingGateway.h">
+      <Filter>trade</Filter>
+    </ClInclude>
+    <ClCompile Include="trade\TradeProtocol.cpp">
+      <Filter>trade</Filter>
+    </ClCompile>
+    <ClInclude Include="trade\TradeProtocol.h">
+      <Filter>trade</Filter>
+    </ClInclude>
+    <ClCompile Include="trade\TradeTypes.cpp">
+      <Filter>trade</Filter>
+    </ClCompile>
+    <ClInclude Include="trade\TradeTypes.h">
+      <Filter>trade</Filter>
+    </ClInclude>
+    <ClCompile Include="trade\TradingTypes.cpp">
+      <Filter>trade</Filter>
+    </ClCompile>
+    <ClInclude Include="trade\TradingTypes.h">
+      <Filter>trade</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="trade">
+      <UniqueIdentifier>{03d4644b-bce0-4dee-bd3b-753f58363eea}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
 </Project>

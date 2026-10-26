@@ -1,7 +1,7 @@
 #ifndef XENGINE_STRATEGY_STRATEGYTYPES_H
 #define XENGINE_STRATEGY_STRATEGYTYPES_H
 
-#include "../trading/TradingTypes.h"
+#include "../trade/TradingTypes.h"
 #include "../request/v1/market.pb.h"
 
 #include <chrono>

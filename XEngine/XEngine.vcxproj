@@ -225,14 +225,14 @@
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets" />
   <ItemGroup>
-    <ClCompile Include="trading\CBrokerClient.cpp" />
-    <ClInclude Include="trading\CBrokerClient.h" />
-    <ClInclude Include="trading\ITradingGateway.h" />
-    <ClCompile Include="trading\TradeProtocol.cpp" />
-    <ClInclude Include="trading\TradeProtocol.h" />
-    <ClCompile Include="trading\TradeTypes.cpp" />
-    <ClInclude Include="trading\TradeTypes.h" />
-    <ClCompile Include="trading\TradingTypes.cpp" />
-    <ClInclude Include="trading\TradingTypes.h" />
+    <ClCompile Include="trade\CBrokerClient.cpp" />
+    <ClInclude Include="trade\CBrokerClient.h" />
+    <ClInclude Include="trade\ITradingGateway.h" />
+    <ClCompile Include="trade\TradeProtocol.cpp" />
+    <ClInclude Include="trade\TradeProtocol.h" />
+    <ClCompile Include="trade\TradeTypes.cpp" />
+    <ClInclude Include="trade\TradeTypes.h" />
+    <ClCompile Include="trade\TradingTypes.cpp" />
+    <ClInclude Include="trade\TradingTypes.h" />
   </ItemGroup>
 </Project>

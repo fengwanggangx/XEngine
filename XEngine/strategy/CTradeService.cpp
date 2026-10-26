@@ -2,7 +2,7 @@
 #include "../common/utility.h"
 #include "../database/CDBEngine.h"
 #include "../database/IDataBase.h"
-#include "../trading/TradeProtocol.h"
+#include "../trade/TradeProtocol.h"
 #include "../ini/CINIHandler.h"
 #include "../network/CNetTools.h"
 #include "../request/RequestCenter.h"

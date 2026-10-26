@@ -1,6 +1,6 @@
 #ifndef XENGINE_STRATEGY_CTRADESERVICE_H
 #define XENGINE_STRATEGY_CTRADESERVICE_H
-#include "../trading/CBrokerClient.h"
+#include "../trade/CBrokerClient.h"
 #include "AccountInfo.h"
 #include "ITradeService.h"
 #include <memory>
