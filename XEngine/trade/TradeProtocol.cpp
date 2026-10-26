@@ -1,4 +1,5 @@
 #include "TradeProtocol.h"
+#include <type_traits>
 #include "../common/utility.h"
 namespace trade::protocol
 {
@@ -58,6 +59,81 @@ namespace trade::protocol
 		wire.set_frozen(row.m_nFrozen);
 		wire.set_available(row.m_nBalance - row.m_nFrozen);
 		wire.set_available_snapshot(bReady && row.m_bConnected);
+		wire.set_connected(row.m_bConnected);
+	}
+
+	void WriteReply(const CCounterReply& reply, ::CRequest& response)
+	{
+		request::TradeCounterReply wire;
+		wire.set_request_id(reply.m_requestId);
+		wire.set_account_id(reply.m_accountId);
+		wire.set_operation(static_cast<int>(reply.m_operation));
+		wire.set_error_code(static_cast<int>(reply.m_result.m_error));
+		wire.set_error_message(reply.m_result.m_strMessage);
+		wire.set_watermark(reply.m_version);
+		wire.set_server_time_ms(reply.m_nTime);
+		response.SetErrorInfo(static_cast<int>(reply.m_result.m_error), reply.m_result.m_strMessage);
+		if (reply.m_result.Ok())
+		{
+			std::visit([&wire](const auto& value)
+			{
+				using T = std::decay_t<decltype(value)>;
+				if constexpr (std::is_same_v<T, COperationReceipt>)
+				{
+					wire.mutable_receipt()->set_order_id(value.m_orderId);
+				}
+				else if constexpr (std::is_same_v<T, CAccount>)
+				{
+					WriteFunds(value, true, *wire.mutable_funds());
+					wire.mutable_funds()->set_server_time_ms(wire.server_time_ms());
+				}
+				else if constexpr (std::is_same_v<T, std::vector<CPosition>>)
+				{
+					request::TradePositionList* rows = wire.mutable_positions();
+					for (const auto& row : value)
+					{
+						WritePosition(row, *rows->add_positions());
+					}
+				}
+				else if constexpr (std::is_same_v<T, std::vector<COrder>>)
+				{
+					request::TradeOrderList* rows = wire.mutable_orders();
+					for (const auto& row : value)
+					{
+						WriteOrder(row, *rows->add_orders());
+					}
+				}
+				else if constexpr (std::is_same_v<T, std::vector<CTrade>>)
+				{
+					request::TradeList* rows = wire.mutable_trades();
+					for (const auto& row : value)
+					{
+						WriteTrade(row, *rows->add_trades());
+					}
+				}
+				else if constexpr (std::is_same_v<T, CAccountData>)
+				{
+					request::TradeAccountData* data = wire.mutable_account_data();
+					WriteFunds(value.m_account, value.m_bReady, *data->mutable_account());
+					data->set_watermark(value.m_version);
+					data->set_server_time_ms(value.m_nTime);
+					data->set_ready(value.m_bReady);
+					for (const auto& row : value.m_positions)
+					{
+						WritePosition(row, *data->add_positions());
+					}
+					for (const auto& row : value.m_orders)
+					{
+						WriteOrder(row, *data->add_orders());
+					}
+					for (const auto& row : value.m_trades)
+					{
+						WriteTrade(row, *data->add_trades());
+					}
+				}
+			}, reply.m_data);
+		}
+		response.SetData(wire);
 	}
 	void WriteEvent(const CEvent& event, request::TradeEventRecord& wire)
 	{
@@ -197,8 +273,8 @@ namespace trade::protocol
 		case trade::EventKind::Funds:
 		{
 			push.SetType(_TyRequest::TRADE_ACCOUNT_INFO_PUSH);
-			request::TradeAccountInfoList rows;
-			WriteFunds(event.m_account, true, *rows.add_accounts());
+			request::TradeAccountInfo rows;
+			WriteFunds(event.m_account, true, rows);
 			push.SetData(rows);
 		}
 		break;
@@ -263,7 +339,7 @@ namespace trade::protocol
 		}
 		CAccount ReadFunds(const request::TradeAccountInfo& wire)
 		{
-			return { wire.account_id(), wire.balance(), wire.frozen(), wire.available_snapshot(), true };
+			return { wire.account_id(), wire.balance(), wire.frozen(), wire.connected(), true };
 		}
 		bool ReadEvent(const request::TradeEventRecord& wire, CEvent& event)
 		{
@@ -351,10 +427,6 @@ namespace trade::protocol
 			break;
 		case Operation::Funds:
 			wire.SetType(_TyRequest::TRADE_ACCOUNT_INFO_QUERY);
-			if (0 != request.m_accountId)
-			{
-				wire.SetExtraData("account_ids", std::vector<std::uint64_t>{ request.m_accountId });
-			}
 			break;
 		case Operation::Positions:
 			wire.SetType(_TyRequest::TRADE_POSITION_QUERY);
@@ -370,13 +442,13 @@ namespace trade::protocol
 			break;
 		case Operation::Synchronize:
 			wire.SetType(_TyRequest::TRADE_SYNC_QUERY);
-			wire.SetExtraData("after_sequence", std::to_string(request.m_afterSequence));
 			break;
 		}
 		return wire;
 	}
-	bool ReadReply(const ::CRequest& response, CReply& reply)
+	bool ReadReply(const ::CRequest& response, CCounterReply& reply)
 	{
+		reply = CCounterReply{};
 		reply.m_requestId = response.GetId();
 		std::optional<std::pair<int, std::string>> error = response.GetErrorInfo();
 		if (error.has_value())
@@ -384,109 +456,138 @@ namespace trade::protocol
 			reply.m_result = { static_cast<Error>(error->first), error->second };
 			return true;
 		}
-		const request::RequestData& data = response.GetData();
-		utility::to_number(response.GetExtraData("version"), reply.m_snapshot.m_version);
-		utility::to_number(response.GetExtraData("server_time_ms"), reply.m_snapshot.m_nTime);
-		if (_TyRequest::TRADE_SYNC_QUERY == response.GetType())
+		if (!response.GetData().has_counter_reply())
 		{
-			if (!data.has_trade_sync())
+			return false;
+		}
+		const request::TradeCounterReply& wire = response.GetData().counter_reply();
+		if (0 == wire.account_id() || static_cast<int>(Operation::Login) > wire.operation() || static_cast<int>(Operation::Synchronize) < wire.operation())
+		{
+			return false;
+		}
+		reply.m_accountId = wire.account_id();
+		reply.m_requestId = wire.request_id();
+		reply.m_operation = static_cast<Operation>(wire.operation());
+		reply.m_version = wire.watermark();
+		reply.m_nTime = wire.server_time_ms();
+		reply.m_result = { static_cast<Error>(wire.error_code()), wire.error_message() };
+		if (!reply.m_result.Ok())
+		{
+			return request::TradeCounterReply::DATA_NOT_SET == wire.data_case();
+		}
+		switch (reply.m_operation)
+		{
+		case Operation::Synchronize:
+		{
+			if (!wire.has_account_data())
 			{
 				return false;
 			}
-			const request::TradeSyncResult& sync = data.trade_sync();
-			reply.m_snapshot.m_bReady = sync.ready();
-			reply.m_snapshot.m_version = sync.watermark();
-			reply.m_snapshot.m_nTime = sync.server_time_ms();
-			for (const auto& row : sync.accounts())
+			const request::TradeAccountData& source = wire.account_data();
+			if (!source.has_account() || reply.m_accountId != source.account().account_id() || reply.m_version != source.watermark() || reply.m_nTime != source.server_time_ms())
 			{
-				reply.m_snapshot.m_accounts.push_back(ReadFunds(row));
+				return false;
 			}
-			for (const auto& row : sync.orders())
+			CAccountData data;
+			data.m_account = ReadFunds(source.account());
+			data.m_version = source.watermark();
+			data.m_nTime = source.server_time_ms();
+			data.m_bReady = source.ready();
+			for (const auto& row : source.positions())
 			{
-				reply.m_snapshot.m_orders.push_back(ReadOrder(row));
-			}
-			for (const auto& row : sync.trades())
-			{
-				reply.m_snapshot.m_trades.push_back(ReadTrade(row));
-			}
-			for (const auto& row : sync.positions())
-			{
-				reply.m_snapshot.m_positions.push_back(ReadPosition(row));
-			}
-			for (const auto& row : sync.events())
-			{
-				CEvent event;
-				if (!ReadEvent(row, event))
+				if (reply.m_accountId != row.account_id())
 				{
 					return false;
 				}
-				reply.m_events.push_back(std::move(event));
+				data.m_positions.emplace_back(ReadPosition(row));
 			}
+			for (const auto& row : source.orders())
+			{
+				if (reply.m_accountId != row.account_id())
+				{
+					return false;
+				}
+				data.m_orders.emplace_back(ReadOrder(row));
+			}
+			for (const auto& row : source.trades())
+			{
+				if (reply.m_accountId != row.account_id())
+				{
+					return false;
+				}
+				data.m_trades.emplace_back(ReadTrade(row));
+			}
+			reply.m_data = std::move(data);
 			return true;
 		}
-		switch (response.GetType())
+		case Operation::Funds:
+			if (!wire.has_funds() || reply.m_accountId != wire.funds().account_id())
+			{
+				return false;
+			}
+			reply.m_data = ReadFunds(wire.funds());
+			return true;
+		case Operation::Positions:
 		{
-		case _TyRequest::TRADE_ORDER_SUBMIT:
-		case _TyRequest::TRADE_ORDER_CANCEL:
-		case _TyRequest::TRADE_ORDER_QUERY:
-			if (!data.has_trade_orders())
+			if (!wire.has_positions())
 			{
 				return false;
 			}
-			for (const auto& row : data.trade_orders().orders())
+			std::vector<CPosition> rows;
+			for (const auto& row : wire.positions().positions())
 			{
-				reply.m_snapshot.m_orders.push_back(ReadOrder(row));
-			}
-			if (_TyRequest::TRADE_ORDER_QUERY != response.GetType() && !reply.m_snapshot.m_orders.empty())
-			{
-				reply.m_orderId = reply.m_snapshot.m_orders.front().m_orderId;
-			}
-			return true;
-		case _TyRequest::TRADE_TRADE_QUERY:
-			if (!data.has_trades())
-			{
-				return false;
-			}
-			for (const auto& row : data.trades().trades())
-			{
-				reply.m_snapshot.m_trades.push_back(ReadTrade(row));
-			}
-			return true;
-		case _TyRequest::TRADE_POSITION_QUERY:
-			if (!data.has_trade_positions())
-			{
-				return false;
-			}
-			for (const auto& row : data.trade_positions().positions())
-			{
-				reply.m_snapshot.m_positions.push_back(ReadPosition(row));
-			}
-			return true;
-		case _TyRequest::TRADE_ACCOUNT_INFO_QUERY:
-			if (!data.has_account_info_list())
-			{
-				return false;
-			}
-			for (const auto& row : data.account_info_list().accounts())
-			{
-				if (0 != row.error_code())
+				if (reply.m_accountId != row.account_id())
 				{
-					reply.m_result = { Error::Unavailable, row.error_message() };
+					return false;
 				}
-				reply.m_snapshot.m_accounts.push_back(ReadFunds(row));
+				rows.emplace_back(ReadPosition(row));
 			}
+			reply.m_data = std::move(rows);
 			return true;
-		case _TyRequest::TRADE_ACCOUNT_LOGIN:
-		case _TyRequest::TRADE_ACCOUNT_CONNECT:
-		case _TyRequest::TRADE_ACCOUNT_DISCONNECT:
-			if (!data.has_account())
+		}
+		case Operation::Orders:
+		{
+			if (!wire.has_orders())
 			{
 				return false;
 			}
-			reply.m_snapshot.m_accounts.push_back({ data.account().account_id(), 0, 0, request::ACCOUNT_CONNECTED == data.account().state(), true });
+			std::vector<COrder> rows;
+			for (const auto& row : wire.orders().orders())
+			{
+				if (reply.m_accountId != row.account_id())
+				{
+					return false;
+				}
+				rows.emplace_back(ReadOrder(row));
+			}
+			reply.m_data = std::move(rows);
 			return true;
+		}
+		case Operation::Trades:
+		{
+			if (!wire.has_trades())
+			{
+				return false;
+			}
+			std::vector<CTrade> rows;
+			for (const auto& row : wire.trades().trades())
+			{
+				if (reply.m_accountId != row.account_id())
+				{
+					return false;
+				}
+				rows.emplace_back(ReadTrade(row));
+			}
+			reply.m_data = std::move(rows);
+			return true;
+		}
 		default:
-			return false;
+			if (!wire.has_receipt())
+			{
+				return false;
+			}
+			reply.m_data = COperationReceipt{ wire.receipt().order_id() };
+			return true;
 		}
 	}
 	bool ReadPush(const ::CRequest& response, CEvent& event)
@@ -525,12 +626,12 @@ namespace trade::protocol
 			event.m_trade = ReadTrade(data.trades().trades(0));
 			return true;
 		case _TyRequest::TRADE_ACCOUNT_INFO_PUSH:
-			if (!data.has_account_info_list() || 1 != data.account_info_list().accounts_size())
+			if (!data.has_account_info())
 			{
 				return false;
 			}
 			event.m_kind = EventKind::Funds;
-			event.m_account = ReadFunds(data.account_info_list().accounts(0));
+			event.m_account = ReadFunds(data.account_info());
 			return true;
 		case _TyRequest::TRADE_POSITION_PUSH:
 			if (!data.has_trade_positions() || 1 != data.trade_positions().positions_size())

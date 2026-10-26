@@ -441,12 +441,14 @@ namespace trade
 			rows.push_back(row);
 		}
 	} // namespace
-	void UpdateSnapshot(CSnapshot& snapshot, const CEvent& event)
+	void UpdateAccountData(CAccountData& snapshot, const CEvent& event)
 	{
-		UpdateRow(snapshot.m_accounts, event.m_account, [&event](const CAccount& row)
+		if (0 == snapshot.m_account.m_accountId || snapshot.m_account.m_accountId != event.m_accountId)
 		{
-			return event.m_accountId == row.m_accountId;
-		});
+			return;
+		}
+		snapshot.m_account = event.m_account;
+		snapshot.m_version = event.m_sequence;
 		switch (event.m_kind)
 		{
 		case EventKind::Order:

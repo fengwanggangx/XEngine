@@ -2,6 +2,7 @@
 #include "TradeProtocol.h"
 #include "../request/request.pb.h"
 #include <algorithm>
+#include <unordered_set>
 namespace
 {
 	CLoginInfo OrderedInfo(const CLoginInfo& info)
@@ -97,95 +98,185 @@ bool CBrokerClient::Forward(CRequest request, WireHandler handler)
 }
 trade::CResult CBrokerClient::Request(trade::CRequest request, ReplyHandler handler)
 {
+	if (0 == request.m_accountId)
+	{
+		return { trade::Error::NotFound, "account_id must be positive" };
+	}
 	trade::Id nAccountId = request.m_accountId;
 	trade::Id nRequestId = request.m_requestId;
-	bool bFullSnapshot = trade::Operation::Synchronize == request.m_operation;
-	CRequest wire = trade::protocol::WriteRequest(request);
-	bool bQueued = Forward(std::move(wire), [this, nAccountId, nRequestId, bFullSnapshot, handler = std::move(handler)](const CRequest& response)
+	trade::Operation operation = request.m_operation;
+	bool bSynchronize = trade::Operation::Synchronize == operation;
+	std::uint64_t nGeneration = 0;
 	{
-		trade::CReply reply;
-		if (!trade::protocol::ReadReply(response, reply))
+		std::lock_guard<std::mutex> lock(m_mtx_state);
+		nGeneration = m_generation;
+		if (bSynchronize && !m_syncing.try_emplace(nAccountId).second)
 		{
-			reply.m_result = { trade::Error::Unavailable, "Invalid XBroker response" };
+			return { trade::Error::Conflict, "account synchronization in progress" };
 		}
-		reply.m_requestId = nRequestId;
-		EventHandler eventHandler;
-		std::vector<trade::CEvent> sessions;
-		if (reply.m_result.Ok() && bFullSnapshot)
+	}
+	CRequest wire = trade::protocol::WriteRequest(request);
+	bool bQueued = Forward(std::move(wire), [this, nAccountId, nRequestId, operation, bSynchronize, nGeneration, handler = std::move(handler)](const CRequest& response)
+	{
+		CompleteRequest(response, nAccountId, nRequestId, operation, nGeneration, handler);
+	});
+	if (!bQueued && bSynchronize)
+	{
+		std::lock_guard<std::mutex> lock(m_mtx_state);
+		if (nGeneration == m_generation)
 		{
-			std::lock_guard<std::mutex> lock(m_mtx_state);
-			trade::CSnapshot& cached = m_snapshots[nAccountId];
-			if (!cached.m_bReady || cached.m_version <= reply.m_snapshot.m_version)
+			m_syncing.erase(nAccountId);
+		}
+	}
+	return bQueued ? trade::CResult{} : trade::CResult{ trade::Error::Unavailable, "XBroker is unavailable" };
+}
+void CBrokerClient::CompleteRequest(const CRequest& response, trade::Id nAccountId, trade::Id nRequestId, trade::Operation operation, std::uint64_t nGeneration, const ReplyHandler& handler)
+{
+	bool bSynchronize = trade::Operation::Synchronize == operation;
+	trade::CCounterReply reply;
+	if (!trade::protocol::ReadReply(response, reply) || (reply.m_result.Ok() && (nAccountId != reply.m_accountId || operation != reply.m_operation)))
+	{
+		reply.m_result = { trade::Error::Unavailable, "Invalid XBroker response" };
+		reply.m_data = std::monostate{};
+	}
+	reply.m_requestId = nRequestId;
+	reply.m_accountId = nAccountId;
+	reply.m_operation = operation;
+	EventHandler eventHandler;
+	std::vector<trade::CEvent> notifications;
+	{
+		std::lock_guard<std::mutex> lock(m_mtx_state);
+		if (nGeneration != m_generation)
+		{
+			reply.m_result = { trade::Error::UnknownResult, "Stale XBroker connection" };
+			reply.m_data = std::monostate{};
+		}
+		else if (bSynchronize)
+		{
+			auto pending = m_syncing.find(nAccountId);
+			const trade::CAccountData* source = std::get_if<trade::CAccountData>(&reply.m_data);
+			if (reply.m_result.Ok() && nullptr != source && source->m_bReady && m_syncing.end() != pending && !pending->second.m_bOverflow)
 			{
-				bool bWasReady = cached.m_bReady;
-				cached = reply.m_snapshot;
-				if (!bWasReady && cached.m_bReady)
+				trade::CAccountData& cached = m_snapshots[nAccountId];
+				std::unordered_set<trade::Id> previousTrades;
+				previousTrades.reserve(cached.m_trades.size());
+				for (const auto& row : cached.m_trades)
 				{
-					for (const auto& account : cached.m_accounts)
-					{
-						trade::CEvent event;
-						event.m_accountId = account.m_accountId;
-						event.m_kind = trade::EventKind::Session;
-						event.m_account = account;
-						sessions.push_back(event);
-					}
+					previousTrades.emplace(row.m_tradeId);
 				}
-			}
-			eventHandler = m_eventHandler;
-		}
-		if (nullptr != eventHandler)
-		{
-			// Reconcile orders/trades before allowing strategies to resume. Final session
-			// state comes from the snapshot, never from a historical login event.
-			for (auto& event : reply.m_events)
-			{
-				if (trade::EventKind::Trade == event.m_kind)
+				cached = *source;
+				// Reconcile complete state before the final session-ready notification.
+				for (const auto& order : cached.m_orders)
 				{
-					for (const auto& order : reply.m_snapshot.m_orders)
+					trade::CEvent event;
+					event.m_accountId = nAccountId;
+					event.m_kind = trade::EventKind::Order;
+					event.m_order = order;
+					event.m_account = cached.m_account;
+					notifications.emplace_back(std::move(event));
+				}
+				for (const auto& row : cached.m_trades)
+				{
+					if (previousTrades.contains(row.m_tradeId))
 					{
-						if (event.m_trade.m_orderId == order.m_orderId)
+						continue;
+					}
+					trade::CEvent event;
+					event.m_accountId = nAccountId;
+					event.m_kind = trade::EventKind::Trade;
+					event.m_trade = row;
+					event.m_account = cached.m_account;
+					for (const auto& order : cached.m_orders)
+					{
+						if (row.m_orderId == order.m_orderId)
 						{
 							event.m_order = order;
 							break;
 						}
 					}
+					notifications.emplace_back(std::move(event));
 				}
-				if (trade::EventKind::Session != event.m_kind)
+				std::stable_sort(pending->second.m_events.begin(), pending->second.m_events.end(), [](const trade::CEvent& lhs, const trade::CEvent& rhs)
 				{
-					eventHandler(event);
+					return lhs.m_sequence < rhs.m_sequence;
+				});
+				for (auto& event : pending->second.m_events)
+				{
+					if (cached.m_version < event.m_sequence)
+					{
+						ApplyEvent(cached, event);
+						notifications.emplace_back(event);
+					}
+				}
+				trade::CEvent session;
+				session.m_accountId = nAccountId;
+				session.m_kind = trade::EventKind::Session;
+				session.m_account = cached.m_account;
+				notifications.emplace_back(session);
+				eventHandler = m_eventHandler;
+			}
+			else
+			{
+				m_snapshots[nAccountId].m_bReady = false;
+				if (reply.m_result.Ok())
+				{
+					reply.m_result = { trade::Error::Unavailable, "Incomplete account synchronization" };
+					reply.m_data = std::monostate{};
 				}
 			}
-			for (const auto& event : sessions)
+			if (m_syncing.end() != pending)
 			{
-				eventHandler(event);
+				m_syncing.erase(pending);
 			}
 		}
-		if (nullptr != handler)
+	}
+	if (nullptr != eventHandler)
+	{
+		for (const auto& event : notifications)
 		{
-			handler(reply);
+			eventHandler(event);
 		}
-	});
-	return bQueued ? trade::CResult{} : trade::CResult{ trade::Error::Unavailable, "XBroker is unavailable" };
+	}
+	if (nullptr != handler)
+	{
+		handler(reply);
+	}
 }
-trade::CSnapshot CBrokerClient::Snapshot(trade::Id nAccountId, bool bHistory) const
+trade::CAccountData CBrokerClient::Snapshot(trade::Id nAccountId) const
 {
 	std::lock_guard<std::mutex> lock(m_mtx_state);
 	auto iter = m_snapshots.find(nAccountId);
-	trade::CSnapshot result;
-	if (m_snapshots.end() != iter)
+	if (0 == nAccountId || m_snapshots.end() == iter)
 	{
-		result.m_bReady = iter->second.m_bReady;
-		result.m_version = iter->second.m_version;
-		result.m_nTime = iter->second.m_nTime;
-		result.m_accounts = iter->second.m_accounts;
-		result.m_positions = iter->second.m_positions;
-		if (bHistory)
+		trade::CAccountData data;
+		data.m_account.m_accountId = nAccountId;
+		return data;
+	}
+	return iter->second;
+}
+void CBrokerClient::ApplyEvent(trade::CAccountData& data, trade::CEvent& event)
+{
+	if (trade::EventKind::Funds != event.m_kind)
+	{
+		bool bConnected = event.m_account.m_bConnected;
+		event.m_account = data.m_account;
+		if (trade::EventKind::Session == event.m_kind)
 		{
-			result.m_orders = iter->second.m_orders;
-			result.m_trades = iter->second.m_trades;
+			event.m_account.m_bConnected = bConnected;
 		}
 	}
-	return result;
+	if (trade::EventKind::Trade == event.m_kind)
+	{
+		for (const auto& order : data.m_orders)
+		{
+			if (event.m_trade.m_orderId == order.m_orderId)
+			{
+				event.m_order = order;
+				break;
+			}
+		}
+	}
+	trade::UpdateAccountData(data, event);
 }
 std::vector<trade::Operation> CBrokerClient::Capabilities() const
 {
@@ -204,40 +295,25 @@ void CBrokerClient::OnResponse(const CRequest& response)
 		}
 		{
 			std::lock_guard<std::mutex> lock(m_mtx_state);
+			auto pending = m_syncing.find(event.m_accountId);
+			if (m_syncing.end() != pending)
+			{
+				if (4096 <= pending->second.m_events.size())
+				{
+					pending->second.m_bOverflow = true;
+				}
+				else
+				{
+					pending->second.m_events.emplace_back(event);
+				}
+				return;
+			}
 			auto iter = m_snapshots.find(event.m_accountId);
 			if (m_snapshots.end() == iter || !iter->second.m_bReady || event.m_sequence <= iter->second.m_version)
 			{
 				return;
 			}
-			if (trade::EventKind::Funds != event.m_kind)
-			{
-				bool bConnected = event.m_account.m_bConnected;
-				for (const auto& account : iter->second.m_accounts)
-				{
-					if (event.m_accountId == account.m_accountId)
-					{
-						event.m_account = account;
-						break;
-					}
-				}
-				if (trade::EventKind::Session == event.m_kind)
-				{
-					event.m_account.m_bConnected = bConnected;
-				}
-			}
-			if (trade::EventKind::Trade == event.m_kind)
-			{
-				for (const auto& order : iter->second.m_orders)
-				{
-					if (event.m_trade.m_orderId == order.m_orderId)
-					{
-						event.m_order = order;
-						break;
-					}
-				}
-			}
-			trade::UpdateSnapshot(iter->second, event);
-			iter->second.m_version = event.m_sequence;
+			ApplyEvent(iter->second, event);
 			eventHandler = m_eventHandler;
 		}
 		if (nullptr != eventHandler)
@@ -272,17 +348,16 @@ void CBrokerClient::OnState(SessionState state)
 	{
 		std::lock_guard<std::mutex> lock(m_mtx_state);
 		handler = m_eventHandler;
+		++m_generation;
+		m_syncing.clear();
 		for (auto& item : m_snapshots)
 		{
 			item.second.m_bReady = false;
-			for (auto& account : item.second.m_accounts)
-			{
-				account.m_bConnected = false;
-				trade::CEvent event;
-				event.m_accountId = account.m_accountId;
-				event.m_account = account;
-				events.push_back(event);
-			}
+			item.second.m_account.m_bConnected = false;
+			trade::CEvent event;
+			event.m_accountId = item.first;
+			event.m_account = item.second.m_account;
+			events.emplace_back(event);
 		}
 	}
 	if (nullptr != handler)
@@ -360,7 +435,10 @@ void CBrokerClient::Refresh()
 			trade::CRequest sync;
 			sync.m_accountId = account.account_id();
 			sync.m_operation = trade::Operation::Synchronize;
-			sync.m_afterSequence = Snapshot(account.account_id(), false).m_version;
+			if (Snapshot(account.account_id()).m_bReady)
+			{
+				continue;
+			}
 			Request(std::move(sync), {});
 		}
 	});

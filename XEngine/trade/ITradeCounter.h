@@ -7,13 +7,13 @@ namespace trade
 	class ITradeCounter
 	{
 		public:
-		using ReplyHandler = std::function<void(const CReply&)>;
+		using ReplyHandler = std::function<void(const CCounterReply&)>;
 		using EventHandler = std::function<void(const CEvent&)>;
 		virtual ~ITradeCounter() = default;
 		// This receipt means queued only. Business acceptance is delivered in the reply/events.
 		virtual CResult Request(CRequest request, ReplyHandler handler) = 0;
 		virtual void SetEventHandler(EventHandler handler) = 0;
-		virtual CSnapshot Snapshot(Id nAccountId = 0, bool bHistory = true) const = 0;
+		virtual CAccountData Snapshot(Id nAccountId) const = 0;
 		virtual std::vector<Operation> Capabilities() const = 0;
 		virtual void Stop() = 0;
 	};

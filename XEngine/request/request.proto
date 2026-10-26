@@ -97,6 +97,7 @@ message TradeAccountInfo {
  int64 available = 3;
  int64 frozen = 4;
  bool available_snapshot = 5;
+ bool connected = 9;
  int64 server_time_ms = 6;
  int32 error_code = 7;
  string error_message = 8;
@@ -145,14 +146,27 @@ message TradeEventRecord {
  TradeOrderRecord order = 5; TradeRecord trade = 6; TradeAccountInfo funds = 7;
  TradePositionRecord position = 8; bool connected = 9;
 }
-message TradeSyncResult {
- uint64 watermark = 1; bool ready = 2; int64 server_time_ms = 3;
- repeated TradeAccountInfo accounts = 4; repeated TradePositionRecord positions = 5;
- repeated TradeOrderRecord orders = 6; repeated TradeRecord trades = 7; repeated TradeEventRecord events = 8;
+message TradeAccountData {
+ TradeAccountInfo account = 1; uint64 watermark = 2; int64 server_time_ms = 3; bool ready = 4;
+ repeated TradePositionRecord positions = 5; repeated TradeOrderRecord orders = 6; repeated TradeRecord trades = 7;
+}
+message TradeOperationReceipt { uint64 order_id = 1; }
+message TradeCounterReply {
+ uint64 request_id = 1; uint64 account_id = 2; int32 operation = 3;
+ int32 error_code = 4; string error_message = 5; uint64 watermark = 6; int64 server_time_ms = 7;
+ oneof data {
+  TradeOperationReceipt receipt = 8;
+  TradeAccountInfo funds = 9;
+  TradePositionList positions = 10;
+  TradeOrderList orders = 11;
+  TradeList trades = 12;
+  TradeAccountData account_data = 13;
+ }
 }
 
 message RequestData {
-	reserved 24, 26, 28;
+	reserved 24, 26, 28, 34, 39;
+ reserved "account_info_list", "trade_sync";
 	reserved "security_list_request";
 	reserved "security_list_response";
 	reserved "sector_list_request";
@@ -182,11 +196,12 @@ message RequestData {
         TradeAccountRecord account = 30;
         TradeAccountList account_list = 31;
         TradeAccountLogList account_logs = 33;
-        TradeAccountInfoList account_info_list = 34;
+        TradeAccountInfo account_info = 40;
+        TradeCounterReply counter_reply = 41;
         StrategyRuntimeList strategy_runtime_list = 35;
         TradeOrderList trade_orders = 36;
         TradeList trades = 37;
         TradePositionList trade_positions = 38;
-        TradeSyncResult trade_sync = 39;
+
 	}
 }

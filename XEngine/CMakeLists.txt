@@ -35,3 +35,8 @@ set(CMAKE_BUILD_RPATH "${depLib}")
 
 add_executable(broker_client_probe trade/tests/BrokerClientProbe.cpp)
 target_link_libraries(broker_client_probe PRIVATE xengine_trading)
+
+add_executable(broker_client_tests trade/tests/BrokerClientTests.cpp)
+target_link_libraries(broker_client_tests PRIVATE xengine_trading)
+target_include_directories(broker_client_tests PRIVATE trade)
+add_test(NAME broker_client_tests COMMAND broker_client_tests)

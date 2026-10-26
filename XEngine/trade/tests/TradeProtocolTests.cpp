@@ -75,7 +75,7 @@ int main()
 				Check(_TyRequest::TRADE_POSITION_PUSH == push.GetType() && replay.position().SerializeAsString() == push.GetData().trade_positions().positions(0).SerializeAsString(), "live and replay position match");
 				break;
 			case trade::EventKind::Funds:
-				Check(_TyRequest::TRADE_ACCOUNT_INFO_PUSH == push.GetType() && replay.funds().SerializeAsString() == push.GetData().account_info_list().accounts(0).SerializeAsString() && 90000 == replay.funds().available(), "live and replay funds match");
+				Check(_TyRequest::TRADE_ACCOUNT_INFO_PUSH == push.GetType() && replay.funds().SerializeAsString() == push.GetData().account_info().SerializeAsString() && 90000 == replay.funds().available(), "live and replay funds match");
 				break;
 			case trade::EventKind::Session:
 				Check(_TyRequest::TRADE_ACCOUNT_STATE_PUSH == push.GetType(), "session push type");
@@ -105,19 +105,27 @@ int main()
 		}
 		CRequest syncResponse;
 		syncResponse.SetType(_TyRequest::TRADE_SYNC_QUERY);
-		request::TradeSyncResult sync;
-		sync.set_ready(true);
-		sync.set_watermark(40);
-		sync.set_server_time_ms(1000);
-		trade::protocol::WriteOrder(event.m_order, *sync.add_orders());
-		trade::protocol::WriteTrade(event.m_trade, *sync.add_trades());
-		trade::protocol::WritePosition(event.m_position, *sync.add_positions());
-		trade::protocol::WriteFunds(event.m_account, true, *sync.add_accounts());
-		event.m_kind = trade::EventKind::Trade;
-		trade::protocol::WriteEvent(event, *sync.add_events());
-		syncResponse.SetData(sync);
-		trade::CReply reply;
-		Check(trade::protocol::ReadReply(syncResponse, reply) && reply.m_snapshot.m_bReady && 40 == reply.m_snapshot.m_version && 1 == reply.m_events.size() && 1 == reply.m_snapshot.m_orders.size() && 1 == reply.m_snapshot.m_positions.size(), "standard snapshot and replay decoding");
+		trade::CCounterReply original;
+		original.m_accountId = 7;
+		original.m_operation = trade::Operation::Synchronize;
+		original.m_version = 40;
+		original.m_nTime = 1000;
+		trade::CAccountData data;
+		data.m_bReady = true;
+		data.m_version = 40;
+		data.m_nTime = 1000;
+		data.m_account = event.m_account;
+		data.m_orders.push_back(event.m_order);
+		data.m_trades.push_back(event.m_trade);
+		data.m_positions.push_back(event.m_position);
+		original.m_data = data;
+		trade::protocol::WriteReply(original, syncResponse);
+		trade::CCounterReply reply;
+		Check(trade::protocol::ReadReply(syncResponse, reply) && std::get<trade::CAccountData>(reply.m_data).m_bReady && 40 == reply.m_version, "complete account data decoding");
+		request::TradeCounterReply bad = syncResponse.GetData().counter_reply();
+		bad.mutable_account_data()->mutable_positions(0)->set_account_id(8);
+		syncResponse.SetData(bad);
+		Check(!trade::protocol::ReadReply(syncResponse, reply), "cross-account data rejected");
 		CRequest invalid;
 		invalid.SetType(_TyRequest::TRADE_SYNC_QUERY);
 		Check(!trade::protocol::ReadReply(invalid, reply), "missing snapshot rejected");

@@ -174,7 +174,7 @@ COrderSubmitResult CTradeService::Submit(const COrderIntent& intent)
 	trade::Id nClientId = request.m_order.m_clientId;
 	trade::COrder order = request.m_order;
 	order.m_accountId = request.m_accountId;
-	trade::CResult result = service->Request(request, [this, order](const trade::CReply& reply)
+	trade::CResult result = service->Request(request, [this, order](const trade::CCounterReply& reply)
 	{
 		if ((trade::Error::Rejected == reply.m_result.m_error) || (trade::Error::Unsupported == reply.m_result.m_error) || (trade::Error::Conflict == reply.m_result.m_error) || (trade::Error::NotFound == reply.m_result.m_error))
 		{
@@ -205,7 +205,7 @@ bool CTradeService::Cancel(_TyStrategyId strategyId, _TyOrderId orderId)
 	{
 		return false;
 	}
-	trade::CSnapshot snapshot = service->Snapshot(accountId);
+	trade::CAccountData snapshot = service->Snapshot(accountId);
 	if (!std::any_of(snapshot.m_orders.begin(), snapshot.m_orders.end(), [strategyId, orderId](const trade::COrder& row)
 	{
 		return orderId == row.m_orderId && strategyId == row.m_strategyId;
@@ -231,17 +231,17 @@ CAccountSnapshot CTradeService::GetAccount(std::uint64_t accountId) const
 	{
 		return result;
 	}
-	trade::CSnapshot snapshot = service->Snapshot(accountId, false);
+	trade::CAccountData snapshot = service->Snapshot(accountId);
 	result.m_bReady = snapshot.m_bReady && (5000 >= std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count() - snapshot.m_nTime);
 	result.m_version = snapshot.m_version;
 	result.m_nTime = snapshot.m_nTime;
-	if (snapshot.m_accounts.empty() || !snapshot.m_accounts[0].m_bConnected)
+	if (0 == snapshot.m_account.m_accountId || !snapshot.m_account.m_bConnected)
 	{
 		result.m_bReady = false;
 		return result;
 	}
-	result.m_balance = snapshot.m_accounts[0].m_nBalance;
-	result.m_frozen = snapshot.m_accounts[0].m_nFrozen;
+	result.m_balance = snapshot.m_account.m_nBalance;
+	result.m_frozen = snapshot.m_account.m_nFrozen;
 	result.m_available = result.m_balance - result.m_frozen;
 	return result;
 }
@@ -254,7 +254,7 @@ CPositionSnapshot CTradeService::GetPosition(std::uint64_t accountId, const CSec
 	std::shared_ptr<trade::ITradeCounter> service = FindService(accountId);
 	if (nullptr != service)
 	{
-		trade::CSnapshot state = service->Snapshot(accountId, false);
+		trade::CAccountData state = service->Snapshot(accountId);
 		CPositionSnapshot snapshot;
 		snapshot.m_security = security;
 		snapshot.m_bReady = GetAccount(accountId).m_bReady;

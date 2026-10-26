@@ -168,9 +168,9 @@ void CRequest::SetData(const request::TradeAccountList& value)
 	m_data->mutable_account_list()->CopyFrom(value);
 }
 
-void CRequest::SetData(const request::TradeAccountInfoList& value)
+void CRequest::SetData(const request::TradeAccountInfo& value)
 {
-	m_data->mutable_account_info_list()->CopyFrom(value);
+	m_data->mutable_account_info()->CopyFrom(value);
 }
 
 void CRequest::SetData(const request::TradeAccountLogList& value)
@@ -295,7 +295,7 @@ void CRequest::SetData(const request::TradePositionList& value)
 	m_data->mutable_trade_positions()->CopyFrom(value);
 }
 
-void CRequest::SetData(const request::TradeSyncResult& value)
+void CRequest::SetData(const request::TradeCounterReply& value)
 {
-	m_data->mutable_trade_sync()->CopyFrom(value);
+	m_data->mutable_counter_reply()->CopyFrom(value);
 }

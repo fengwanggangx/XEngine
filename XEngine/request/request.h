@@ -62,12 +62,12 @@ namespace request
 	class TradeOrderList;
 	class TradeList;
 	class TradePositionList;
-	class TradeSyncResult;
+	class TradeCounterReply;
 	class StrategyInfo;
 	class StrategyList;
 	class TradeAccountRecord;
 	class TradeAccountList;
-	class TradeAccountInfoList;
+	class TradeAccountInfo;
 	class StrategyRuntimeList;
 	class TradeAccountLogList;
 } // namespace request
@@ -123,13 +123,13 @@ class CRequest
 	void SetData(const _TyStrategyList& value);
 	void SetData(const request::TradeAccountRecord& value);
 	void SetData(const request::TradeAccountList& value);
-	void SetData(const request::TradeAccountInfoList& value);
+	void SetData(const request::TradeAccountInfo& value);
 	void SetData(const request::StrategyRuntimeList& value);
 	void SetData(const request::TradeAccountLogList& value);
 	void SetData(const request::TradeOrderList& value);
 	void SetData(const request::TradeList& value);
 	void SetData(const request::TradePositionList& value);
-	void SetData(const request::TradeSyncResult& value);
+	void SetData(const request::TradeCounterReply& value);
 	const _TyReqData& GetData() const;
 
 	void SetConnectionId(net::_TyConnectionId id);

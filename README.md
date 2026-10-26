@@ -62,3 +62,11 @@ hqMarket.SubscribeQuote("600519", market::Exchange::sse);
 模拟柜台、交易账户和券商登录管理已迁入同级 XBroker 工程。XEngine 通过 `[Broker] host/port/token` 连接 XBroker；未配置时非交易功能仍可启动。原模拟账本不迁移，旧策略需显式修改并重新选择 XBroker 账户，账户来源标记由 XEngine 自动维护。具体构建、配置、数据切换和测试参见 `../XBroker/README.md`。
 
 Linux CMake 构建：`cmake -S XEngine/XEngine -B /tmp/xengine-build && cmake --build /tmp/xengine-build -j4`。协议转换测试使用 `ctest --test-dir /tmp/xengine-build`；运行时为现有二进制依赖设置 `LD_LIBRARY_PATH` 为本项目 `XEngine/libs/debug`。
+
+### 单账户柜台数据协议
+
+柜台请求必须指定非零账户编号。`CAccountData` 是单账户完整数据；`CCounterReply` 按操作返回回执、资金、持仓、委托、成交或完整账户数据。普通查询不覆盖完整缓存。
+
+连接及重连通过完整账户数据恢复状态，再应用水位之后的实时事件，不支持 `after_sequence` 历史补取。资金查询使用单个 `account_id`，不再接受 `account_ids`。账户目录查询仍返回基础信息列表。凭据登录由服务端解析到唯一账户后提交柜台。
+
+本次协议使用 `counter_reply` 的 `oneof` 数据字段，旧 `account_info_list`、`trade_sync` 字段已保留编号并废弃。XBroker、XEngine、XTrader 必须配套升级；HQMarket 同步协议定义。

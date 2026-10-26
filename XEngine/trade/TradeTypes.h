@@ -1,4 +1,5 @@
 #pragma once
+#include <variant>
 #include <cstdint>
 #include <map>
 #include <string>
@@ -104,26 +105,33 @@ namespace trade
 	struct CRequest
 	{
 		Operation m_operation{ Operation::Synchronize };
-		Id m_requestId{ 0 }, m_accountId{ 0 }, m_orderId{ 0 }, m_afterSequence{ 0 };
+		Id m_requestId{ 0 }, m_accountId{ 0 }, m_orderId{ 0 };
 		COrder m_order;
 		std::string m_strSecurity, m_strBroker, m_strSite, m_strUser, m_strPassword;
 	};
-	struct CSnapshot
+	struct CAccountData
 	{
 		bool m_bReady{ false };
 		Id m_version{ 0 };
 		std::int64_t m_nTime{ 0 };
-		std::vector<CAccount> m_accounts;
+		CAccount m_account;
 		std::vector<CPosition> m_positions;
 		std::vector<COrder> m_orders;
 		std::vector<CTrade> m_trades;
 	};
-	struct CReply
+	struct COperationReceipt
 	{
-		Id m_requestId{ 0 }, m_orderId{ 0 };
+		Id m_orderId{ 0 };
+	};
+	using CounterReplyData = std::variant<std::monostate, COperationReceipt, CAccount, std::vector<CPosition>, std::vector<COrder>, std::vector<CTrade>, CAccountData>;
+	struct CCounterReply
+	{
+		Id m_requestId{ 0 }, m_accountId{ 0 };
+		Operation m_operation{ Operation::Synchronize };
 		CResult m_result;
-		CSnapshot m_snapshot;
-		std::vector<CEvent> m_events;
+		Id m_version{ 0 };
+		std::int64_t m_nTime{ 0 };
+		CounterReplyData m_data;
 	};
 	struct CRule
 	{
@@ -163,7 +171,7 @@ namespace trade
 		std::map<int, CCalendar> m_calendar;
 		std::map<std::string, std::pair<std::int64_t, Id>> m_consumedBooks;
 	};
-	void UpdateSnapshot(CSnapshot& snapshot, const CEvent& event);
+	void UpdateAccountData(CAccountData& snapshot, const CEvent& event);
 	void ApplyChanges(CState& state, const CState& changes);
 	bool IsActive(Status status);
 	std::string EncodeState(const CState& state);

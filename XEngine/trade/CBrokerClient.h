@@ -14,11 +14,13 @@ class CBrokerClient final : public trade::ITradeCounter
 	void SetCatalogueHandler(WireHandler handler);
 	trade::CResult Request(trade::CRequest request, ReplyHandler handler) override;
 	void SetEventHandler(EventHandler handler) override;
-	trade::CSnapshot Snapshot(trade::Id nAccountId = 0, bool bHistory = true) const override;
+	trade::CAccountData Snapshot(trade::Id nAccountId) const override;
 	std::vector<trade::Operation> Capabilities() const override;
 	void Stop() override;
 
 	private:
+	friend class CBrokerClientTests;
+	void CompleteRequest(const CRequest& response, trade::Id nAccountId, trade::Id nRequestId, trade::Operation operation, std::uint64_t nGeneration, const ReplyHandler& handler);
 	struct CPending
 	{
 		WireHandler m_handler;
@@ -26,13 +28,21 @@ class CBrokerClient final : public trade::ITradeCounter
 		_TyRequest m_type{ _TyRequest::UNKNOWN };
 	};
 	void OnResponse(const CRequest& response);
+	void ApplyEvent(trade::CAccountData& data, trade::CEvent& event);
 	void OnState(SessionState state);
 	void Refresh();
 	void FailPending();
 	CSession m_session;
 	mutable std::mutex m_mtx_state;
 	std::unordered_map<std::uint64_t, CPending> m_pending;
-	std::unordered_map<trade::Id, trade::CSnapshot> m_snapshots;
+	std::unordered_map<trade::Id, trade::CAccountData> m_snapshots;
+	struct CSync
+	{
+		std::vector<trade::CEvent> m_events;
+		bool m_bOverflow{ false };
+	};
+	std::unordered_map<trade::Id, CSync> m_syncing;
+	std::uint64_t m_generation{ 0 };
 	EventHandler m_eventHandler;
 	WireHandler m_catalogueHandler;
 	std::atomic_uint64_t m_nNextId{ 1 };

@@ -33,11 +33,11 @@ int main(int nArgs, char** pArgs)
 	{
 		return 2;
 	}
-	for (int nIndex = 0; nIndex < 100 && !client.Snapshot(nAccountId, false).m_bReady; ++nIndex)
+	for (int nIndex = 0; nIndex < 100 && !client.Snapshot(nAccountId).m_bReady; ++nIndex)
 	{
 		std::this_thread::sleep_for(std::chrono::milliseconds(100));
 	}
-	if (!client.Snapshot(nAccountId, false).m_bReady)
+	if (!client.Snapshot(nAccountId).m_bReady)
 	{
 		return 3;
 	}
@@ -53,9 +53,9 @@ int main(int nArgs, char** pArgs)
 	request.m_order.m_nPrice = 1000;
 	request.m_order.m_nPriceScale = 2;
 	request.m_order.m_nQuantity = 100;
-	std::promise<trade::CReply> completion;
-	std::future<trade::CReply> future = completion.get_future();
-	if (!client.Request(std::move(request), [&completion](const trade::CReply& reply)
+	std::promise<trade::CCounterReply> completion;
+	std::future<trade::CCounterReply> future = completion.get_future();
+	if (!client.Request(std::move(request), [&completion](const trade::CCounterReply& reply)
 	{
 		completion.set_value(reply);
 	}).Ok())
@@ -66,7 +66,7 @@ int main(int nArgs, char** pArgs)
 	{
 		return 5;
 	}
-	trade::CReply reply = future.get();
+	trade::CCounterReply reply = future.get();
 	if (bFault)
 	{
 		client.Stop();
@@ -77,7 +77,7 @@ int main(int nArgs, char** pArgs)
 		std::cout << "XEngine interrupted order reports UnknownResult and invalidates cache\n";
 		return 0;
 	}
-	if (!reply.m_result.Ok() || 700 != reply.m_requestId || reply.m_snapshot.m_orders.empty() || 77 != reply.m_snapshot.m_orders.front().m_strategyId || 0 == nEvents.load())
+	if (!reply.m_result.Ok() || 700 != reply.m_requestId || !std::holds_alternative<trade::COperationReceipt>(reply.m_data) || 0 == std::get<trade::COperationReceipt>(reply.m_data).m_orderId || 0 == nEvents.load())
 	{
 		return 6;
 	}
