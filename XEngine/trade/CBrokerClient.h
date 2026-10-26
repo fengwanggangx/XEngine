@@ -1,9 +1,9 @@
 #pragma once
-#include "ITradingGateway.h"
+#include "ITradeCounter.h"
 #include "../system/CSession.h"
 #include <atomic>
 #include <unordered_map>
-class CBrokerClient final : public trade::ITradingGateway
+class CBrokerClient final : public trade::ITradeCounter
 {
 	public:
 	using WireHandler = std::function<void(const CRequest&)>;

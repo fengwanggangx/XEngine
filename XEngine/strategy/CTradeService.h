@@ -37,7 +37,7 @@ class CTradeService final : public IStrategyOrderSink, public ITradingSnapshotPr
 	const std::string& GetLastError() const;
 
 	private:
-	std::shared_ptr<trade::ITradingGateway> FindService(std::uint64_t accountId) const;
+	std::shared_ptr<trade::ITradeCounter> FindService(std::uint64_t accountId) const;
 	mutable std::mutex m_mtx_accounts;
 	std::mutex m_mtx_operations;
 	std::unordered_map<std::uint64_t, CTradeAccount> m_accounts;

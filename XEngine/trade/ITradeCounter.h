@@ -4,12 +4,12 @@
 
 namespace trade
 {
-	class ITradingGateway
+	class ITradeCounter
 	{
 		public:
 		using ReplyHandler = std::function<void(const CReply&)>;
 		using EventHandler = std::function<void(const CEvent&)>;
-		virtual ~ITradingGateway() = default;
+		virtual ~ITradeCounter() = default;
 		// This receipt means queued only. Business acceptance is delivered in the reply/events.
 		virtual CResult Request(CRequest request, ReplyHandler handler) = 0;
 		virtual void SetEventHandler(EventHandler handler) = 0;

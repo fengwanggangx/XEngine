@@ -92,7 +92,7 @@ void CTradeService::SetTradeEventHandler(_TyTradeEventHandler&& handler)
 	std::lock_guard<std::mutex> lock(m_mtx_accounts);
 	m_tradeHandler = std::move(handler);
 }
-std::shared_ptr<trade::ITradingGateway> CTradeService::FindService(std::uint64_t accountId) const
+std::shared_ptr<trade::ITradeCounter> CTradeService::FindService(std::uint64_t accountId) const
 {
 	std::lock_guard<std::mutex> lock(m_mtx_accounts);
 	const auto mIter = m_accounts.find(accountId);
@@ -133,7 +133,7 @@ void CTradeService::EndStrategy(std::uint64_t accountId, _TyStrategyId strategyI
 }
 bool CTradeService::HasActiveOrders(std::uint64_t accountId) const
 {
-	std::shared_ptr<trade::ITradingGateway> service = FindService(accountId);
+	std::shared_ptr<trade::ITradeCounter> service = FindService(accountId);
 	if (nullptr == service)
 	{
 		return false;
@@ -149,7 +149,7 @@ bool CTradeService::HasActiveOrders(std::uint64_t accountId) const
 }
 COrderSubmitResult CTradeService::Submit(const COrderIntent& intent)
 {
-	std::shared_ptr<trade::ITradingGateway> service = FindService(intent.m_accountId);
+	std::shared_ptr<trade::ITradeCounter> service = FindService(intent.m_accountId);
 	if ((nullptr == service) || !GetAccount(intent.m_accountId).m_bReady)
 	{
 		return { false, true, 0, 0, "Account not synchronized" };
@@ -200,7 +200,7 @@ bool CTradeService::Cancel(_TyStrategyId strategyId, _TyOrderId orderId)
 		}
 		accountId = mIter->second;
 	}
-	std::shared_ptr<trade::ITradingGateway> service = FindService(accountId);
+	std::shared_ptr<trade::ITradeCounter> service = FindService(accountId);
 	if (nullptr == service)
 	{
 		return false;
@@ -225,7 +225,7 @@ CAccountSnapshot CTradeService::GetAccount() const
 }
 CAccountSnapshot CTradeService::GetAccount(std::uint64_t accountId) const
 {
-	std::shared_ptr<trade::ITradingGateway> service = FindService(accountId);
+	std::shared_ptr<trade::ITradeCounter> service = FindService(accountId);
 	CAccountSnapshot result;
 	if (nullptr == service)
 	{
@@ -251,7 +251,7 @@ CPositionSnapshot CTradeService::GetPosition(const CSecurity& security) const
 }
 CPositionSnapshot CTradeService::GetPosition(std::uint64_t accountId, const CSecurity& security) const
 {
-	std::shared_ptr<trade::ITradingGateway> service = FindService(accountId);
+	std::shared_ptr<trade::ITradeCounter> service = FindService(accountId);
 	if (nullptr != service)
 	{
 		trade::CSnapshot state = service->Snapshot(accountId, false);
@@ -443,7 +443,7 @@ bool CTradeService::HandleTradingRequest(const CRequest& req)
 
 std::vector<trade::COrder> CTradeService::GetOrders(std::uint64_t accountId) const
 {
-	std::shared_ptr<trade::ITradingGateway> service;
+	std::shared_ptr<trade::ITradeCounter> service;
 	{
 		std::lock_guard<std::mutex> lock(m_mtx_accounts);
 		const auto mIter = m_accounts.find(accountId);

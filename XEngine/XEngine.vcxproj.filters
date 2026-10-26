@@ -318,7 +318,7 @@
     <ClInclude Include="trade\CBrokerClient.h">
       <Filter>trade</Filter>
     </ClInclude>
-    <ClInclude Include="trade\ITradingGateway.h">
+    <ClInclude Include="trade\ITradeCounter.h">
       <Filter>trade</Filter>
     </ClInclude>
     <ClCompile Include="trade\TradeProtocol.cpp">
