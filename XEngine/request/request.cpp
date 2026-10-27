@@ -299,3 +299,8 @@ void CRequest::SetData(const request::TradeCounterReply& value)
 {
 	m_data->mutable_counter_reply()->CopyFrom(value);
 }
+
+void CRequest::SetData(const request::BrokerList& value)
+{
+	m_data->mutable_broker_list()->CopyFrom(value);
+}

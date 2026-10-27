@@ -1,6 +1,11 @@
 #include "../CBrokerClient.h"
 #include <future>
 #include <iostream>
+static _TyAccountIndex TestAccount(std::uint64_t number)
+{
+	return 0 == number ? _TyAccountIndex{} : _TyAccountIndex{ 1, "default", std::to_string(number) };
+}
+
 int main(int nArgs, char** pArgs)
 {
 	bool bFault = 5 == nArgs;
@@ -14,7 +19,7 @@ int main(int nArgs, char** pArgs)
 	info.m_host.m_strName = "Broker";
 	info.m_host.m_strHost = "127.0.0.1";
 	info.m_host.m_nPort = static_cast<unsigned int>(std::stoul(pArgs[1]));
-	std::uint64_t nAccountId = std::stoull(pArgs[3]);
+	_TyAccountIndex accountIndex = { 1, "default", pArgs[3] };
 	CBrokerClient client(info);
 	std::atomic_int nEvents{ 0 };
 	std::atomic_bool bTradeCorrelated{ false };
@@ -33,26 +38,26 @@ int main(int nArgs, char** pArgs)
 	{
 		return 2;
 	}
-	for (int nIndex = 0; nIndex < 100 && !client.Snapshot(nAccountId).m_bReady; ++nIndex)
+	for (int nIndex = 0; nIndex < 100 && !client.Snapshot(accountIndex).m_bReady; ++nIndex)
 	{
 		std::this_thread::sleep_for(std::chrono::milliseconds(100));
 	}
-	if (!client.Snapshot(nAccountId).m_bReady)
+	if (!client.Snapshot(accountIndex).m_bReady)
 	{
 		return 3;
 	}
-	trade::CRequest request;
-	request.m_accountId = nAccountId;
-	request.m_params = trade::CSubmitParams{};
+	trade::CReqParam request;
+	request.m_accountIndex = accountIndex;
+	request.m_param = trade::CSubmitParam{};
 	request.m_requestId = 700;
-	std::get<trade::CSubmitParams>(request.m_params).m_order.m_clientId = 700;
-	std::get<trade::CSubmitParams>(request.m_params).m_order.m_accountId = nAccountId;
-	std::get<trade::CSubmitParams>(request.m_params).m_order.m_strategyId = 77;
-	std::get<trade::CSubmitParams>(request.m_params).m_order.m_signalId = 78;
-	std::get<trade::CSubmitParams>(request.m_params).m_order.m_strSecurity = "600000.SSE";
-	std::get<trade::CSubmitParams>(request.m_params).m_order.m_nPrice = 1000;
-	std::get<trade::CSubmitParams>(request.m_params).m_order.m_nPriceScale = 2;
-	std::get<trade::CSubmitParams>(request.m_params).m_order.m_nQuantity = 100;
+	std::get<trade::CSubmitParam>(request.m_param).m_order.m_clientId = 700;
+	std::get<trade::CSubmitParam>(request.m_param).m_order.m_accountIndex = accountIndex;
+	std::get<trade::CSubmitParam>(request.m_param).m_order.m_strategyId = 77;
+	std::get<trade::CSubmitParam>(request.m_param).m_order.m_signalId = 78;
+	std::get<trade::CSubmitParam>(request.m_param).m_order.m_strSecurity = "600000.SSE";
+	std::get<trade::CSubmitParam>(request.m_param).m_order.m_nPrice = 1000;
+	std::get<trade::CSubmitParam>(request.m_param).m_order.m_nPriceScale = 2;
+	std::get<trade::CSubmitParam>(request.m_param).m_order.m_nQuantity = 100;
 	std::promise<trade::CCounterReply> completion;
 	std::future<trade::CCounterReply> future = completion.get_future();
 	if (!client.Request(std::move(request), [&completion](const trade::CCounterReply& reply)
@@ -70,7 +75,7 @@ int main(int nArgs, char** pArgs)
 	if (bFault)
 	{
 		client.Stop();
-		if (trade::Error::UnknownResult != reply.m_result.m_error || client.Snapshot(nAccountId).m_bReady)
+		if (trade::Error::UnknownResult != reply.m_result.m_error || client.Snapshot(accountIndex).m_bReady)
 		{
 			return 9;
 		}
@@ -83,12 +88,12 @@ int main(int nArgs, char** pArgs)
 	}
 	// A submit response is partial: it must not replace the synchronized position cache.
 	std::this_thread::sleep_for(std::chrono::milliseconds(1200));
-	if (client.Snapshot(nAccountId).m_positions.empty() || !bTradeCorrelated.load())
+	if (client.Snapshot(accountIndex).m_positions.empty() || !bTradeCorrelated.load())
 	{
 		return 7;
 	}
 	client.Stop();
-	if (client.Snapshot(nAccountId).m_bReady)
+	if (client.Snapshot(accountIndex).m_bReady)
 	{
 		return 8;
 	}

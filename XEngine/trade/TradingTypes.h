@@ -1,6 +1,7 @@
 #pragma once
 #include "../request/MarketTypes.h"
 #include <cstdint>
+#include "../request/AccountIdentity.h"
 #include <string>
 using _TyStrategyId = std::uint64_t;
 using _TySignalId = std::uint64_t;
@@ -44,7 +45,7 @@ struct COrderIntent
 {
 	std::uint64_t m_clientOrderId{ 0 };
 	int m_nPriceScale{ 2 };
-	std::uint64_t m_accountId{ 1 };
+	_TyAccountIndex m_accountIndex{};
 	_TyStrategyId m_strategyId{ 0 };
 	_TySignalId m_signalId{ 0 };
 	CSecurity m_security;
@@ -71,7 +72,7 @@ struct COrderSubmitResult
 struct COrderEvent
 {
 	std::uint64_t m_sequence{ 0 };
-	std::uint64_t m_accountId{ 1 };
+	_TyAccountIndex m_accountIndex{};
 	_TyStrategyId m_strategyId{ 0 };
 	_TySignalId m_signalId{ 0 };
 	_TyClientOrderId m_clientOrderId{ 0 };
@@ -88,7 +89,7 @@ struct CTradeEvent
 {
 	int m_nPriceScale{ 2 };
 	std::uint64_t m_sequence{ 0 };
-	std::uint64_t m_accountId{ 1 };
+	_TyAccountIndex m_accountIndex{};
 	_TyStrategyId m_strategyId{ 0 };
 	_TySignalId m_signalId{ 0 };
 	_TyClientOrderId m_clientOrderId{ 0 };

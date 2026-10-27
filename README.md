@@ -57,16 +57,10 @@ hqMarket.SubscribeQuote("600519", market::Exchange::sse);
 `ret["data_type"]` 和 `ret["data"]`。错误响应另含 `error_code` 和 `error_message`。
 
 
-## 独立 XBroker 交易服务
+## XBroker 动态账户
 
-模拟柜台、交易账户和券商登录管理已迁入同级 XBroker 工程。XEngine 通过 `[Broker] host/port/token` 连接 XBroker；未配置时非交易功能仍可启动。原模拟账本不迁移，旧策略需显式修改并重新选择 XBroker 账户，账户来源标记由 XEngine 自动维护。具体构建、配置、数据切换和测试参见 `../XBroker/README.md`。
+XEngine 通过 `[Broker] host/port/token` 连接 XBroker。账户不再使用数字 account_id，而以券商 ID、站点、账号共同标识。策略绑定将这一 tuple 无损持久化为 account_identity；协议仍传递独立的 broker_id、site、account 字段。默认数据库改为 engine_accounts_v2，使用新库，不迁移旧策略绑定。
 
-Linux CMake 构建：`cmake -S XEngine/XEngine -B /tmp/xengine-build && cmake --build /tmp/xengine-build -j4`。协议转换测试使用 `ctest --test-dir /tmp/xengine-build`；运行时为现有二进制依赖设置 `LD_LIBRARY_PATH` 为本项目 `XEngine/libs/debug`。
+券商目录和开户/登录请求由 XEngine 转发；Broker 只发布运行期间成功登录的账户。XEngine 在目录发现账户后依次查询资金、持仓、委托和成交，按各类水位衔接推送。断线使缓存失效，恢复查询完成后策略才可使用账户；交易请求不自动重发，不提供一次返回全部账户数据的请求。
 
-### 单账户柜台数据协议
-
-柜台请求必须指定非零账户编号。`CAccountData` 是单账户完整数据；`CCounterReply` 按操作返回回执、资金、持仓、委托、成交或完整账户数据。普通查询不覆盖完整缓存。
-
-连接及重连通过完整账户数据恢复状态，再应用水位之后的实时事件，不支持 `after_sequence` 历史补取。资金查询使用单个 `account_id`，不再接受 `account_ids`。账户目录查询仍返回基础信息列表。凭据登录由服务端解析到唯一账户后提交柜台。
-
-本次协议使用 `counter_reply` 的 `oneof` 数据字段，旧 `account_info_list`、`trade_sync` 字段已保留编号并废弃。XBroker、XEngine、XTrader 必须配套升级；HQMarket 同步协议定义。
+配置与集成测试参见同级 XBroker/README.md。三端必须配套升级；账号是字符串，前导零及券商/站点隔离必须保留。

@@ -2,25 +2,27 @@
 #include "ITradeCounter.h"
 #include "../system/CSession.h"
 #include <atomic>
+#include <array>
 #include <unordered_map>
+#include <map>
 class CBrokerClient final : public trade::ITradeCounter
 {
-	public:
+public:
 	using WireHandler = std::function<void(const CRequest&)>;
 	explicit CBrokerClient(const CLoginInfo& info);
 	~CBrokerClient() override;
 	bool Start();
 	bool Forward(CRequest request, WireHandler handler);
 	void SetCatalogueHandler(WireHandler handler);
-	trade::CResult Request(trade::CRequest request, ReplyHandler handler) override;
+	trade::CResult Request(trade::CReqParam request, ReplyHandler handler) override;
 	void SetEventHandler(EventHandler handler) override;
-	trade::CAccountData Snapshot(std::uint64_t nAccountId) const override;
+	trade::CAccountData Snapshot(const _TyAccountIndex& accountIndex) const override;
 	std::vector<trade::Operation> Capabilities() const override;
 	void Stop() override;
 
-	private:
+private:
 	friend class CBrokerClientTests;
-	void CompleteRequest(const CRequest& response, std::uint64_t nAccountId, std::uint64_t nRequestId, trade::Operation operation, std::uint64_t nGeneration, const ReplyHandler& handler);
+	void CompleteRequest(const CRequest& response, const _TyAccountIndex& accountIndex, std::uint64_t nRequestId, trade::Operation operation, std::uint64_t nGeneration, const ReplyHandler& handler);
 	struct CPending
 	{
 		WireHandler m_handler;
@@ -31,17 +33,24 @@ class CBrokerClient final : public trade::ITradeCounter
 	void ApplyEvent(trade::CAccountData& data, trade::CEvent& event);
 	void OnState(SessionState state);
 	void Refresh();
+	void QueryAccount(const _TyAccountIndex& accountIndex);
+	void QueryNext(const _TyAccountIndex& accountIndex, std::uint64_t nGeneration, std::uint64_t nCycle, trade::Operation operation);
+	void CompleteQuery(const trade::CCounterReply& reply, std::uint64_t nGeneration, std::uint64_t nCycle);
 	void FailPending();
 	CSession m_session;
 	mutable std::mutex m_mtx_state;
 	std::unordered_map<std::uint64_t, CPending> m_pending;
-	std::unordered_map<std::uint64_t, trade::CAccountData> m_snapshots;
+	std::map<_TyAccountIndex, trade::CAccountData> m_snapshots;
 	struct CSync
 	{
 		std::vector<trade::CEvent> m_events;
+		trade::CAccountData m_data;
+		std::array<std::uint64_t, 5> m_versions{};
+		std::uint64_t m_cycle{ 0 };
+		std::size_t m_completed{ 0 };
 		bool m_bOverflow{ false };
 	};
-	std::unordered_map<std::uint64_t, CSync> m_syncing;
+	std::map<_TyAccountIndex, CSync> m_syncing;
 	std::uint64_t m_generation{ 0 };
 	EventHandler m_eventHandler;
 	WireHandler m_catalogueHandler;

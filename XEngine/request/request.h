@@ -3,6 +3,7 @@
 
 #include "../network/common_net.h"
 #include "MarketTypes.h"
+#include "AccountIdentity.h"
 
 #include <cstdint>
 #include <memory>
@@ -21,12 +22,10 @@ namespace request
 		HEARTBEAT = 6,
 		TRADE_ACCOUNT_LOGIN = 8,
 		TRADE_ACCOUNT_QUERY = 9,
-		TRADE_ACCOUNT_ADD = 10,
-		TRADE_ACCOUNT_MODIFY = 11,
-		TRADE_ACCOUNT_CONNECT = 12,
+
 		TRADE_ACCOUNT_DISCONNECT = 13,
 		TRADE_ACCOUNT_INFO_QUERY = 14,
-		TRADE_ACCOUNT_LOGS_QUERY = 15,
+
 		STRATEGY_ADD = 20,
 		STRATEGY_MODIFY = 21,
 		STRATEGY_QUERY = 22,
@@ -54,8 +53,10 @@ namespace request
 		TRADE_TRADE_PUSH = 56,
 		TRADE_ACCOUNT_INFO_PUSH = 57,
 		TRADE_POSITION_PUSH = 58,
-		TRADE_SYNC_QUERY = 59,
+
 		TRADE_CAPABILITIES_QUERY = 60,
+		BROKER_QUERY = 61,
+		SIMULATED_ACCOUNT_OPEN = 62,
 	};
 
 	class RequestData;
@@ -63,6 +64,7 @@ namespace request
 	class TradeList;
 	class TradePositionList;
 	class TradeCounterReply;
+	class BrokerList;
 	class StrategyInfo;
 	class StrategyList;
 	class TradeAccountRecord;
@@ -84,7 +86,7 @@ using _TyStrategyInfo = request::StrategyInfo;
 using _TyStrategyList = request::StrategyList;
 class CRequest
 {
-	public:
+public:
 	CRequest();
 	~CRequest();
 	CRequest(const CRequest& arg);
@@ -92,7 +94,7 @@ class CRequest
 	CRequest(CRequest&& arg) noexcept;
 	CRequest& operator=(CRequest&& arg) noexcept;
 
-	public:
+public:
 	_TyRequestId GetId() const;
 	void SetId(_TyRequestId id);
 
@@ -130,6 +132,7 @@ class CRequest
 	void SetData(const request::TradeList& value);
 	void SetData(const request::TradePositionList& value);
 	void SetData(const request::TradeCounterReply& value);
+	void SetData(const request::BrokerList& value);
 	const _TyReqData& GetData() const;
 
 	void SetConnectionId(net::_TyConnectionId id);
@@ -141,10 +144,35 @@ class CRequest
 	std::optional<std::pair<int, std::string>> GetErrorInfo() const;
 	void SetErrorInfo(int nCode, const std::string& strMessage);
 
-	private:
+private:
 	std::unique_ptr<google::protobuf::Arena> m_arena;
 	_TyReqData* m_data{ nullptr };
 	net::_TyConnectionId m_connection_id{ -1 };
 };
+
+inline bool ReadAccountIdentity(const CRequest& request, _TyAccountIndex& account)
+{
+	try
+	{
+		std::string broker = request.GetExtraData("broker_id");
+		if (broker.empty() || std::string::npos != broker.find_first_not_of("0123456789"))
+		{
+			return false;
+		}
+		account = { std::stoull(broker), request.GetExtraData("site"), request.GetExtraData("account") };
+		return IsAccountValid(account);
+	}
+	catch (const std::exception&)
+	{
+		return false;
+	}
+}
+
+inline void WriteAccountIdentity(const _TyAccountIndex& account, CRequest& request)
+{
+	request.SetExtraData("broker_id", std::to_string(std::get<0>(account)));
+	request.SetExtraData("site", std::get<1>(account));
+	request.SetExtraData("account", std::get<2>(account));
+}
 
 #endif

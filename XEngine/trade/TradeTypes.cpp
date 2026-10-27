@@ -45,9 +45,21 @@ namespace trade
 		{
 			stream >> std::quoted(strValue);
 		}
+		void Write(std::ostream& stream, const _TyAccountIndex& account)
+		{
+			Write(stream, std::get<0>(account));
+			Write(stream, std::get<1>(account));
+			Write(stream, std::get<2>(account));
+		}
+		void Read(std::istream& stream, _TyAccountIndex& account)
+		{
+			Read(stream, std::get<0>(account));
+			Read(stream, std::get<1>(account));
+			Read(stream, std::get<2>(account));
+		}
 		void Write(std::ostream& stream, const CAccount& value)
 		{
-			Write(stream, value.m_accountId);
+			Write(stream, value.m_accountIndex);
 			Write(stream, value.m_nBalance);
 			Write(stream, value.m_nFrozen);
 			Write(stream, value.m_bConnected);
@@ -55,7 +67,7 @@ namespace trade
 		}
 		void Read(std::istream& stream, CAccount& value)
 		{
-			Read(stream, value.m_accountId);
+			Read(stream, value.m_accountIndex);
 			Read(stream, value.m_nBalance);
 			Read(stream, value.m_nFrozen);
 			Read(stream, value.m_bConnected);
@@ -63,7 +75,7 @@ namespace trade
 		}
 		void Write(std::ostream& stream, const CPosition& value)
 		{
-			Write(stream, value.m_accountId);
+			Write(stream, value.m_accountIndex);
 			Write(stream, value.m_strSecurity);
 			Write(stream, value.m_nTotal);
 			Write(stream, value.m_nAvailable);
@@ -73,7 +85,7 @@ namespace trade
 		}
 		void Read(std::istream& stream, CPosition& value)
 		{
-			Read(stream, value.m_accountId);
+			Read(stream, value.m_accountIndex);
 			Read(stream, value.m_strSecurity);
 			Read(stream, value.m_nTotal);
 			Read(stream, value.m_nAvailable);
@@ -83,7 +95,7 @@ namespace trade
 		}
 		void Write(std::ostream& stream, const COrder& value)
 		{
-			Write(stream, value.m_accountId);
+			Write(stream, value.m_accountIndex);
 			Write(stream, value.m_clientId);
 			Write(stream, value.m_orderId);
 			Write(stream, value.m_requestId);
@@ -105,7 +117,7 @@ namespace trade
 		}
 		void Read(std::istream& stream, COrder& value)
 		{
-			Read(stream, value.m_accountId);
+			Read(stream, value.m_accountIndex);
 			Read(stream, value.m_clientId);
 			Read(stream, value.m_orderId);
 			Read(stream, value.m_requestId);
@@ -129,7 +141,7 @@ namespace trade
 		{
 			Write(stream, value.m_tradeId);
 			Write(stream, value.m_orderId);
-			Write(stream, value.m_accountId);
+			Write(stream, value.m_accountIndex);
 			Write(stream, value.m_strSecurity);
 			Write(stream, value.m_side);
 			Write(stream, value.m_nPrice);
@@ -142,7 +154,7 @@ namespace trade
 		{
 			Read(stream, value.m_tradeId);
 			Read(stream, value.m_orderId);
-			Read(stream, value.m_accountId);
+			Read(stream, value.m_accountIndex);
 			Read(stream, value.m_strSecurity);
 			Read(stream, value.m_side);
 			Read(stream, value.m_nPrice);
@@ -211,7 +223,7 @@ namespace trade
 		{
 			Write(stream, value.m_sequence);
 			Write(stream, value.m_requestId);
-			Write(stream, value.m_accountId);
+			Write(stream, value.m_accountIndex);
 			Write(stream, value.m_kind);
 			Write(stream, value.m_order);
 			Write(stream, value.m_trade);
@@ -222,7 +234,7 @@ namespace trade
 		{
 			Read(stream, value.m_sequence);
 			Read(stream, value.m_requestId);
-			Read(stream, value.m_accountId);
+			Read(stream, value.m_accountIndex);
 			Read(stream, value.m_kind);
 			Read(stream, value.m_order);
 			Read(stream, value.m_trade);
@@ -233,7 +245,7 @@ namespace trade
 	std::string EncodeState(const CState& state)
 	{
 		std::ostringstream stream;
-		stream << "COUNTER1 ";
+		stream << "COUNTER2 ";
 		Write(stream, state.m_nextOrder);
 		Write(stream, state.m_nextTrade);
 		Write(stream, state.m_sequence);
@@ -288,7 +300,7 @@ namespace trade
 		std::istringstream stream(strData);
 		std::string strMagic;
 		stream >> strMagic;
-		if ("COUNTER1" != strMagic)
+		if ("COUNTER2" != strMagic)
 		{
 			return false;
 		}
@@ -308,7 +320,7 @@ namespace trade
 		{
 			CAccount value;
 			Read(stream, value);
-			if (!stream || !next.m_accounts.emplace(value.m_accountId, std::move(value)).second)
+			if (!stream || !next.m_accounts.emplace(value.m_accountIndex, std::move(value)).second)
 			{
 				return false;
 			}
@@ -322,7 +334,7 @@ namespace trade
 		{
 			CPosition value;
 			Read(stream, value);
-			if (!stream || !next.m_positions.emplace(std::make_pair(value.m_accountId, value.m_strSecurity), std::move(value)).second)
+			if (!stream || !next.m_positions.emplace(std::make_pair(value.m_accountIndex, value.m_strSecurity), std::move(value)).second)
 			{
 				return false;
 			}
@@ -443,7 +455,7 @@ namespace trade
 	} // namespace
 	void UpdateAccountData(CAccountData& snapshot, const CEvent& event)
 	{
-		if (0 == snapshot.m_account.m_accountId || snapshot.m_account.m_accountId != event.m_accountId)
+		if (!IsAccountValid(snapshot.m_account.m_accountIndex) || snapshot.m_account.m_accountIndex != event.m_accountIndex)
 		{
 			return;
 		}
@@ -469,7 +481,7 @@ namespace trade
 		case EventKind::Position:
 			UpdateRow(snapshot.m_positions, event.m_position, [&event](const CPosition& row)
 			{
-				return event.m_accountId == row.m_accountId && event.m_position.m_strSecurity == row.m_strSecurity;
+				return event.m_accountIndex == row.m_accountIndex && event.m_position.m_strSecurity == row.m_strSecurity;
 			});
 			break;
 		default:

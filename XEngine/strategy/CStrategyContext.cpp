@@ -5,7 +5,7 @@
 
 #include <iostream>
 
-CStrategyContext::CStrategyContext(_TyStrategyId strategyId, std::uint64_t accountId, CStrategyEngine* pEngine, CTradeService* pSnapshotProvider) : m_strategyId(strategyId), m_pEngine(pEngine), m_accountId(accountId), m_pSnapshotProvider(pSnapshotProvider)
+CStrategyContext::CStrategyContext(_TyStrategyId strategyId, const _TyAccountIndex& accountIndex, CStrategyEngine* pEngine, CTradeService* pSnapshotProvider) : m_strategyId(strategyId), m_pEngine(pEngine), m_accountIndex(accountIndex), m_pSnapshotProvider(pSnapshotProvider)
 {
 }
 
@@ -40,16 +40,16 @@ CPositionSnapshot CStrategyContext::GetPosition(const CSecurity& security) const
 		snapshot.m_security = security;
 		return snapshot;
 	}
-	return m_pSnapshotProvider->GetPosition(m_accountId, security);
+	return m_pSnapshotProvider->GetPosition(m_accountIndex, security);
 }
 
 CAccountSnapshot CStrategyContext::GetAccount() const
 {
 	if (nullptr == m_pSnapshotProvider)
 	{
-		return { };
+		return {};
 	}
-	return m_pSnapshotProvider->GetAccount(m_accountId);
+	return m_pSnapshotProvider->GetAccount(m_accountIndex);
 }
 
 void CStrategyContext::WriteLog(LogLevel level, const std::string& strMessage)

@@ -13,6 +13,7 @@
 #include <optional>
 #include <shared_mutex>
 #include <unordered_map>
+#include <map>
 #include <unordered_set>
 #include <variant>
 #include <vector>
@@ -110,13 +111,13 @@ class CStrategyEngine final
 	using _TyTradingPushHandler = std::function<void(const CRequest&)>;
 	using _TyStateHandler = std::function<void(const CStrategySnapshot&)>;
 
-	public:
+public:
 	explicit CStrategyEngine(CSession* pSession);
 	~CStrategyEngine();
 	CStrategyEngine(const CStrategyEngine& arg) = delete;
 	CStrategyEngine& operator=(const CStrategyEngine& arg) = delete;
 
-	public:
+public:
 	bool Initialize();
 	bool HandleStrategyRequest(const CRequest& req);
 	bool HandleTradingRequest(const CRequest& req);
@@ -129,25 +130,25 @@ class CStrategyEngine final
 
 	const std::string& GetLastError() const;
 
-	public:
+public:
 	bool StartStrategy(_TyStrategyId id);
 	bool PauseStrategy(_TyStrategyId id);
 	bool StopStrategy(_TyStrategyId id);
 	void StopAll();
 
-	public:
+public:
 	std::optional<CStrategySnapshot> GetSnapshot(_TyStrategyId id) const;
 	std::vector<CStrategySnapshot> GetSnapshots() const;
 	void RegisterStateHandler(_TyStateHandler&& handler);
 	bool IsMarketAvailable() const;
 
-	private:
+private:
 	void OnHQMarketResponse(const CRequest& req);
 	void OnHQMarketState(SessionState state, const std::string& strReason);
 	void OnOrderEvent(const COrderEvent& ev);
 	void OnTradeEvent(const CTradeEvent& ev);
 
-	private:
+private:
 	std::shared_ptr<CStrategyRuntime> FindRuntime(_TyStrategyId id) const;
 	bool ExecuteControl(_TyStrategyId id, StrategyEventType type);
 	bool EnqueueEvent(const std::shared_ptr<CStrategyRuntime>& runtime, CStrategyEvent&& ev);
@@ -175,7 +176,7 @@ class CStrategyEngine final
 	bool QueryRuntime(const CRequest& req) const;
 	bool ControlStrategy(const CRequest& req);
 
-	private:
+private:
 	std::mutex m_mtx_operations;
 	CSession* m_pSession{ nullptr };
 	std::unique_ptr<CTradeService> m_trader;
@@ -188,8 +189,9 @@ class CStrategyEngine final
 	std::unordered_map<std::string, CSubscriptionEntry> m_subscriptions;
 
 	mutable std::shared_mutex m_mtx_orders;
-	std::unordered_map<_TyOrderId, _TyStrategyId> m_orderRoutes;
-	std::unordered_map<_TyClientOrderId, _TyStrategyId> m_clientOrderRoutes;
+	using _TyOrderRouteIndex = std::pair<_TyAccountIndex, _TyOrderId>;
+	std::map<_TyOrderRouteIndex, _TyStrategyId> m_orderRoutes;
+	std::map<_TyOrderRouteIndex, _TyStrategyId> m_clientOrderRoutes;
 
 	std::mutex m_mtx_signals;
 	std::unordered_map<CSignalKey, SignalState, CSignalKeyHash> m_signals;

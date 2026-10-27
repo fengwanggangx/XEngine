@@ -2,6 +2,11 @@
 #include "TradeProtocol.h"
 #include <iostream>
 #include <stdexcept>
+static _TyAccountIndex TestAccount(std::uint64_t number)
+{
+	return 0 == number ? _TyAccountIndex{} : _TyAccountIndex{ 1, "default", std::to_string(number) };
+}
+
 class CBrokerClientTests
 {
 	static void Check(bool bCondition, const char* strMessage)
@@ -11,35 +16,37 @@ class CBrokerClientTests
 			throw std::runtime_error(strMessage);
 		}
 	}
-	static CRequest Sync(std::uint64_t nVersion, std::uint64_t nAccountId = 1)
+	static trade::CCounterReply Trades(std::uint64_t nVersion)
 	{
-		trade::CAccountData data;
-		data.m_account = { nAccountId, 100, 0, true, true };
-		data.m_bReady = true;
-		data.m_version = nVersion;
-		data.m_nTime = 1000;
 		trade::CCounterReply reply;
-		reply.m_accountId = nAccountId;
-		reply.m_operation = trade::Operation::Synchronize;
+		reply.m_accountIndex = TestAccount(1);
+		reply.m_operation = trade::Operation::Trades;
 		reply.m_version = nVersion;
-		reply.m_nTime = 1000;
-		reply.m_data = data;
-		CRequest response;
-		response.SetType(_TyRequest::TRADE_SYNC_QUERY);
-		trade::protocol::WriteReply(reply, response);
-		return response;
+		reply.m_data = std::vector<trade::CTrade>{};
+		return reply;
 	}
+
+	static void Prepare(CBrokerClient& client, std::uint64_t nCycle)
+	{
+		CBrokerClient::CSync& pending = client.m_syncing[TestAccount(1)];
+		pending.m_cycle = nCycle;
+		pending.m_completed = 3;
+		pending.m_data.m_account = { TestAccount(1), 100, 0, true, true };
+		pending.m_data.m_version = 18;
+		pending.m_versions = { 10, 14, 18, 0, 10 };
+	}
+
 	static CRequest FundsPush(std::uint64_t nSequence, std::int64_t nBalance)
 	{
 		trade::CEvent event;
 		event.m_kind = trade::EventKind::Funds;
-		event.m_accountId = 1;
+		event.m_accountIndex = TestAccount(1);
 		event.m_sequence = nSequence;
-		event.m_account = { 1, nBalance, 0, true, true };
+		event.m_account = { TestAccount(1), nBalance, 0, true, true };
 		return trade::protocol::Push(event, {});
 	}
 
-	public:
+public:
 	static void Run()
 	{
 		CBrokerClient client(CLoginInfo{});
@@ -51,36 +58,46 @@ class CBrokerClientTests
 				++nFunds;
 			}
 		});
-		client.m_syncing.try_emplace(1);
-		Check(!client.Request(trade::CRequest{ 0, 1, trade::CSynchronize{} }, {}).Ok(), "same account synchronization serialized");
+		Prepare(client, 1);
+		client.QueryAccount(TestAccount(1));
+		Check(1 == client.m_syncing.at(TestAccount(1)).m_cycle, "same account query sequence serialized");
 		client.OnResponse(FundsPush(9, 90));
 		client.OnResponse(FundsPush(12, 120));
 		client.OnResponse(FundsPush(12, 999));
-		client.CompleteRequest(Sync(10), 1, 1, trade::Operation::Synchronize, 0, {});
-		Check(client.Snapshot(1).m_bReady && 120 == client.Snapshot(1).m_account.m_nBalance && 12 == client.Snapshot(1).m_version && 1 == nFunds, "buffered events newer than watermark applied exactly once");
-		client.OnResponse(FundsPush(15, 150));
-		Check(150 == client.Snapshot(1).m_account.m_nBalance && 2 == nFunds, "global sequence gaps accepted");
+		client.CompleteQuery(Trades(20), 0, 1);
+		Check(client.Snapshot(TestAccount(1)).m_bReady && 120 == client.Snapshot(TestAccount(1)).m_account.m_nBalance && 20 == client.Snapshot(TestAccount(1)).m_version && 1 == nFunds, "funds use their own watermark even below the trades watermark");
+		client.OnResponse(FundsPush(25, 150));
+		Check(150 == client.Snapshot(TestAccount(1)).m_account.m_nBalance && 2 == nFunds, "live push continues after queries");
 		trade::CCounterReply query;
-		query.m_accountId = 1;
-		query.m_params = trade::CFundsQuery{};
+		query.m_accountIndex = TestAccount(1);
+		query.m_operation = trade::Operation::Funds;
 		query.m_version = 100;
-		query.m_data = trade::CAccount{ 1, 999, 0, true, true };
+		query.m_data = trade::CAccount{ TestAccount(1), 999, 0, true, true };
 		CRequest response;
 		response.SetType(_TyRequest::TRADE_ACCOUNT_INFO_QUERY);
 		trade::protocol::WriteReply(query, response);
-		client.CompleteRequest(response, 1, 2, trade::Operation::Funds, 0, {});
-		Check(15 == client.Snapshot(1).m_version && 150 == client.Snapshot(1).m_account.m_nBalance, "ordinary query never changes full cache");
+		client.CompleteRequest(response, TestAccount(1), 2, trade::Operation::Funds, 0, {});
+		Check(25 == client.Snapshot(TestAccount(1)).m_version && 150 == client.Snapshot(TestAccount(1)).m_account.m_nBalance, "ordinary query never replaces account cache");
 		client.OnState(SessionState::Disconnected);
-		client.m_syncing.try_emplace(1);
-		client.CompleteRequest(Sync(200), 1, 3, trade::Operation::Synchronize, 0, {});
-		Check(!client.Snapshot(1).m_bReady && client.m_syncing.contains(1), "old connection cannot replace data or new synchronization");
-		client.CompleteRequest(Sync(20), 1, 4, trade::Operation::Synchronize, client.m_generation, {});
-		Check(client.Snapshot(1).m_bReady && 20 == client.Snapshot(1).m_version, "fresh reconnect replaces complete data");
-		client.m_syncing.try_emplace(1);
-		client.m_syncing.at(1).m_bOverflow = true;
-		client.CompleteRequest(Sync(30), 1, 5, trade::Operation::Synchronize, client.m_generation, {});
-		Check(!client.Snapshot(1).m_bReady && !client.m_syncing.contains(1), "buffer overflow invalidates cache for retry");
-		Check(!client.Snapshot(0).m_bReady, "zero account cannot aggregate cache");
+		Prepare(client, 2);
+		client.CompleteQuery(Trades(200), 0, 1);
+		Check(!client.Snapshot(TestAccount(1)).m_bReady && client.m_syncing.contains(TestAccount(1)), "old connection cannot replace new queries");
+		client.CompleteQuery(Trades(200), client.m_generation, 1);
+		Check(!client.Snapshot(TestAccount(1)).m_bReady && client.m_syncing.contains(TestAccount(1)), "old query cycle cannot replace new queries");
+		client.CompleteQuery(Trades(30), client.m_generation, 2);
+		Check(client.Snapshot(TestAccount(1)).m_bReady && 30 == client.Snapshot(TestAccount(1)).m_version, "fresh reconnect restores all categories");
+		client.OnState(SessionState::Disconnected);
+		Prepare(client, 3);
+		client.m_syncing.at(TestAccount(1)).m_bOverflow = true;
+		client.CompleteQuery(Trades(40), client.m_generation, 3);
+		Check(!client.Snapshot(TestAccount(1)).m_bReady && !client.m_syncing.contains(TestAccount(1)), "buffer overflow leaves cache unavailable for retry");
+		Prepare(client, 4);
+		trade::CCounterReply failed = Trades(40);
+		failed.m_result = { trade::Error::Timeout, "query failed" };
+		client.CompleteQuery(failed, client.m_generation, 4);
+		Check(!client.Snapshot(TestAccount(1)).m_bReady && !client.m_syncing.contains(TestAccount(1)), "failed category never marks cache ready");
+
+		Check(!client.Snapshot(TestAccount(0)).m_bReady, "zero account cannot aggregate cache");
 	}
 };
 int main()

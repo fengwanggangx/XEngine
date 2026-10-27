@@ -6,20 +6,20 @@ namespace trade
 {
 	class ITradeCounter
 	{
-		public:
+	public:
 		using ReplyHandler = std::function<void(const CCounterReply&)>;
 		using EventHandler = std::function<void(const CEvent&)>;
 		virtual ~ITradeCounter() = default;
 		// This receipt means queued only. Business acceptance is delivered in the reply/events.
-		virtual CResult Request(CRequest request, ReplyHandler handler) = 0;
+		virtual CResult Request(CReqParam request, ReplyHandler handler) = 0;
 		virtual void SetEventHandler(EventHandler handler) = 0;
-		virtual CAccountData Snapshot(std::uint64_t nAccountId) const = 0;
+		virtual CAccountData Snapshot(const _TyAccountIndex& accountIndex) const = 0;
 		virtual std::vector<Operation> Capabilities() const = 0;
 		virtual void Stop() = 0;
 	};
 	class ICounterStore
 	{
-		public:
+	public:
 		virtual ~ICounterStore() = default;
 		virtual CResult Acquire(CState& state) = 0;
 		// Commit persists a sparse change set plus final metadata, fenced by the previous event sequence.
@@ -29,7 +29,7 @@ namespace trade
 	};
 	class IMarketInput
 	{
-		public:
+	public:
 		virtual ~IMarketInput() = default;
 		virtual void OnDepth(CDepth depth) = 0;
 		virtual void OnMarketState(bool bAvailable) = 0;

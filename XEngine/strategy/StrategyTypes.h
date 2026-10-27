@@ -6,8 +6,10 @@
 
 #include <chrono>
 #include <cstdint>
+#include "../request/AccountIdentity.h"
 #include <string>
 #include <unordered_map>
+#include <map>
 #include <vector>
 
 using _TyStrategyId = std::uint64_t;
@@ -44,7 +46,7 @@ enum class LogLevel
 
 struct CStrategyConfig
 {
-	std::uint64_t m_accountId{ 1 };
+	_TyAccountIndex m_accountIndex{};
 	_TyStrategyId m_strategyId{ 0 };
 	std::string m_strType;
 	std::string m_strName;

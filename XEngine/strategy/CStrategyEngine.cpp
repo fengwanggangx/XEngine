@@ -130,7 +130,7 @@ namespace
 	bool MakeStrategyConfig(const request::StrategyInfo& info, CStrategyConfig& cfg)
 	{
 		cfg.m_strategyId = info.strategy_id();
-		cfg.m_accountId = 0 == info.account_id() ? 1 : info.account_id();
+		cfg.m_accountIndex = AccountIndex(info);
 		cfg.m_strType = info.strategy_type();
 		cfg.m_strName = info.strategy_name();
 		cfg.m_eventQueueLimit = (0 == info.event_queue_limit()) ? 4096 : info.event_queue_limit();
@@ -202,11 +202,11 @@ namespace
 		{
 			return false;
 		}
-		if (!ParseUnsigned(row[8], cfg.m_accountId))
+		if (!DecodeAccount(row[8], cfg.m_accountIndex))
 		{
 			return false;
 		}
-		info.set_account_id(cfg.m_accountId);
+		SetAccountIdentity(cfg.m_accountIndex, info);
 		info.set_strategy_id(id);
 		info.set_strategy_type(row[1]);
 		info.set_strategy_name(row[2]);
@@ -287,14 +287,14 @@ bool CStrategyEngine::Initialize()
 	}
 	m_trader->SetOrderEventHandler(std::bind_front(&CStrategyEngine::OnOrderEvent, this));
 	m_trader->SetTradeEventHandler(std::bind_front(&CStrategyEngine::OnTradeEvent, this));
-	m_trader->SetAccountReadyHandler([this](std::uint64_t accountId)
+	m_trader->SetAccountReadyHandler([this](const _TyAccountIndex& accountIndex)
 	{
 		std::vector<_TyStrategyId> deferred;
 		{
 			std::shared_lock<std::shared_mutex> lock(m_mtx_strategies);
 			for (const auto& item : m_runtimes)
 			{
-				if (accountId == item.second->m_config.m_accountId && item.second->m_config.m_bAutoStart && StrategyState::Initialized == item.second->m_state.load())
+				if (accountIndex == item.second->m_config.m_accountIndex && item.second->m_config.m_bAutoStart && StrategyState::Initialized == item.second->m_state.load())
 				{
 					deferred.emplace_back(item.first);
 				}
@@ -355,11 +355,12 @@ bool CStrategyEngine::AddStrategy(const CRequest& req)
 		return false;
 	}
 	request::StrategyInfo info = req.GetData().strategy();
-	if (0 == info.account_id())
+	if (!IsAccountValid(AccountIndex(info)))
 	{
-		info.set_account_id(1);
+		net::SendError(req.GetConnectionId(), req, 1202, "Account identity required");
+		return false;
 	}
-	if (!m_trader->HasAccount(info.account_id()))
+	if (!m_trader->HasAccount(AccountIndex(info)))
 	{
 		net::SendError(req.GetConnectionId(), req, 1114, "Trading account does not exist");
 		return false;
@@ -381,7 +382,7 @@ bool CStrategyEngine::AddStrategy(const CRequest& req)
 		net::SendError(req.GetConnectionId(), req, 1104, "strategy database is unavailable");
 		return false;
 	}
-	std::string strSQL = "INSERT INTO table_strategy(strategy_type,strategy_name,parameters,subscriptions,event_queue_limit,auto_start,enabled,account_id,account_provider) VALUES(" + utility::Utf8Literal(info.strategy_type()) + "," + utility::Utf8Literal(info.strategy_name()) + "," + utility::Utf8Literal(SerializeParameters(info)) + "," + utility::Utf8Literal(SerializeSubscriptions(info)) + "," + std::to_string(info.event_queue_limit()) + "," + (info.auto_start() ? "1" : "0") + "," + (info.enabled() ? "1" : "0") + "," + std::to_string(info.account_id()) + ",'broker')";
+	std::string strSQL = "INSERT INTO table_strategy(strategy_type,strategy_name,parameters,subscriptions,event_queue_limit,auto_start,enabled,account_identity) VALUES(" + utility::Utf8Literal(info.strategy_type()) + "," + utility::Utf8Literal(info.strategy_name()) + "," + utility::Utf8Literal(SerializeParameters(info)) + "," + utility::Utf8Literal(SerializeSubscriptions(info)) + "," + std::to_string(info.event_queue_limit()) + "," + (info.auto_start() ? "1" : "0") + "," + (info.enabled() ? "1" : "0") + "," + utility::Utf8Literal(EncodeAccount(AccountIndex(info))) + ")";
 	if (0 != pDB->ExecUpdate(strSQL))
 	{
 		net::SendError(req.GetConnectionId(), req, 1105, "failed to add strategy");
@@ -418,7 +419,7 @@ bool CStrategyEngine::ModifyStrategy(const CRequest& req)
 		return false;
 	}
 	request::StrategyInfo info = req.GetData().strategy();
-	if (0 == info.account_id())
+	if (!IsAccountValid(AccountIndex(info)))
 	{
 		db::_TyDBPtr lookup = CDBEngine::InstanceRef().GetDBPtr(db::em_database::mysql);
 		if (nullptr == lookup)
@@ -426,16 +427,16 @@ bool CStrategyEngine::ModifyStrategy(const CRequest& req)
 			net::SendError(req.GetConnectionId(), req, 1104, "strategy database is unavailable");
 			return false;
 		}
-		const db::CTable& account = lookup->ExecQuery("SELECT account_id FROM table_strategy WHERE strategy_id=" + std::to_string(info.strategy_id()));
-		std::uint64_t accountId = 0;
-		if (account.m_rows.empty() || account.m_rows.front().empty() || !ParseUnsigned(db::to_string(account.m_rows.front().front()), accountId))
+		const db::CTable& account = lookup->ExecQuery("SELECT account_identity FROM table_strategy WHERE strategy_id=" + std::to_string(info.strategy_id()));
+		_TyAccountIndex accountIndex;
+		if (account.m_rows.empty() || account.m_rows.front().empty() || !DecodeAccount(db::to_string(account.m_rows.front().front()), accountIndex))
 		{
 			net::SendError(req.GetConnectionId(), req, 1110, "strategy does not exist");
 			return false;
 		}
-		info.set_account_id(accountId);
+		SetAccountIdentity(accountIndex, info);
 	}
-	if (!m_trader->HasAccount(info.account_id()))
+	if (!m_trader->HasAccount(AccountIndex(info)))
 	{
 		net::SendError(req.GetConnectionId(), req, 1114, "Trading account does not exist");
 		return false;
@@ -473,7 +474,7 @@ bool CStrategyEngine::ModifyStrategy(const CRequest& req)
 			std::lock_guard<std::mutex> lock(oldRuntime->m_mtx_orders);
 			ownActiveOrders = !oldRuntime->m_activeOrderIds.empty();
 		}
-		if ((oldConfig.m_accountId != cfg.m_accountId) && ((StrategyState::Running == oldState) || (StrategyState::Starting == oldState) || (StrategyState::Pausing == oldState) || (StrategyState::Stopping == oldState) || ownActiveOrders))
+		if ((oldConfig.m_accountIndex != cfg.m_accountIndex) && ((StrategyState::Running == oldState) || (StrategyState::Starting == oldState) || (StrategyState::Pausing == oldState) || (StrategyState::Stopping == oldState) || ownActiveOrders))
 		{
 			net::SendError(req.GetConnectionId(), req, 1115, "Stop strategy and resolve orders before rebinding account");
 			return false;
@@ -493,7 +494,7 @@ bool CStrategyEngine::ModifyStrategy(const CRequest& req)
 		net::SendError(req.GetConnectionId(), req, 1107, "failed to create strategy runtime");
 		return false;
 	}
-	std::string strSQL = "UPDATE table_strategy SET strategy_type=" + utility::Utf8Literal(info.strategy_type()) + ",strategy_name=" + utility::Utf8Literal(info.strategy_name()) + ",parameters=" + utility::Utf8Literal(SerializeParameters(info)) + ",subscriptions=" + utility::Utf8Literal(SerializeSubscriptions(info)) + ",event_queue_limit=" + std::to_string(info.event_queue_limit()) + ",auto_start=" + (info.auto_start() ? "1" : "0") + ",enabled=" + (info.enabled() ? "1" : "0") + ",account_id=" + std::to_string(info.account_id()) + ",account_provider='broker' WHERE strategy_id=" + std::to_string(cfg.m_strategyId);
+	std::string strSQL = "UPDATE table_strategy SET strategy_type=" + utility::Utf8Literal(info.strategy_type()) + ",strategy_name=" + utility::Utf8Literal(info.strategy_name()) + ",parameters=" + utility::Utf8Literal(SerializeParameters(info)) + ",subscriptions=" + utility::Utf8Literal(SerializeSubscriptions(info)) + ",event_queue_limit=" + std::to_string(info.event_queue_limit()) + ",auto_start=" + (info.auto_start() ? "1" : "0") + ",enabled=" + (info.enabled() ? "1" : "0") + ",account_identity=" + utility::Utf8Literal(EncodeAccount(AccountIndex(info))) + " WHERE strategy_id=" + std::to_string(cfg.m_strategyId);
 	if (0 != pDB->ExecUpdate(strSQL))
 	{
 		if (info.enabled())
@@ -524,7 +525,7 @@ bool CStrategyEngine::QueryStrategies(const CRequest& req) const
 		net::SendError(req.GetConnectionId(), req, 1104, "strategy database is unavailable");
 		return false;
 	}
-	const db::CTable& table = pDB->ExecQuery("SELECT strategy_id,strategy_type,strategy_name,parameters,subscriptions,event_queue_limit,auto_start,enabled,IF(account_provider='broker',account_id,0) FROM table_strategy ORDER BY strategy_id");
+	const db::CTable& table = pDB->ExecQuery("SELECT strategy_id,strategy_type,strategy_name,parameters,subscriptions,event_queue_limit,auto_start,enabled,account_identity FROM table_strategy ORDER BY strategy_id");
 	request::StrategyList strategies;
 	for (const db::_TyRow& row : table.m_rows)
 	{
@@ -632,7 +633,7 @@ bool CStrategyEngine::ControlStrategy(const CRequest& req)
 	}
 	_TyRequest type = req.GetType();
 	std::shared_ptr<CStrategyRuntime> runtime = FindRuntime(id);
-	if ((_TyRequest::STRATEGY_START == type) && (nullptr != runtime) && !m_trader->IsConnected(runtime->m_config.m_accountId))
+	if ((_TyRequest::STRATEGY_START == type) && (nullptr != runtime) && !m_trader->IsConnected(runtime->m_config.m_accountIndex))
 	{
 		net::SendError(req.GetConnectionId(), req, 1116, "交易账户未连接，请先连接账户");
 		return false;
@@ -665,7 +666,7 @@ bool CStrategyEngine::LoadStrategies()
 		m_strLastError = "MySQL table_strategy does not exist";
 		return false;
 	}
-	const db::CTable& table = pDB->ExecQuery("SELECT strategy_id,strategy_type,strategy_name,parameters,subscriptions,event_queue_limit,auto_start,IF(account_provider='broker',account_id,0) FROM table_strategy WHERE enabled=1 ORDER BY strategy_id");
+	const db::CTable& table = pDB->ExecQuery("SELECT strategy_id,strategy_type,strategy_name,parameters,subscriptions,event_queue_limit,auto_start,account_identity FROM table_strategy WHERE enabled=1 ORDER BY strategy_id");
 	for (const db::_TyRow& values : table.m_rows)
 	{
 		std::vector<std::string> row;
@@ -693,7 +694,7 @@ bool CStrategyEngine::LoadStrategies()
 		cfg.m_strName = row[2];
 		cfg.m_eventQueueLimit = static_cast<std::size_t>(eventQueueLimit);
 		cfg.m_bAutoStart = 0 != autoStart;
-		if (!ParseUnsigned(row[7], cfg.m_accountId))
+		if (!DecodeAccount(row[7], cfg.m_accountIndex))
 		{
 			m_strLastError = "Invalid strategy trading account";
 			return false;
@@ -730,7 +731,7 @@ bool CStrategyEngine::CreateStrategy(const CStrategyConfig& cfg)
 	std::shared_ptr<CStrategyRuntime> runtime = std::make_shared<CStrategyRuntime>();
 	runtime->m_config = cfg;
 	runtime->m_strategy = std::move(strategy);
-	runtime->m_context = std::make_unique<CStrategyContext>(cfg.m_strategyId, cfg.m_accountId, this, m_trader.get());
+	runtime->m_context = std::make_unique<CStrategyContext>(cfg.m_strategyId, cfg.m_accountIndex, this, m_trader.get());
 	if (!runtime->m_strategy->Initialize(*runtime->m_context, runtime->m_config))
 	{
 		return false;
@@ -745,7 +746,7 @@ bool CStrategyEngine::CreateStrategy(const CStrategyConfig& cfg)
 		}
 	}
 
-	for (const auto& order : m_trader->GetOrders(cfg.m_accountId))
+	for (const auto& order : m_trader->GetOrders(cfg.m_accountIndex))
 	{
 		if (cfg.m_strategyId != order.m_strategyId)
 		{
@@ -763,13 +764,13 @@ bool CStrategyEngine::CreateStrategy(const CStrategyConfig& cfg)
 			}
 			{
 				std::unique_lock<std::shared_mutex> lock(m_mtx_orders);
-				m_orderRoutes[order.m_orderId] = cfg.m_strategyId;
-				m_clientOrderRoutes[order.m_clientId] = cfg.m_strategyId;
+				m_orderRoutes[{ order.m_accountIndex, order.m_orderId }] = cfg.m_strategyId;
+				m_clientOrderRoutes[{ order.m_accountIndex, order.m_clientId }] = cfg.m_strategyId;
 			}
 		}
 	}
 	NotifySnapshot(runtime);
-	if (cfg.m_bAutoStart && m_trader->IsConnected(cfg.m_accountId) && !StartStrategy(cfg.m_strategyId))
+	if (cfg.m_bAutoStart && m_trader->IsConnected(cfg.m_accountIndex) && !StartStrategy(cfg.m_strategyId))
 	{
 		RemoveStrategy(cfg.m_strategyId);
 		return false;
@@ -835,7 +836,7 @@ bool CStrategyEngine::StartStrategy(_TyStrategyId id)
 		return false;
 	}
 	StrategyState state = runtime->m_state.load();
-	if (((StrategyState::Initialized != state) && (StrategyState::Paused != state) && (StrategyState::Stopped != state)) || !m_trader->BeginStrategy(runtime->m_config.m_accountId, id))
+	if (((StrategyState::Initialized != state) && (StrategyState::Paused != state) && (StrategyState::Stopped != state)) || !m_trader->BeginStrategy(runtime->m_config.m_accountIndex, id))
 	{
 		return false;
 	}
@@ -850,7 +851,7 @@ bool CStrategyEngine::StartStrategy(_TyStrategyId id)
 	}
 	if (!bStateChanged)
 	{
-		m_trader->EndStrategy(runtime->m_config.m_accountId, id);
+		m_trader->EndStrategy(runtime->m_config.m_accountIndex, id);
 		return false;
 	}
 	if ((StrategyState::Initialized == state) || (StrategyState::Stopped == state))
@@ -861,7 +862,7 @@ bool CStrategyEngine::StartStrategy(_TyStrategyId id)
 	if (!ExecuteControl(id, StrategyEventType::Start))
 	{
 		runtime->m_state.store(state);
-		m_trader->EndStrategy(runtime->m_config.m_accountId, id);
+		m_trader->EndStrategy(runtime->m_config.m_accountIndex, id);
 		RemoveRoutes(runtime->m_config);
 		UnsubscribeUnusedQuotes(runtime->m_config);
 		return false;
@@ -888,7 +889,7 @@ bool CStrategyEngine::PauseStrategy(_TyStrategyId id)
 		runtime->m_bAcceptMarketEvents.store(true);
 		return false;
 	}
-	m_trader->EndStrategy(runtime->m_config.m_accountId, id);
+	m_trader->EndStrategy(runtime->m_config.m_accountIndex, id);
 	return true;
 }
 
@@ -921,7 +922,7 @@ bool CStrategyEngine::StopStrategy(_TyStrategyId id)
 	UnsubscribeUnusedQuotes(runtime->m_config);
 	if (bStopped)
 	{
-		m_trader->EndStrategy(runtime->m_config.m_accountId, id);
+		m_trader->EndStrategy(runtime->m_config.m_accountIndex, id);
 	}
 	return bStopped;
 }
@@ -1036,14 +1037,14 @@ void CStrategyEngine::OnOrderEvent(const COrderEvent& ev)
 	if (0 == id)
 	{
 		std::shared_lock<std::shared_mutex> lock(m_mtx_orders);
-		const auto mIter = m_orderRoutes.find(ev.m_orderId);
+		const auto mIter = m_orderRoutes.find({ ev.m_accountIndex, ev.m_orderId });
 		if (m_orderRoutes.end() != mIter)
 		{
 			id = mIter->second;
 		}
 		else
 		{
-			const auto clientIter = m_clientOrderRoutes.find(ev.m_clientOrderId);
+			const auto clientIter = m_clientOrderRoutes.find({ ev.m_accountIndex, ev.m_clientOrderId });
 			if (m_clientOrderRoutes.end() != clientIter)
 			{
 				id = clientIter->second;
@@ -1051,7 +1052,7 @@ void CStrategyEngine::OnOrderEvent(const COrderEvent& ev)
 		}
 	}
 	std::shared_ptr<CStrategyRuntime> runtime = FindRuntime(id);
-	if ((nullptr == runtime) || (ev.m_accountId != runtime->m_config.m_accountId))
+	if ((nullptr == runtime) || (ev.m_accountIndex != runtime->m_config.m_accountIndex))
 	{
 		return;
 	}
@@ -1074,8 +1075,8 @@ void CStrategyEngine::OnOrderEvent(const COrderEvent& ev)
 	if (!IsFinishedOrderStatus(ev.m_status) && 0 != ev.m_orderId)
 	{
 		std::unique_lock<std::shared_mutex> lock(m_mtx_orders);
-		m_orderRoutes[ev.m_orderId] = id;
-		m_clientOrderRoutes[ev.m_clientOrderId] = id;
+		m_orderRoutes[{ ev.m_accountIndex, ev.m_orderId }] = id;
+		m_clientOrderRoutes[{ ev.m_accountIndex, ev.m_clientOrderId }] = id;
 	}
 	// Keep correlation through terminal order reports: a broker may deliver its fill afterward.
 
@@ -1091,14 +1092,14 @@ void CStrategyEngine::OnTradeEvent(const CTradeEvent& ev)
 	if (0 == id)
 	{
 		std::shared_lock<std::shared_mutex> lock(m_mtx_orders);
-		const auto mIter = m_orderRoutes.find(ev.m_orderId);
+		const auto mIter = m_orderRoutes.find({ ev.m_accountIndex, ev.m_orderId });
 		if (m_orderRoutes.end() != mIter)
 		{
 			id = mIter->second;
 		}
 	}
 	std::shared_ptr<CStrategyRuntime> runtime = FindRuntime(id);
-	if ((nullptr == runtime) || (ev.m_accountId != runtime->m_config.m_accountId))
+	if ((nullptr == runtime) || (ev.m_accountIndex != runtime->m_config.m_accountIndex))
 	{
 		return;
 	}
@@ -1336,7 +1337,7 @@ void CStrategyEngine::HandleStrategyException(CStrategyRuntime& runtime, const s
 {
 	runtime.m_bAcceptMarketEvents.store(false);
 	runtime.m_state.store(StrategyState::Faulted);
-	m_trader->EndStrategy(runtime.m_config.m_accountId, runtime.m_config.m_strategyId);
+	m_trader->EndStrategy(runtime.m_config.m_accountIndex, runtime.m_config.m_strategyId);
 	std::lock_guard<std::mutex> lock(runtime.m_mtx_metrics);
 	runtime.m_strLastError = strError;
 }
@@ -1517,7 +1518,7 @@ COrderSubmitResult CStrategyEngine::SubmitOrder(_TyStrategyId id, const COrderIn
 		}
 	}
 	COrderIntent routedIntent = intent;
-	routedIntent.m_accountId = runtime->m_config.m_accountId;
+	routedIntent.m_accountIndex = runtime->m_config.m_accountIndex;
 	COrderSubmitResult result = m_trader->Submit(routedIntent);
 	{
 		std::lock_guard<std::mutex> lock(m_mtx_signals);
@@ -1543,9 +1544,15 @@ bool CStrategyEngine::CancelOrder(_TyStrategyId id, _TyOrderId orderId)
 	{
 		return false;
 	}
+	std::shared_ptr<CStrategyRuntime> runtime = FindRuntime(id);
+	if (nullptr == runtime)
+	{
+		return false;
+	}
+
 	{
 		std::shared_lock<std::shared_mutex> lock(m_mtx_orders);
-		const auto mIter = m_orderRoutes.find(orderId);
+		const auto mIter = m_orderRoutes.find({ runtime->m_config.m_accountIndex, orderId });
 		if ((m_orderRoutes.end() == mIter) || (id != mIter->second))
 		{
 			return false;

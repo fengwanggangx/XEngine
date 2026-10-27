@@ -1,5 +1,6 @@
 #pragma once
 #include <variant>
+#include "../request/AccountIdentity.h"
 #include <cstdint>
 #include <map>
 #include <string>
@@ -28,8 +29,7 @@ namespace trade
 		Funds,
 		Positions,
 		Orders,
-		Trades,
-		Synchronize
+		Trades
 	};
 	enum class Side
 	{
@@ -64,7 +64,8 @@ namespace trade
 	};
 	struct COrder
 	{
-		std::uint64_t m_accountId{ 0 }, m_clientId{ 0 }, m_orderId{ 0 }, m_requestId{ 0 }, m_strategyId{ 0 }, m_signalId{ 0 };
+		_TyAccountIndex m_accountIndex{};
+		std::uint64_t m_clientId{ 0 }, m_orderId{ 0 }, m_requestId{ 0 }, m_strategyId{ 0 }, m_signalId{ 0 };
 		std::string m_strSecurity;
 		Side m_side{ Side::Buy };
 		Status m_status{ Status::Accepted };
@@ -74,19 +75,20 @@ namespace trade
 	};
 	struct CPosition
 	{
-		std::uint64_t m_accountId{ 0 };
+		_TyAccountIndex m_accountIndex{};
 		std::string m_strSecurity;
 		std::int64_t m_nTotal{ 0 }, m_nAvailable{ 0 }, m_nFrozen{ 0 }, m_nToday{ 0 }, m_nCost{ 0 };
 	};
 	struct CAccount
 	{
-		std::uint64_t m_accountId{ 0 };
+		_TyAccountIndex m_accountIndex{};
 		std::int64_t m_nBalance{ 0 }, m_nFrozen{ 0 };
 		bool m_bConnected{ false }, m_bMigrated{ true };
 	};
 	struct CTrade
 	{
-		std::uint64_t m_tradeId{ 0 }, m_orderId{ 0 }, m_accountId{ 0 };
+		std::uint64_t m_tradeId{ 0 }, m_orderId{ 0 };
+		_TyAccountIndex m_accountIndex{};
 		std::string m_strSecurity;
 		Side m_side{ Side::Buy };
 		std::int64_t m_nPrice{ 0 }, m_nQuantity{ 0 }, m_nFee{ 0 }, m_nTime{ 0 };
@@ -94,79 +96,76 @@ namespace trade
 	};
 	struct CEvent
 	{
-		std::uint64_t m_sequence{ 0 }, m_requestId{ 0 }, m_accountId{ 0 };
+		std::uint64_t m_sequence{ 0 }, m_requestId{ 0 };
+		_TyAccountIndex m_accountIndex{};
 		EventKind m_kind{ EventKind::Session };
 		COrder m_order;
 		CTrade m_trade;
 		CAccount m_account;
 		CPosition m_position;
 	};
-	struct CLoginParams
+	struct CLoginParam
 	{
 		static constexpr Operation m_operation{ Operation::Login };
-		std::string m_strBroker, m_strSite, m_strUser, m_strPassword;
+		std::string m_strPassword;
 	};
 
-	struct CConnect
+	struct CConnectParam
 	{
 		static constexpr Operation m_operation{ Operation::Connect };
 	};
 
-	struct CDisconnect
+	struct CDisconnectParam
 	{
 		static constexpr Operation m_operation{ Operation::Disconnect };
 	};
 
-	struct CSubmitParams
+	struct CSubmitParam
 	{
 		static constexpr Operation m_operation{ Operation::Submit };
 		COrder m_order;
 	};
 
-	struct CCancelParams
+	struct CCancelParam
 	{
 		static constexpr Operation m_operation{ Operation::Cancel };
 		std::uint64_t m_orderId{ 0 };
 	};
 
-	struct CFundsQuery
+	struct CFundsQueryParam
 	{
 		static constexpr Operation m_operation{ Operation::Funds };
 	};
 
-	struct CPositionsQuery
+	struct CPositionsQueryParam
 	{
 		static constexpr Operation m_operation{ Operation::Positions };
 	};
 
-	struct COrdersQuery
+	struct COrdersQueryParam
 	{
 		static constexpr Operation m_operation{ Operation::Orders };
 	};
 
-	struct CTradesQuery
+	struct CDealsQueryParam
 	{
 		static constexpr Operation m_operation{ Operation::Trades };
 	};
 
-	struct CSynchronize
-	{
-		static constexpr Operation m_operation{ Operation::Synchronize };
-	};
+	using _TyRequestParam = std::variant<CLoginParam, CConnectParam, CDisconnectParam, CSubmitParam, CCancelParam, CFundsQueryParam, CPositionsQueryParam, COrdersQueryParam, CDealsQueryParam>;
 
-	using _TyRequestParams = std::variant<CLoginParams, CConnect, CDisconnect, CSubmitParams, CCancelParams, CFundsQuery, CPositionsQuery, COrdersQuery, CTradesQuery, CSynchronize>;
-
-	struct CRequest
+	struct CReqParam
 	{
-		std::uint64_t m_requestId{ 0 }, m_accountId{ 0 };
-		_TyRequestParams m_params{ CSynchronize{} };
+		std::uint64_t m_requestId{ 0 };
+		_TyAccountIndex m_accountIndex{};
+		_TyRequestParam m_param{ CFundsQueryParam{} };
 
 		Operation GetOperation() const
 		{
 			return std::visit([](const auto& params)
 			{
 				return params.m_operation;
-			}, m_params);
+			}, m_param);
 		}
 	};
 	struct CAccountData
@@ -183,15 +182,16 @@ namespace trade
 	{
 		std::uint64_t m_orderId{ 0 };
 	};
-	using CounterReplyData = std::variant<std::monostate, COperationReceipt, CAccount, std::vector<CPosition>, std::vector<COrder>, std::vector<CTrade>, CAccountData>;
+	using _TyCounterReplyData = std::variant<std::monostate, COperationReceipt, CAccount, std::vector<CPosition>, std::vector<COrder>, std::vector<CTrade>>;
 	struct CCounterReply
 	{
-		std::uint64_t m_requestId{ 0 }, m_accountId{ 0 };
-		Operation m_operation{ Operation::Synchronize };
+		std::uint64_t m_requestId{ 0 };
+		_TyAccountIndex m_accountIndex{};
+		Operation m_operation{ Operation::Funds };
 		CResult m_result;
 		std::uint64_t m_version{ 0 };
 		std::int64_t m_nTime{ 0 };
-		CounterReplyData m_data;
+		_TyCounterReplyData m_data;
 	};
 	struct CRule
 	{
@@ -222,8 +222,8 @@ namespace trade
 	{
 		std::uint64_t m_nextOrder{ 1 }, m_nextTrade{ 1 }, m_sequence{ 0 };
 		int m_nSettledDay{ 0 }, m_nClosedDay{ 0 };
-		std::map<std::uint64_t, CAccount> m_accounts;
-		std::map<std::pair<std::uint64_t, std::string>, CPosition> m_positions;
+		std::map<_TyAccountIndex, CAccount> m_accounts;
+		std::map<std::pair<_TyAccountIndex, std::string>, CPosition> m_positions;
 		std::map<std::uint64_t, COrder> m_orders;
 		std::map<std::uint64_t, CTrade> m_trades;
 		std::vector<CEvent> m_events;

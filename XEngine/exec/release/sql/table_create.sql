@@ -14,8 +14,7 @@ CREATE TABLE IF NOT EXISTS table_user
 CREATE TABLE IF NOT EXISTS table_strategy
 (
 	strategy_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-	account_id BIGINT UNSIGNED NOT NULL DEFAULT 1,
-	account_provider VARCHAR(16) NOT NULL DEFAULT '',
+	account_identity VARCHAR(1024) NOT NULL DEFAULT '',
 	strategy_type VARCHAR(64) NOT NULL,
 	strategy_name VARCHAR(128) NOT NULL,
 	parameters JSON NOT NULL,

@@ -13,12 +13,8 @@ enum RequestType {
     HEARTBEAT = 6;
     TRADE_ACCOUNT_LOGIN = 8;
     TRADE_ACCOUNT_QUERY = 9;
-    TRADE_ACCOUNT_ADD = 10;
-    TRADE_ACCOUNT_MODIFY = 11;
-    TRADE_ACCOUNT_CONNECT = 12;
     TRADE_ACCOUNT_DISCONNECT = 13;
     TRADE_ACCOUNT_INFO_QUERY = 14;
-    TRADE_ACCOUNT_LOGS_QUERY = 15;
     STRATEGY_ADD = 20;
     STRATEGY_MODIFY = 21;
     STRATEGY_QUERY = 22;
@@ -46,8 +42,9 @@ enum RequestType {
     TRADE_TRADE_PUSH = 56;
     TRADE_ACCOUNT_INFO_PUSH = 57;
     TRADE_POSITION_PUSH = 58;
-    TRADE_SYNC_QUERY = 59;
     TRADE_CAPABILITIES_QUERY = 60;
+    BROKER_QUERY = 61;
+    SIMULATED_ACCOUNT_OPEN = 62;
 
 }
 
@@ -66,7 +63,7 @@ message StrategyInfo {
     uint32 event_queue_limit = 6;
     bool auto_start = 7;
     bool enabled = 8;
-    uint64 account_id = 9;
+    uint64 broker_id = 9; string site = 10; string account = 11;
 }
 
 message StrategyList {
@@ -74,25 +71,18 @@ message StrategyList {
 }
 
 
-enum TradingAccountType { ACCOUNT_SIMULATED = 0; ACCOUNT_PRODUCTION = 1; }
-enum TradingAccountState { ACCOUNT_DISCONNECTED = 0; ACCOUNT_CONNECTED = 1; ACCOUNT_ERROR = 2; }
+enum TradingAccountState { ACCOUNT_DISCONNECTED = 0; ACCOUNT_CONNECTED = 1; ACCOUNT_ERROR = 2; ACCOUNT_CONNECTING = 3; }
 // Account display/response data only; login credentials belong in RequestData.extra.
 message TradeAccountRecord {
- uint64 account_id = 1;
- string name = 2;
- TradingAccountType account_type = 3;
- int64 initial_balance = 4; // Money is integer cents, independent of quote price scale.
- TradingAccountState state = 5;
- string number = 6;
- uint32 strategy_count = 7;
- string last_error = 8;
- string created_at = 9;
- string updated_at = 10;
- bool is_default = 11;
+ uint64 broker_id = 1; string site = 2; string account = 3;
+ string broker_name = 4; string name = 5; TradingAccountState state = 6; string last_error = 7;
 }
+message BrokerSite { string site = 1; string name = 2; }
+message BrokerRecord { uint64 broker_id = 1; string name = 2; repeated BrokerSite sites = 3; }
+message BrokerList { repeated BrokerRecord brokers = 1; }
 message TradeAccountList { repeated TradeAccountRecord accounts = 1; }
 message TradeAccountInfo {
- uint64 account_id = 1;
+ uint64 broker_id = 1; string site = 10; string account = 11;
  int64 balance = 2;
  int64 available = 3;
  int64 frozen = 4;
@@ -109,7 +99,7 @@ message TradeAccountLog {
  string action = 3;
  string message = 4;
 }
-message TradeAccountLogList { uint64 account_id = 1; repeated TradeAccountLog logs = 2; }
+message TradeAccountLogList { uint64 broker_id = 1; string site = 3; string account = 4; repeated TradeAccountLog logs = 2; }
 
 message StrategyRuntimeRecord {
  uint64 strategy_id = 1;
@@ -123,36 +113,32 @@ message StrategyRuntimeList { repeated StrategyRuntimeRecord runtimes = 1; }
 
 
 message TradeOrderRecord {
- uint64 account_id = 1; uint64 client_order_id = 2; uint64 order_id = 3; uint64 request_id = 4;
+ uint64 broker_id = 1; string site = 19; string account = 20; uint64 client_order_id = 2; uint64 order_id = 3; uint64 request_id = 4;
  uint64 strategy_id = 5; uint64 signal_id = 6; string security = 7; int32 side = 8; int32 state = 9;
  int64 price = 10; int32 price_scale = 11; int64 quantity = 12; int64 filled_quantity = 13;
  int64 frozen = 14; int64 turnover = 15; int64 fee = 16; int64 time_ms = 17; string rule_version = 18;
 }
 message TradeOrderList { repeated TradeOrderRecord orders = 1; }
 message TradeRecord {
- uint64 account_id = 1; uint64 trade_id = 2; uint64 order_id = 3; string security = 4;
+ uint64 broker_id = 1; string site = 11; string account = 12; uint64 trade_id = 2; uint64 order_id = 3; string security = 4;
  int32 side = 5; int64 price = 6; int32 price_scale = 7; int64 quantity = 8; int64 fee = 9; int64 time_ms = 10;
 }
 message TradeList { repeated TradeRecord trades = 1; }
 message TradePositionRecord {
- uint64 account_id = 1; string security = 2; int64 total_quantity = 3; int64 available_quantity = 4;
+ uint64 broker_id = 1; string site = 8; string account = 9; string security = 2; int64 total_quantity = 3; int64 available_quantity = 4;
  int64 frozen_quantity = 5; int64 today_quantity = 6; int64 book_cost_cents = 7;
 }
 message TradePositionList { repeated TradePositionRecord positions = 1; }
 
 
 message TradeEventRecord {
- uint64 sequence = 1; uint64 request_id = 2; uint64 account_id = 3; int32 kind = 4;
+ uint64 sequence = 1; uint64 request_id = 2; uint64 broker_id = 3; string site = 10; string account = 11; int32 kind = 4;
  TradeOrderRecord order = 5; TradeRecord trade = 6; TradeAccountInfo funds = 7;
  TradePositionRecord position = 8; bool connected = 9;
 }
-message TradeAccountData {
- TradeAccountInfo account = 1; uint64 watermark = 2; int64 server_time_ms = 3; bool ready = 4;
- repeated TradePositionRecord positions = 5; repeated TradeOrderRecord orders = 6; repeated TradeRecord trades = 7;
-}
 message TradeOperationReceipt { uint64 order_id = 1; }
 message TradeCounterReply {
- uint64 request_id = 1; uint64 account_id = 2; int32 operation = 3;
+ uint64 request_id = 1; uint64 broker_id = 2; string site = 14; string account = 15; int32 operation = 3;
  int32 error_code = 4; string error_message = 5; uint64 watermark = 6; int64 server_time_ms = 7;
  oneof data {
   TradeOperationReceipt receipt = 8;
@@ -160,7 +146,7 @@ message TradeCounterReply {
   TradePositionList positions = 10;
   TradeOrderList orders = 11;
   TradeList trades = 12;
-  TradeAccountData account_data = 13;
+
  }
 }
 
@@ -194,6 +180,7 @@ message RequestData {
 		hqmarket.market.v1.SectorList sector_list = 27;
 		hqmarket.market.v1.SectorConstituents sector_constituents = 29;
         TradeAccountRecord account = 30;
+        BrokerList broker_list = 42;
         TradeAccountList account_list = 31;
         TradeAccountLogList account_logs = 33;
         TradeAccountInfo account_info = 40;
