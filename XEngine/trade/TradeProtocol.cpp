@@ -394,15 +394,18 @@ namespace trade::protocol
 		::CRequest wire;
 		wire.SetId(request.m_requestId);
 		wire.SetExtraData("account_id", std::to_string(request.m_accountId));
-		switch (request.m_operation)
+		switch (request.GetOperation())
 		{
 		case Operation::Login:
+		{
+			const CLoginParams& params = std::get<CLoginParams>(request.m_params);
 			wire.SetType(_TyRequest::TRADE_ACCOUNT_LOGIN);
-			wire.SetExtraData("broker", request.m_strBroker);
-			wire.SetExtraData("site", request.m_strSite);
-			wire.SetExtraData("account", request.m_strUser);
-			wire.SetExtraData("password", request.m_strPassword);
+			wire.SetExtraData("broker", params.m_strBroker);
+			wire.SetExtraData("site", params.m_strSite);
+			wire.SetExtraData("account", params.m_strUser);
+			wire.SetExtraData("password", params.m_strPassword);
 			break;
+		}
 		case Operation::Connect:
 			wire.SetType(_TyRequest::TRADE_ACCOUNT_CONNECT);
 			break;
@@ -410,20 +413,23 @@ namespace trade::protocol
 			wire.SetType(_TyRequest::TRADE_ACCOUNT_DISCONNECT);
 			break;
 		case Operation::Submit:
+		{
+			const CSubmitParams& params = std::get<CSubmitParams>(request.m_params);
 			wire.SetType(_TyRequest::TRADE_ORDER_SUBMIT);
-			wire.SetExtraData("client_order_id", std::to_string(request.m_order.m_clientId));
-			wire.SetExtraData("security", request.m_order.m_strSecurity);
-			wire.SetExtraData("side", Side::Buy == request.m_order.m_side ? "buy" : "sell");
+			wire.SetExtraData("client_order_id", std::to_string(params.m_order.m_clientId));
+			wire.SetExtraData("security", params.m_order.m_strSecurity);
+			wire.SetExtraData("side", Side::Buy == params.m_order.m_side ? "buy" : "sell");
 			wire.SetExtraData("order_type", "limit");
-			wire.SetExtraData("price", std::to_string(request.m_order.m_nPrice));
-			wire.SetExtraData("price_scale", std::to_string(request.m_order.m_nPriceScale));
-			wire.SetExtraData("quantity", std::to_string(request.m_order.m_nQuantity));
-			wire.SetExtraData("strategy_id", std::to_string(request.m_order.m_strategyId));
-			wire.SetExtraData("signal_id", std::to_string(request.m_order.m_signalId));
+			wire.SetExtraData("price", std::to_string(params.m_order.m_nPrice));
+			wire.SetExtraData("price_scale", std::to_string(params.m_order.m_nPriceScale));
+			wire.SetExtraData("quantity", std::to_string(params.m_order.m_nQuantity));
+			wire.SetExtraData("strategy_id", std::to_string(params.m_order.m_strategyId));
+			wire.SetExtraData("signal_id", std::to_string(params.m_order.m_signalId));
 			break;
+		}
 		case Operation::Cancel:
 			wire.SetType(_TyRequest::TRADE_ORDER_CANCEL);
-			wire.SetExtraData("order_id", std::to_string(request.m_orderId));
+			wire.SetExtraData("order_id", std::to_string(std::get<trade::CCancelParams>(request.m_params).m_orderId));
 			break;
 		case Operation::Funds:
 			wire.SetType(_TyRequest::TRADE_ACCOUNT_INFO_QUERY);

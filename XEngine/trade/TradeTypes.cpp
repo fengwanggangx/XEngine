@@ -408,7 +408,7 @@ namespace trade
 		{
 			std::string strKey;
 			std::int64_t nTime = 0;
-			Id nSequence = 0;
+			std::uint64_t nSequence = 0;
 			Read(stream, strKey);
 			Read(stream, nTime);
 			Read(stream, nSequence);

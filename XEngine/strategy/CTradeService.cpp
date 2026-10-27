@@ -160,19 +160,19 @@ COrderSubmitResult CTradeService::Submit(const COrderIntent& intent)
 	}
 	static std::atomic_uint64_t nextId{ static_cast<std::uint64_t>(std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now().time_since_epoch()).count()) };
 	trade::CRequest request;
-	request.m_operation = trade::Operation::Submit;
+	trade::CSubmitParams& params = request.m_params.emplace<trade::CSubmitParams>();
 	request.m_accountId = intent.m_accountId;
-	request.m_order.m_clientId = 0 == intent.m_clientOrderId ? nextId.fetch_add(1) : intent.m_clientOrderId;
-	request.m_requestId = request.m_order.m_clientId;
-	request.m_order.m_strategyId = intent.m_strategyId;
-	request.m_order.m_signalId = intent.m_signalId;
-	request.m_order.m_strSecurity = intent.m_security.String();
-	request.m_order.m_side = OrderSide::Buy == intent.m_side ? trade::Side::Buy : trade::Side::Sell;
-	request.m_order.m_nPrice = intent.m_price;
-	request.m_order.m_nQuantity = intent.m_quantity;
-	request.m_order.m_nPriceScale = intent.m_nPriceScale;
-	trade::Id nClientId = request.m_order.m_clientId;
-	trade::COrder order = request.m_order;
+	params.m_order.m_clientId = 0 == intent.m_clientOrderId ? nextId.fetch_add(1) : intent.m_clientOrderId;
+	request.m_requestId = params.m_order.m_clientId;
+	params.m_order.m_strategyId = intent.m_strategyId;
+	params.m_order.m_signalId = intent.m_signalId;
+	params.m_order.m_strSecurity = intent.m_security.String();
+	params.m_order.m_side = OrderSide::Buy == intent.m_side ? trade::Side::Buy : trade::Side::Sell;
+	params.m_order.m_nPrice = intent.m_price;
+	params.m_order.m_nQuantity = intent.m_quantity;
+	params.m_order.m_nPriceScale = intent.m_nPriceScale;
+	std::uint64_t nClientId = params.m_order.m_clientId;
+	trade::COrder order = params.m_order;
 	order.m_accountId = request.m_accountId;
 	trade::CResult result = service->Request(request, [this, order](const trade::CCounterReply& reply)
 	{
@@ -214,9 +214,8 @@ bool CTradeService::Cancel(_TyStrategyId strategyId, _TyOrderId orderId)
 		return false;
 	}
 	trade::CRequest request;
-	request.m_operation = trade::Operation::Cancel;
+	request.m_params = trade::CCancelParams{ orderId };
 	request.m_accountId = accountId;
-	request.m_orderId = orderId;
 	return service->Request(request, {}).Ok();
 }
 CAccountSnapshot CTradeService::GetAccount() const

@@ -13,7 +13,7 @@ namespace trade
 		// This receipt means queued only. Business acceptance is delivered in the reply/events.
 		virtual CResult Request(CRequest request, ReplyHandler handler) = 0;
 		virtual void SetEventHandler(EventHandler handler) = 0;
-		virtual CAccountData Snapshot(Id nAccountId) const = 0;
+		virtual CAccountData Snapshot(std::uint64_t nAccountId) const = 0;
 		virtual std::vector<Operation> Capabilities() const = 0;
 		virtual void Stop() = 0;
 	};
@@ -23,7 +23,7 @@ namespace trade
 		virtual ~ICounterStore() = default;
 		virtual CResult Acquire(CState& state) = 0;
 		// Commit persists a sparse change set plus final metadata, fenced by the previous event sequence.
-		virtual CResult Commit(const CState& state, Id nExpectedSequence) = 0;
+		virtual CResult Commit(const CState& state, std::uint64_t nExpectedSequence) = 0;
 		virtual CResult Renew() = 0;
 		virtual void Release() = 0;
 	};

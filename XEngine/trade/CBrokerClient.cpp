@@ -102,9 +102,9 @@ trade::CResult CBrokerClient::Request(trade::CRequest request, ReplyHandler hand
 	{
 		return { trade::Error::NotFound, "account_id must be positive" };
 	}
-	trade::Id nAccountId = request.m_accountId;
-	trade::Id nRequestId = request.m_requestId;
-	trade::Operation operation = request.m_operation;
+	std::uint64_t nAccountId = request.m_accountId;
+	std::uint64_t nRequestId = request.m_requestId;
+	trade::Operation operation = request.GetOperation();
 	bool bSynchronize = trade::Operation::Synchronize == operation;
 	std::uint64_t nGeneration = 0;
 	{
@@ -130,7 +130,7 @@ trade::CResult CBrokerClient::Request(trade::CRequest request, ReplyHandler hand
 	}
 	return bQueued ? trade::CResult{} : trade::CResult{ trade::Error::Unavailable, "XBroker is unavailable" };
 }
-void CBrokerClient::CompleteRequest(const CRequest& response, trade::Id nAccountId, trade::Id nRequestId, trade::Operation operation, std::uint64_t nGeneration, const ReplyHandler& handler)
+void CBrokerClient::CompleteRequest(const CRequest& response, std::uint64_t nAccountId, std::uint64_t nRequestId, trade::Operation operation, std::uint64_t nGeneration, const ReplyHandler& handler)
 {
 	bool bSynchronize = trade::Operation::Synchronize == operation;
 	trade::CCounterReply reply;
@@ -158,7 +158,7 @@ void CBrokerClient::CompleteRequest(const CRequest& response, trade::Id nAccount
 			if (reply.m_result.Ok() && nullptr != source && source->m_bReady && m_syncing.end() != pending && !pending->second.m_bOverflow)
 			{
 				trade::CAccountData& cached = m_snapshots[nAccountId];
-				std::unordered_set<trade::Id> previousTrades;
+				std::unordered_set<std::uint64_t> previousTrades;
 				previousTrades.reserve(cached.m_trades.size());
 				for (const auto& row : cached.m_trades)
 				{
@@ -242,7 +242,7 @@ void CBrokerClient::CompleteRequest(const CRequest& response, trade::Id nAccount
 		handler(reply);
 	}
 }
-trade::CAccountData CBrokerClient::Snapshot(trade::Id nAccountId) const
+trade::CAccountData CBrokerClient::Snapshot(std::uint64_t nAccountId) const
 {
 	std::lock_guard<std::mutex> lock(m_mtx_state);
 	auto iter = m_snapshots.find(nAccountId);
@@ -434,7 +434,7 @@ void CBrokerClient::Refresh()
 		{
 			trade::CRequest sync;
 			sync.m_accountId = account.account_id();
-			sync.m_operation = trade::Operation::Synchronize;
+			sync.m_params = trade::CSynchronize{};
 			if (Snapshot(account.account_id()).m_bReady)
 			{
 				continue;

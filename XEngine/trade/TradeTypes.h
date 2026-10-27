@@ -7,7 +7,6 @@
 
 namespace trade
 {
-	using Id = std::uint64_t;
 	enum class Error
 	{
 		None,
@@ -65,7 +64,7 @@ namespace trade
 	};
 	struct COrder
 	{
-		Id m_accountId{ 0 }, m_clientId{ 0 }, m_orderId{ 0 }, m_requestId{ 0 }, m_strategyId{ 0 }, m_signalId{ 0 };
+		std::uint64_t m_accountId{ 0 }, m_clientId{ 0 }, m_orderId{ 0 }, m_requestId{ 0 }, m_strategyId{ 0 }, m_signalId{ 0 };
 		std::string m_strSecurity;
 		Side m_side{ Side::Buy };
 		Status m_status{ Status::Accepted };
@@ -75,19 +74,19 @@ namespace trade
 	};
 	struct CPosition
 	{
-		Id m_accountId{ 0 };
+		std::uint64_t m_accountId{ 0 };
 		std::string m_strSecurity;
 		std::int64_t m_nTotal{ 0 }, m_nAvailable{ 0 }, m_nFrozen{ 0 }, m_nToday{ 0 }, m_nCost{ 0 };
 	};
 	struct CAccount
 	{
-		Id m_accountId{ 0 };
+		std::uint64_t m_accountId{ 0 };
 		std::int64_t m_nBalance{ 0 }, m_nFrozen{ 0 };
 		bool m_bConnected{ false }, m_bMigrated{ true };
 	};
 	struct CTrade
 	{
-		Id m_tradeId{ 0 }, m_orderId{ 0 }, m_accountId{ 0 };
+		std::uint64_t m_tradeId{ 0 }, m_orderId{ 0 }, m_accountId{ 0 };
 		std::string m_strSecurity;
 		Side m_side{ Side::Buy };
 		std::int64_t m_nPrice{ 0 }, m_nQuantity{ 0 }, m_nFee{ 0 }, m_nTime{ 0 };
@@ -95,24 +94,85 @@ namespace trade
 	};
 	struct CEvent
 	{
-		Id m_sequence{ 0 }, m_requestId{ 0 }, m_accountId{ 0 };
+		std::uint64_t m_sequence{ 0 }, m_requestId{ 0 }, m_accountId{ 0 };
 		EventKind m_kind{ EventKind::Session };
 		COrder m_order;
 		CTrade m_trade;
 		CAccount m_account;
 		CPosition m_position;
 	};
+	struct CLoginParams
+	{
+		static constexpr Operation m_operation{ Operation::Login };
+		std::string m_strBroker, m_strSite, m_strUser, m_strPassword;
+	};
+
+	struct CConnect
+	{
+		static constexpr Operation m_operation{ Operation::Connect };
+	};
+
+	struct CDisconnect
+	{
+		static constexpr Operation m_operation{ Operation::Disconnect };
+	};
+
+	struct CSubmitParams
+	{
+		static constexpr Operation m_operation{ Operation::Submit };
+		COrder m_order;
+	};
+
+	struct CCancelParams
+	{
+		static constexpr Operation m_operation{ Operation::Cancel };
+		std::uint64_t m_orderId{ 0 };
+	};
+
+	struct CFundsQuery
+	{
+		static constexpr Operation m_operation{ Operation::Funds };
+	};
+
+	struct CPositionsQuery
+	{
+		static constexpr Operation m_operation{ Operation::Positions };
+	};
+
+	struct COrdersQuery
+	{
+		static constexpr Operation m_operation{ Operation::Orders };
+	};
+
+	struct CTradesQuery
+	{
+		static constexpr Operation m_operation{ Operation::Trades };
+	};
+
+	struct CSynchronize
+	{
+		static constexpr Operation m_operation{ Operation::Synchronize };
+	};
+
+	using _TyRequestParams = std::variant<CLoginParams, CConnect, CDisconnect, CSubmitParams, CCancelParams, CFundsQuery, CPositionsQuery, COrdersQuery, CTradesQuery, CSynchronize>;
+
 	struct CRequest
 	{
-		Operation m_operation{ Operation::Synchronize };
-		Id m_requestId{ 0 }, m_accountId{ 0 }, m_orderId{ 0 };
-		COrder m_order;
-		std::string m_strBroker, m_strSite, m_strUser, m_strPassword;
+		std::uint64_t m_requestId{ 0 }, m_accountId{ 0 };
+		_TyRequestParams m_params{ CSynchronize{} };
+
+		Operation GetOperation() const
+		{
+			return std::visit([](const auto& params)
+			{
+				return params.m_operation;
+			}, m_params);
+		}
 	};
 	struct CAccountData
 	{
 		bool m_bReady{ false };
-		Id m_version{ 0 };
+		std::uint64_t m_version{ 0 };
 		std::int64_t m_nTime{ 0 };
 		CAccount m_account;
 		std::vector<CPosition> m_positions;
@@ -121,15 +181,15 @@ namespace trade
 	};
 	struct COperationReceipt
 	{
-		Id m_orderId{ 0 };
+		std::uint64_t m_orderId{ 0 };
 	};
 	using CounterReplyData = std::variant<std::monostate, COperationReceipt, CAccount, std::vector<CPosition>, std::vector<COrder>, std::vector<CTrade>, CAccountData>;
 	struct CCounterReply
 	{
-		Id m_requestId{ 0 }, m_accountId{ 0 };
+		std::uint64_t m_requestId{ 0 }, m_accountId{ 0 };
 		Operation m_operation{ Operation::Synchronize };
 		CResult m_result;
-		Id m_version{ 0 };
+		std::uint64_t m_version{ 0 };
 		std::int64_t m_nTime{ 0 };
 		CounterReplyData m_data;
 	};
@@ -153,23 +213,23 @@ namespace trade
 	struct CDepth
 	{
 		std::string m_strSecurity;
-		Id m_sequence{ 0 };
+		std::uint64_t m_sequence{ 0 };
 		std::int64_t m_nTime{ 0 };
 		int m_nPriceScale{ 2 };
 		std::vector<CLevel> m_bids, m_asks;
 	};
 	struct CState
 	{
-		Id m_nextOrder{ 1 }, m_nextTrade{ 1 }, m_sequence{ 0 };
+		std::uint64_t m_nextOrder{ 1 }, m_nextTrade{ 1 }, m_sequence{ 0 };
 		int m_nSettledDay{ 0 }, m_nClosedDay{ 0 };
-		std::map<Id, CAccount> m_accounts;
-		std::map<std::pair<Id, std::string>, CPosition> m_positions;
-		std::map<Id, COrder> m_orders;
-		std::map<Id, CTrade> m_trades;
+		std::map<std::uint64_t, CAccount> m_accounts;
+		std::map<std::pair<std::uint64_t, std::string>, CPosition> m_positions;
+		std::map<std::uint64_t, COrder> m_orders;
+		std::map<std::uint64_t, CTrade> m_trades;
 		std::vector<CEvent> m_events;
 		std::map<std::pair<int, std::string>, CRule> m_rules;
 		std::map<int, CCalendar> m_calendar;
-		std::map<std::string, std::pair<std::int64_t, Id>> m_consumedBooks;
+		std::map<std::string, std::pair<std::int64_t, std::uint64_t>> m_consumedBooks;
 	};
 	void UpdateAccountData(CAccountData& snapshot, const CEvent& event);
 	void ApplyChanges(CState& state, const CState& changes);

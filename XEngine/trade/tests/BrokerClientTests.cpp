@@ -11,7 +11,7 @@ class CBrokerClientTests
 			throw std::runtime_error(strMessage);
 		}
 	}
-	static CRequest Sync(trade::Id nVersion, trade::Id nAccountId = 1)
+	static CRequest Sync(std::uint64_t nVersion, std::uint64_t nAccountId = 1)
 	{
 		trade::CAccountData data;
 		data.m_account = { nAccountId, 100, 0, true, true };
@@ -29,7 +29,7 @@ class CBrokerClientTests
 		trade::protocol::WriteReply(reply, response);
 		return response;
 	}
-	static CRequest FundsPush(trade::Id nSequence, std::int64_t nBalance)
+	static CRequest FundsPush(std::uint64_t nSequence, std::int64_t nBalance)
 	{
 		trade::CEvent event;
 		event.m_kind = trade::EventKind::Funds;
@@ -52,7 +52,7 @@ class CBrokerClientTests
 			}
 		});
 		client.m_syncing.try_emplace(1);
-		Check(!client.Request(trade::CRequest{ trade::Operation::Synchronize, 0, 1 }, {}).Ok(), "same account synchronization serialized");
+		Check(!client.Request(trade::CRequest{ 0, 1, trade::CSynchronize{} }, {}).Ok(), "same account synchronization serialized");
 		client.OnResponse(FundsPush(9, 90));
 		client.OnResponse(FundsPush(12, 120));
 		client.OnResponse(FundsPush(12, 999));
@@ -62,7 +62,7 @@ class CBrokerClientTests
 		Check(150 == client.Snapshot(1).m_account.m_nBalance && 2 == nFunds, "global sequence gaps accepted");
 		trade::CCounterReply query;
 		query.m_accountId = 1;
-		query.m_operation = trade::Operation::Funds;
+		query.m_params = trade::CFundsQuery{};
 		query.m_version = 100;
 		query.m_data = trade::CAccount{ 1, 999, 0, true, true };
 		CRequest response;

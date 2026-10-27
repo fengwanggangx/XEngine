@@ -14,7 +14,7 @@ int main(int nArgs, char** pArgs)
 	info.m_host.m_strName = "Broker";
 	info.m_host.m_strHost = "127.0.0.1";
 	info.m_host.m_nPort = static_cast<unsigned int>(std::stoul(pArgs[1]));
-	trade::Id nAccountId = std::stoull(pArgs[3]);
+	std::uint64_t nAccountId = std::stoull(pArgs[3]);
 	CBrokerClient client(info);
 	std::atomic_int nEvents{ 0 };
 	std::atomic_bool bTradeCorrelated{ false };
@@ -43,16 +43,16 @@ int main(int nArgs, char** pArgs)
 	}
 	trade::CRequest request;
 	request.m_accountId = nAccountId;
-	request.m_operation = trade::Operation::Submit;
+	request.m_params = trade::CSubmitParams{};
 	request.m_requestId = 700;
-	request.m_order.m_clientId = 700;
-	request.m_order.m_accountId = nAccountId;
-	request.m_order.m_strategyId = 77;
-	request.m_order.m_signalId = 78;
-	request.m_order.m_strSecurity = "600000.SSE";
-	request.m_order.m_nPrice = 1000;
-	request.m_order.m_nPriceScale = 2;
-	request.m_order.m_nQuantity = 100;
+	std::get<trade::CSubmitParams>(request.m_params).m_order.m_clientId = 700;
+	std::get<trade::CSubmitParams>(request.m_params).m_order.m_accountId = nAccountId;
+	std::get<trade::CSubmitParams>(request.m_params).m_order.m_strategyId = 77;
+	std::get<trade::CSubmitParams>(request.m_params).m_order.m_signalId = 78;
+	std::get<trade::CSubmitParams>(request.m_params).m_order.m_strSecurity = "600000.SSE";
+	std::get<trade::CSubmitParams>(request.m_params).m_order.m_nPrice = 1000;
+	std::get<trade::CSubmitParams>(request.m_params).m_order.m_nPriceScale = 2;
+	std::get<trade::CSubmitParams>(request.m_params).m_order.m_nQuantity = 100;
 	std::promise<trade::CCounterReply> completion;
 	std::future<trade::CCounterReply> future = completion.get_future();
 	if (!client.Request(std::move(request), [&completion](const trade::CCounterReply& reply)

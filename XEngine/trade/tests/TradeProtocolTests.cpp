@@ -1,6 +1,35 @@
 #include "TradeProtocol.h"
 #include <iostream>
 #include <stdexcept>
+
+static trade::_TyRequestParams MakeParams(trade::Operation operation)
+{
+	switch (operation)
+	{
+	case trade::Operation::Login:
+		return trade::CLoginParams{};
+	case trade::Operation::Connect:
+		return trade::CConnect{};
+	case trade::Operation::Disconnect:
+		return trade::CDisconnect{};
+	case trade::Operation::Submit:
+		return trade::CSubmitParams{};
+	case trade::Operation::Cancel:
+		return trade::CCancelParams{};
+	case trade::Operation::Funds:
+		return trade::CFundsQuery{};
+	case trade::Operation::Positions:
+		return trade::CPositionsQuery{};
+	case trade::Operation::Orders:
+		return trade::COrdersQuery{};
+	case trade::Operation::Trades:
+		return trade::CTradesQuery{};
+	case trade::Operation::Synchronize:
+		return trade::CSynchronize{};
+	}
+	throw std::runtime_error("invalid operation");
+}
+
 namespace
 {
 	void Check(bool bValue, const char* pMessage)
@@ -92,12 +121,31 @@ int main()
 				 { trade::Operation::Trades, _TyRequest::TRADE_TRADE_QUERY }, { trade::Operation::Synchronize, _TyRequest::TRADE_SYNC_QUERY } })
 		{
 			trade::CRequest operation;
-			operation.m_operation = mapping.first;
+			operation.m_params = MakeParams(mapping.first);
 			operation.m_accountId = 7;
 			operation.m_requestId = 99;
-			operation.m_order = event.m_order;
+			if (trade::CSubmitParams* params = std::get_if<trade::CSubmitParams>(&operation.m_params); nullptr != params)
+			{
+				params->m_order = event.m_order;
+			}
+			if (trade::CLoginParams* params = std::get_if<trade::CLoginParams>(&operation.m_params); nullptr != params)
+			{
+				*params = { "broker", "site", "user", "password" };
+			}
+			if (trade::CCancelParams* params = std::get_if<trade::CCancelParams>(&operation.m_params); nullptr != params)
+			{
+				params->m_orderId = 30;
+			}
 			CRequest wire = trade::protocol::WriteRequest(operation);
 			Check(mapping.second == wire.GetType() && 99 == wire.GetId() && "7" == wire.GetExtraData("account_id"), "uniform request type and identity");
+			if (trade::Operation::Login == mapping.first)
+			{
+				Check("broker" == wire.GetExtraData("broker") && "site" == wire.GetExtraData("site") && "user" == wire.GetExtraData("account") && "password" == wire.GetExtraData("password"), "typed login parameters");
+			}
+			if (trade::Operation::Cancel == mapping.first)
+			{
+				Check("30" == wire.GetExtraData("order_id"), "typed cancellation parameters");
+			}
 			if (trade::Operation::Submit == mapping.first)
 			{
 				Check("10" == wire.GetExtraData("client_order_id") && "600000.SSE" == wire.GetExtraData("security"), "standard submit fields");
