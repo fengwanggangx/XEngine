@@ -107,7 +107,7 @@ namespace trade
 		Operation m_operation{ Operation::Synchronize };
 		Id m_requestId{ 0 }, m_accountId{ 0 }, m_orderId{ 0 };
 		COrder m_order;
-		std::string m_strSecurity, m_strBroker, m_strSite, m_strUser, m_strPassword;
+		std::string m_strBroker, m_strSite, m_strUser, m_strPassword;
 	};
 	struct CAccountData
 	{

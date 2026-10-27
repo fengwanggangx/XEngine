@@ -430,15 +430,12 @@ namespace trade::protocol
 			break;
 		case Operation::Positions:
 			wire.SetType(_TyRequest::TRADE_POSITION_QUERY);
-			wire.SetExtraData("security", request.m_strSecurity);
 			break;
 		case Operation::Orders:
 			wire.SetType(_TyRequest::TRADE_ORDER_QUERY);
-			wire.SetExtraData("security", request.m_strSecurity);
 			break;
 		case Operation::Trades:
 			wire.SetType(_TyRequest::TRADE_TRADE_QUERY);
-			wire.SetExtraData("security", request.m_strSecurity);
 			break;
 		case Operation::Synchronize:
 			wire.SetType(_TyRequest::TRADE_SYNC_QUERY);
