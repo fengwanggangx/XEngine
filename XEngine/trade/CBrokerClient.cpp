@@ -205,7 +205,7 @@ void CBrokerClient::CompleteQuery(const trade::CCounterReply& reply, std::uint64
 {
 	_TyAccountIndex accountIndex = reply.m_accountIndex;
 	EventHandler eventHandler;
-	std::vector<trade::CEvent> notifications;
+	std::vector<trade::CCountEvent> notifications;
 	trade::Operation next = trade::Operation::Funds;
 	bool bNext = false;
 	{
@@ -273,9 +273,9 @@ void CBrokerClient::CompleteQuery(const trade::CCounterReply& reply, std::uint64
 			// Reconcile complete state before the final session-ready notification.
 			for (const auto& order : cached.m_orders)
 			{
-				trade::CEvent event;
+				trade::CCountEvent event;
 				event.m_accountIndex = accountIndex;
-				event.m_kind = trade::EventKind::Order;
+				event.m_kind = trade::EventTy::Order;
 				event.m_order = order;
 				event.m_account = cached.m_account;
 				notifications.emplace_back(std::move(event));
@@ -286,9 +286,9 @@ void CBrokerClient::CompleteQuery(const trade::CCounterReply& reply, std::uint64
 				{
 					continue;
 				}
-				trade::CEvent event;
+				trade::CCountEvent event;
 				event.m_accountIndex = accountIndex;
-				event.m_kind = trade::EventKind::Trade;
+				event.m_kind = trade::EventTy::Deal;
 				event.m_trade = row;
 				event.m_account = cached.m_account;
 				for (const auto& order : cached.m_orders)
@@ -301,7 +301,7 @@ void CBrokerClient::CompleteQuery(const trade::CCounterReply& reply, std::uint64
 				}
 				notifications.emplace_back(std::move(event));
 			}
-			std::stable_sort(pending->second.m_events.begin(), pending->second.m_events.end(), [](const trade::CEvent& lhs, const trade::CEvent& rhs)
+			std::stable_sort(pending->second.m_events.begin(), pending->second.m_events.end(), [](const trade::CCountEvent& lhs, const trade::CCountEvent& rhs)
 			{
 				return lhs.m_sequence < rhs.m_sequence;
 			});
@@ -310,16 +310,16 @@ void CBrokerClient::CompleteQuery(const trade::CCounterReply& reply, std::uint64
 				std::size_t nCategory = 0;
 				switch (event.m_kind)
 				{
-				case trade::EventKind::Position:
+				case trade::EventTy::Position:
 					nCategory = 1;
 					break;
-				case trade::EventKind::Order:
+				case trade::EventTy::Order:
 					nCategory = 2;
 					break;
-				case trade::EventKind::Trade:
+				case trade::EventTy::Deal:
 					nCategory = 3;
 					break;
-				case trade::EventKind::Session:
+				case trade::EventTy::Session:
 					nCategory = 4;
 					break;
 				default:
@@ -334,9 +334,9 @@ void CBrokerClient::CompleteQuery(const trade::CCounterReply& reply, std::uint64
 					notifications.emplace_back(event);
 				}
 			}
-			trade::CEvent session;
+			trade::CCountEvent session;
 			session.m_accountIndex = accountIndex;
-			session.m_kind = trade::EventKind::Session;
+			session.m_kind = trade::EventTy::Session;
 			session.m_account = cached.m_account;
 			notifications.emplace_back(session);
 			eventHandler = m_eventHandler;
@@ -368,18 +368,18 @@ trade::CAccountData CBrokerClient::Snapshot(const _TyAccountIndex& accountIndex)
 	}
 	return iter->second;
 }
-void CBrokerClient::ApplyEvent(trade::CAccountData& data, trade::CEvent& event)
+void CBrokerClient::ApplyEvent(trade::CAccountData& data, trade::CCountEvent& event)
 {
-	if (trade::EventKind::Funds != event.m_kind)
+	if (trade::EventTy::Funds != event.m_kind)
 	{
 		bool bConnected = event.m_account.m_bConnected;
 		event.m_account = data.m_account;
-		if (trade::EventKind::Session == event.m_kind)
+		if (trade::EventTy::Session == event.m_kind)
 		{
 			event.m_account.m_bConnected = bConnected;
 		}
 	}
-	if (trade::EventKind::Trade == event.m_kind)
+	if (trade::EventTy::Deal == event.m_kind)
 	{
 		for (const auto& order : data.m_orders)
 		{
@@ -392,17 +392,13 @@ void CBrokerClient::ApplyEvent(trade::CAccountData& data, trade::CEvent& event)
 	}
 	trade::UpdateAccountData(data, event);
 }
-std::vector<trade::Operation> CBrokerClient::Capabilities() const
-{
-	return {}; // Per-account capabilities are queried from XBroker, never inferred here.
-}
 void CBrokerClient::OnResponse(const CRequest& response)
 {
 	WireHandler handler;
 	EventHandler eventHandler;
 	if (0 == response.GetId())
 	{
-		trade::CEvent event;
+		trade::CCountEvent event;
 		if (!trade::protocol::ReadPush(response, event))
 		{
 			return;
@@ -428,7 +424,7 @@ void CBrokerClient::OnResponse(const CRequest& response)
 				return;
 			}
 			ApplyEvent(iter->second, event);
-			if (trade::EventKind::Session == event.m_kind)
+			if (trade::EventTy::Session == event.m_kind)
 			{
 				iter->second.m_bReady = false;
 			}
@@ -462,7 +458,7 @@ void CBrokerClient::OnState(SessionState state)
 		return;
 	}
 	EventHandler handler;
-	std::vector<trade::CEvent> events;
+	std::vector<trade::CCountEvent> events;
 	{
 		std::lock_guard<std::mutex> lock(m_mtx_state);
 		handler = m_eventHandler;
@@ -472,7 +468,7 @@ void CBrokerClient::OnState(SessionState state)
 		{
 			item.second.m_bReady = false;
 			item.second.m_account.m_bConnected = false;
-			trade::CEvent event;
+			trade::CCountEvent event;
 			event.m_accountIndex = item.first;
 			event.m_account = item.second.m_account;
 			events.emplace_back(event);
@@ -532,7 +528,7 @@ void CBrokerClient::Refresh()
 		return;
 	}
 	CRequest query;
-	query.SetType(_TyRequest::TRADE_ACCOUNT_QUERY);
+	query.SetType(_TyRequest::TRADE_ACCOUNT_LIST_QUERY);
 	Forward(std::move(query), [this](const CRequest& response)
 	{
 		if (response.GetErrorInfo().has_value() || !response.GetData().has_account_list())

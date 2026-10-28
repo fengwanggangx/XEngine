@@ -23,13 +23,13 @@ int main(int nArgs, char** pArgs)
 	CBrokerClient client(info);
 	std::atomic_int nEvents{ 0 };
 	std::atomic_bool bTradeCorrelated{ false };
-	client.SetEventHandler([&nEvents, &bTradeCorrelated](const trade::CEvent& event)
+	client.SetEventHandler([&nEvents, &bTradeCorrelated](const trade::CCountEvent& event)
 	{
-		if (trade::EventKind::Trade == event.m_kind && 700 == event.m_order.m_clientId && 77 == event.m_order.m_strategyId)
+		if (trade::EventTy::Deal == event.m_kind && 700 == event.m_order.m_clientId && 77 == event.m_order.m_strategyId)
 		{
 			bTradeCorrelated.store(true);
 		}
-		if (trade::EventKind::Order == event.m_kind)
+		if (trade::EventTy::Order == event.m_kind)
 		{
 			++nEvents;
 		}

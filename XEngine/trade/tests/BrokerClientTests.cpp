@@ -38,8 +38,8 @@ class CBrokerClientTests
 
 	static CRequest FundsPush(std::uint64_t nSequence, std::int64_t nBalance)
 	{
-		trade::CEvent event;
-		event.m_kind = trade::EventKind::Funds;
+		trade::CCountEvent event;
+		event.m_kind = trade::EventTy::Funds;
 		event.m_accountIndex = TestAccount(1);
 		event.m_sequence = nSequence;
 		event.m_account = { TestAccount(1), nBalance, 0, true, true };
@@ -51,9 +51,9 @@ public:
 	{
 		CBrokerClient client(CLoginInfo{});
 		int nFunds = 0;
-		client.SetEventHandler([&nFunds](const trade::CEvent& event)
+		client.SetEventHandler([&nFunds](const trade::CCountEvent& event)
 		{
-			if (trade::EventKind::Funds == event.m_kind)
+			if (trade::EventTy::Funds == event.m_kind)
 			{
 				++nFunds;
 			}
@@ -74,7 +74,7 @@ public:
 		query.m_version = 100;
 		query.m_data = trade::CAccount{ TestAccount(1), 999, 0, true, true };
 		CRequest response;
-		response.SetType(_TyRequest::TRADE_ACCOUNT_INFO_QUERY);
+		response.SetType(_TyRequest::TRADE_FUNDS_QUERY);
 		trade::protocol::WriteReply(query, response);
 		client.CompleteRequest(response, TestAccount(1), 2, trade::Operation::Funds, 0, {});
 		Check(25 == client.Snapshot(TestAccount(1)).m_version && 150 == client.Snapshot(TestAccount(1)).m_account.m_nBalance, "ordinary query never replaces account cache");

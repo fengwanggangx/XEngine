@@ -219,7 +219,7 @@ namespace trade
 			Read(stream, value.m_nResume);
 			Read(stream, value.m_nClose);
 		}
-		void Write(std::ostream& stream, const CEvent& value)
+		void Write(std::ostream& stream, const CCountEvent& value)
 		{
 			Write(stream, value.m_sequence);
 			Write(stream, value.m_requestId);
@@ -230,7 +230,7 @@ namespace trade
 			Write(stream, value.m_account);
 			Write(stream, value.m_position);
 		}
-		void Read(std::istream& stream, CEvent& value)
+		void Read(std::istream& stream, CCountEvent& value)
 		{
 			Read(stream, value.m_sequence);
 			Read(stream, value.m_requestId);
@@ -403,7 +403,7 @@ namespace trade
 		next.m_events.reserve(nCount);
 		for (std::size_t nIndex = 0; nIndex < nCount; ++nIndex)
 		{
-			CEvent event;
+			CCountEvent event;
 			Read(stream, event);
 			if (!stream)
 			{
@@ -453,7 +453,7 @@ namespace trade
 			rows.push_back(row);
 		}
 	} // namespace
-	void UpdateAccountData(CAccountData& snapshot, const CEvent& event)
+	void UpdateAccountData(CAccountData& snapshot, const CCountEvent& event)
 	{
 		if (!IsAccountValid(snapshot.m_account.m_accountIndex) || snapshot.m_account.m_accountIndex != event.m_accountIndex)
 		{
@@ -463,7 +463,7 @@ namespace trade
 		snapshot.m_version = event.m_sequence;
 		switch (event.m_kind)
 		{
-		case EventKind::Order:
+		case EventTy::Order:
 			if (0 != event.m_order.m_orderId)
 			{
 				UpdateRow(snapshot.m_orders, event.m_order, [&event](const COrder& row)
@@ -472,13 +472,13 @@ namespace trade
 				});
 			}
 			break;
-		case EventKind::Trade:
+		case EventTy::Deal:
 			UpdateRow(snapshot.m_trades, event.m_trade, [&event](const CTrade& row)
 			{
 				return event.m_trade.m_tradeId == row.m_tradeId;
 			});
 			break;
-		case EventKind::Position:
+		case EventTy::Position:
 			UpdateRow(snapshot.m_positions, event.m_position, [&event](const CPosition& row)
 			{
 				return event.m_accountIndex == row.m_accountIndex && event.m_position.m_strSecurity == row.m_strSecurity;

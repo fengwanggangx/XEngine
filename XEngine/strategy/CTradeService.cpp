@@ -41,7 +41,7 @@ bool CTradeService::Initialize(CSession&)
 	info.m_host.m_strHost = config.GetValue(ini::Config::System, "Broker", "host", std::string("127.0.0.1"));
 	info.m_host.m_nPort = config.GetValue(ini::Config::System, "Broker", "port", 9803);
 	m_broker = std::make_shared<CBrokerClient>(info);
-	m_broker->SetEventHandler([this](const trade::CEvent& event)
+	m_broker->SetEventHandler([this](const trade::CCountEvent& event)
 	{
 		OnEvent(event);
 	});
@@ -182,8 +182,8 @@ COrderSubmitResult CTradeService::Submit(const COrderIntent& intent)
 	{
 		if ((trade::Error::Rejected == reply.m_result.m_error) || (trade::Error::Unsupported == reply.m_result.m_error) || (trade::Error::Conflict == reply.m_result.m_error) || (trade::Error::NotFound == reply.m_result.m_error))
 		{
-			trade::CEvent event;
-			event.m_kind = trade::EventKind::Order;
+			trade::CCountEvent event;
+			event.m_kind = trade::EventTy::Order;
 			event.m_accountIndex = order.m_accountIndex;
 			event.m_order = order;
 			event.m_order.m_status = trade::Status::Rejected;
@@ -326,7 +326,7 @@ void CTradeService::SetAccountReadyHandler(_TyAccountReadyHandler&& handler)
 	std::lock_guard<std::mutex> lock(m_mtx_accounts);
 	m_accountReadyHandler = std::move(handler);
 }
-void CTradeService::OnEvent(const trade::CEvent& event)
+void CTradeService::OnEvent(const trade::CCountEvent& event)
 {
 	_TyOrderEventHandler orderHandler;
 	_TyTradeEventHandler tradeHandler;
@@ -352,11 +352,11 @@ void CTradeService::OnEvent(const trade::CEvent& event)
 		{
 			return;
 		}
-		if (trade::EventKind::Session == event.m_kind)
+		if (trade::EventTy::Session == event.m_kind)
 		{
 			mIter->second.m_info.m_state = event.m_account.m_bConnected ? TradeAccountState::Connected : TradeAccountState::Disconnected;
 		}
-		if (trade::EventKind::Order == event.m_kind)
+		if (trade::EventTy::Order == event.m_kind)
 		{
 			if (0 != event.m_order.m_orderId)
 			{
@@ -371,12 +371,12 @@ void CTradeService::OnEvent(const trade::CEvent& event)
 			}
 		}
 	}
-	if (trade::EventKind::Order == event.m_kind && nullptr != orderHandler)
+	if (trade::EventTy::Order == event.m_kind && nullptr != orderHandler)
 	{
 		COrderEvent order = trade::protocol::OrderEvent(event);
 		orderHandler(order);
 	}
-	if (trade::EventKind::Trade == event.m_kind && nullptr != tradeHandler)
+	if (trade::EventTy::Deal == event.m_kind && nullptr != tradeHandler)
 	{
 		CTradeEvent trade = trade::protocol::TradeEvent(event);
 		tradeHandler(trade);
@@ -384,7 +384,7 @@ void CTradeService::OnEvent(const trade::CEvent& event)
 	if (nullptr != pushHandler)
 	{
 		CTradeAccountInfo account;
-		if (trade::EventKind::Session == event.m_kind)
+		if (trade::EventTy::Session == event.m_kind)
 		{
 			std::lock_guard<std::mutex> lock(m_mtx_accounts);
 			account = m_accounts.at(event.m_accountIndex).m_info;
@@ -392,7 +392,7 @@ void CTradeService::OnEvent(const trade::CEvent& event)
 		CRequest push = trade::protocol::Push(event, account);
 		pushHandler(push);
 	}
-	if (trade::EventKind::Session == event.m_kind && event.m_account.m_bConnected && nullptr != readyHandler)
+	if (trade::EventTy::Session == event.m_kind && event.m_account.m_bConnected && nullptr != readyHandler)
 	{
 		readyHandler(event.m_accountIndex);
 	}

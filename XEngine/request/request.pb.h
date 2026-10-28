@@ -148,9 +148,9 @@ enum RequestType : int {
   AUTH_REGISTER = 3,
   HEARTBEAT = 6,
   TRADE_ACCOUNT_LOGIN = 8,
-  TRADE_ACCOUNT_QUERY = 9,
+  TRADE_ACCOUNT_LIST_QUERY = 9,
   TRADE_ACCOUNT_DISCONNECT = 13,
-  TRADE_ACCOUNT_INFO_QUERY = 14,
+  TRADE_FUNDS_QUERY = 14,
   STRATEGY_ADD = 20,
   STRATEGY_MODIFY = 21,
   STRATEGY_QUERY = 22,
@@ -172,15 +172,13 @@ enum RequestType : int {
   TRADE_ORDER_CANCEL = 50,
   TRADE_POSITION_QUERY = 51,
   TRADE_ORDER_QUERY = 52,
-  TRADE_TRADE_QUERY = 53,
+  TRADE_DEAL_QUERY = 53,
   TRADE_ACCOUNT_STATE_PUSH = 54,
   TRADE_ORDER_PUSH = 55,
   TRADE_TRADE_PUSH = 56,
   TRADE_ACCOUNT_INFO_PUSH = 57,
   TRADE_POSITION_PUSH = 58,
-  TRADE_CAPABILITIES_QUERY = 60,
-  BROKER_QUERY = 61,
-  SIMULATED_ACCOUNT_OPEN = 62,
+  SUPPORTED_BROKER_QUERY = 61,
   RequestType_INT_MIN_SENTINEL_DO_NOT_USE_ =
       std::numeric_limits<::int32_t>::min(),
   RequestType_INT_MAX_SENTINEL_DO_NOT_USE_ =
@@ -190,8 +188,8 @@ enum RequestType : int {
 bool RequestType_IsValid(int value);
 extern const uint32_t RequestType_internal_data_[];
 constexpr RequestType RequestType_MIN = static_cast<RequestType>(0);
-constexpr RequestType RequestType_MAX = static_cast<RequestType>(62);
-constexpr int RequestType_ARRAYSIZE = 62 + 1;
+constexpr RequestType RequestType_MAX = static_cast<RequestType>(61);
+constexpr int RequestType_ARRAYSIZE = 61 + 1;
 const ::google::protobuf::EnumDescriptor*
 RequestType_descriptor();
 template <typename T>
@@ -204,7 +202,7 @@ const std::string& RequestType_Name(T value) {
 template <>
 inline const std::string& RequestType_Name(RequestType value) {
   return ::google::protobuf::internal::NameOfDenseEnum<RequestType_descriptor,
-                                                 0, 62>(
+                                                 0, 61>(
       static_cast<int>(value));
 }
 inline bool RequestType_Parse(absl::string_view name, RequestType* value) {

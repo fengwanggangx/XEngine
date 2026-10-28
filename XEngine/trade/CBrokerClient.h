@@ -17,7 +17,6 @@ public:
 	trade::CResult Request(trade::CReqParam request, ReplyHandler handler) override;
 	void SetEventHandler(EventHandler handler) override;
 	trade::CAccountData Snapshot(const _TyAccountIndex& accountIndex) const override;
-	std::vector<trade::Operation> Capabilities() const override;
 	void Stop() override;
 
 private:
@@ -30,7 +29,7 @@ private:
 		_TyRequest m_type{ _TyRequest::UNKNOWN };
 	};
 	void OnResponse(const CRequest& response);
-	void ApplyEvent(trade::CAccountData& data, trade::CEvent& event);
+	void ApplyEvent(trade::CAccountData& data, trade::CCountEvent& event);
 	void OnState(SessionState state);
 	void Refresh();
 	void QueryAccount(const _TyAccountIndex& accountIndex);
@@ -43,7 +42,7 @@ private:
 	std::map<_TyAccountIndex, trade::CAccountData> m_snapshots;
 	struct CSync
 	{
-		std::vector<trade::CEvent> m_events;
+		std::vector<trade::CCountEvent> m_events;
 		trade::CAccountData m_data;
 		std::array<std::uint64_t, 5> m_versions{};
 		std::uint64_t m_cycle{ 0 };

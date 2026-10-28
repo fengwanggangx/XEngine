@@ -45,11 +45,11 @@ namespace trade
 		Expired,
 		Rejected
 	};
-	enum class EventKind
+	enum class EventTy
 	{
 		Session,
 		Order,
-		Trade,
+		Deal,
 		Funds,
 		Position
 	};
@@ -94,11 +94,11 @@ namespace trade
 		std::int64_t m_nPrice{ 0 }, m_nQuantity{ 0 }, m_nFee{ 0 }, m_nTime{ 0 };
 		int m_nPriceScale{ 2 };
 	};
-	struct CEvent
+	struct CCountEvent
 	{
 		std::uint64_t m_sequence{ 0 }, m_requestId{ 0 };
 		_TyAccountIndex m_accountIndex{};
-		EventKind m_kind{ EventKind::Session };
+		EventTy m_kind{ EventTy::Session };
 		COrder m_order;
 		CTrade m_trade;
 		CAccount m_account;
@@ -226,12 +226,12 @@ namespace trade
 		std::map<std::pair<_TyAccountIndex, std::string>, CPosition> m_positions;
 		std::map<std::uint64_t, COrder> m_orders;
 		std::map<std::uint64_t, CTrade> m_trades;
-		std::vector<CEvent> m_events;
+		std::vector<CCountEvent> m_events;
 		std::map<std::pair<int, std::string>, CRule> m_rules;
 		std::map<int, CCalendar> m_calendar;
 		std::map<std::string, std::pair<std::int64_t, std::uint64_t>> m_consumedBooks;
 	};
-	void UpdateAccountData(CAccountData& snapshot, const CEvent& event);
+	void UpdateAccountData(CAccountData& snapshot, const CCountEvent& event);
 	void ApplyChanges(CState& state, const CState& changes);
 	bool IsActive(Status status);
 	std::string EncodeState(const CState& state);

@@ -50,7 +50,7 @@ private:
 	std::shared_ptr<CBrokerClient> m_broker;
 	using _TyTradeEventHandler = std::function<void(const CTradeEvent&)>;
 	_TyTradeEventHandler m_tradeHandler;
-	void OnEvent(const trade::CEvent& event);
+	void OnEvent(const trade::CCountEvent& event);
 
 public:
 	void SetTradeEventHandler(_TyTradeEventHandler&& handler);
