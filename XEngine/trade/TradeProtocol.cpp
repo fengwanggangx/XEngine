@@ -198,6 +198,7 @@ namespace trade::protocol
 	{
 		request::TradeAccountRecord payload;
 		SetAccountIdentity(AccountIndex(info), payload);
+		payload.set_site(info.m_strSite);
 		payload.set_broker_name(info.m_strBrokerName);
 		payload.set_name(info.m_strName);
 		payload.set_state(static_cast<request::TradingAccountState>(info.m_state));
@@ -211,9 +212,8 @@ namespace trade::protocol
 		push.SetId(0);
 		push.SetExtraData("sequence", std::to_string(event.m_sequence));
 		push.SetExtraData("request_id", std::to_string(event.m_requestId));
-		push.SetExtraData("broker_id", std::to_string(std::get<0>(event.m_accountIndex)));
-		push.SetExtraData("site", std::get<1>(event.m_accountIndex));
-		push.SetExtraData("account", std::get<2>(event.m_accountIndex));
+		push.SetExtraData("broker_id", std::to_string(event.m_accountIndex.first));
+		push.SetExtraData("account", event.m_accountIndex.second);
 		switch (event.m_kind)
 		{
 		case trade::EventTy::Session:
@@ -359,9 +359,8 @@ namespace trade::protocol
 	{
 		::CRequest wire;
 		wire.SetId(request.m_requestId);
-		wire.SetExtraData("broker_id", std::to_string(std::get<0>(request.m_accountIndex)));
-		wire.SetExtraData("site", std::get<1>(request.m_accountIndex));
-		wire.SetExtraData("account", std::get<2>(request.m_accountIndex));
+		wire.SetExtraData("broker_id", std::to_string(request.m_accountIndex.first));
+		wire.SetExtraData("account", request.m_accountIndex.second);
 		switch (request.GetOperation())
 		{
 		case Operation::Login:
@@ -369,6 +368,7 @@ namespace trade::protocol
 			const CLoginParam& params = std::get<CLoginParam>(request.m_param);
 			wire.SetType(_TyRequest::TRADE_ACCOUNT_LOGIN);
 			wire.SetExtraData("password", params.m_strPassword);
+			wire.SetExtraData("site", params.m_strSite);
 			break;
 		}
 		case Operation::Connect:

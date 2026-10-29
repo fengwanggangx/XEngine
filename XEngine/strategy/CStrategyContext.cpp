@@ -5,7 +5,7 @@
 
 #include <iostream>
 
-CStrategyContext::CStrategyContext(_TyStrategyId strategyId, const _TyAccountIndex& accountIndex, CStrategyEngine* pEngine, CTradeService* pSnapshotProvider) : m_strategyId(strategyId), m_pEngine(pEngine), m_accountIndex(accountIndex), m_pSnapshotProvider(pSnapshotProvider)
+CStrategyContext::CStrategyContext(_TyStrategyId strategyId, const _TyAccount& accountIndex, CStrategyEngine* pEngine, CTradeService* pSnapshotProvider) : m_strategyId(strategyId), m_pEngine(pEngine), m_accountIndex(accountIndex), m_pSnapshotProvider(pSnapshotProvider)
 {
 }
 

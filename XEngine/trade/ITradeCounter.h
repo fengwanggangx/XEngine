@@ -13,7 +13,7 @@ namespace trade
 		// This receipt means queued only. Business acceptance is delivered in the reply/events.
 		virtual CResult Request(CReqParam request, ReplyHandler handler) = 0;
 		virtual void SetEventHandler(EventHandler handler) = 0;
-		virtual CAccountData Snapshot(const _TyAccountIndex& accountIndex) const = 0;
+		virtual CAccountData Snapshot(const _TyAccount& accountIndex) const = 0;
 		virtual void Stop() = 0;
 	};
 	class ICounterStore

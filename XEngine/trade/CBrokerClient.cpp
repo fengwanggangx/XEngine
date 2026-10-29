@@ -100,9 +100,9 @@ trade::CResult CBrokerClient::Request(trade::CReqParam request, ReplyHandler han
 {
 	if (!IsAccountValid(request.m_accountIndex))
 	{
-		return { trade::Error::NotFound, "broker_id/site/account required" };
+		return { trade::Error::NotFound, "broker_id/account required" };
 	}
-	_TyAccountIndex accountIndex = request.m_accountIndex;
+	_TyAccount accountIndex = request.m_accountIndex;
 	std::uint64_t nRequestId = request.m_requestId;
 	trade::Operation operation = request.GetOperation();
 	std::uint64_t nGeneration = 0;
@@ -117,7 +117,7 @@ trade::CResult CBrokerClient::Request(trade::CReqParam request, ReplyHandler han
 	});
 	return bQueued ? trade::CResult{} : trade::CResult{ trade::Error::Unavailable, "XBroker is unavailable" };
 }
-void CBrokerClient::CompleteRequest(const CRequest& response, const _TyAccountIndex& accountIndex, std::uint64_t nRequestId, trade::Operation operation, std::uint64_t nGeneration, const ReplyHandler& handler)
+void CBrokerClient::CompleteRequest(const CRequest& response, const _TyAccount& accountIndex, std::uint64_t nRequestId, trade::Operation operation, std::uint64_t nGeneration, const ReplyHandler& handler)
 {
 	trade::CCounterReply reply;
 	if (!trade::protocol::ReadReply(response, reply) || (reply.m_result.Ok() && (accountIndex != reply.m_accountIndex || operation != reply.m_operation)))
@@ -142,7 +142,7 @@ void CBrokerClient::CompleteRequest(const CRequest& response, const _TyAccountIn
 	}
 }
 
-void CBrokerClient::QueryAccount(const _TyAccountIndex& accountIndex)
+void CBrokerClient::QueryAccount(const _TyAccount& accountIndex)
 {
 	std::uint64_t nGeneration = 0;
 	std::uint64_t nCycle = m_nNextId.fetch_add(1);
@@ -158,7 +158,7 @@ void CBrokerClient::QueryAccount(const _TyAccountIndex& accountIndex)
 	QueryNext(accountIndex, nGeneration, nCycle, trade::Operation::Funds);
 }
 
-void CBrokerClient::QueryNext(const _TyAccountIndex& accountIndex, std::uint64_t nGeneration, std::uint64_t nCycle, trade::Operation operation)
+void CBrokerClient::QueryNext(const _TyAccount& accountIndex, std::uint64_t nGeneration, std::uint64_t nCycle, trade::Operation operation)
 {
 	{
 		std::lock_guard<std::mutex> lock(m_mtx_state);
@@ -203,7 +203,7 @@ void CBrokerClient::QueryNext(const _TyAccountIndex& accountIndex, std::uint64_t
 
 void CBrokerClient::CompleteQuery(const trade::CCounterReply& reply, std::uint64_t nGeneration, std::uint64_t nCycle)
 {
-	_TyAccountIndex accountIndex = reply.m_accountIndex;
+	_TyAccount accountIndex = reply.m_accountIndex;
 	EventHandler eventHandler;
 	std::vector<trade::CCountEvent> notifications;
 	trade::Operation next = trade::Operation::Funds;
@@ -356,7 +356,7 @@ void CBrokerClient::CompleteQuery(const trade::CCounterReply& reply, std::uint64
 	}
 }
 
-trade::CAccountData CBrokerClient::Snapshot(const _TyAccountIndex& accountIndex) const
+trade::CAccountData CBrokerClient::Snapshot(const _TyAccount& accountIndex) const
 {
 	std::lock_guard<std::mutex> lock(m_mtx_state);
 	auto iter = m_snapshots.find(accountIndex);

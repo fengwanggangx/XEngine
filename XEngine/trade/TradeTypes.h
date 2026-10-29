@@ -64,7 +64,7 @@ namespace trade
 	};
 	struct COrder
 	{
-		_TyAccountIndex m_accountIndex{};
+		_TyAccount m_accountIndex{};
 		std::uint64_t m_clientId{ 0 }, m_orderId{ 0 }, m_requestId{ 0 }, m_strategyId{ 0 }, m_signalId{ 0 };
 		std::string m_strSecurity;
 		Side m_side{ Side::Buy };
@@ -75,20 +75,20 @@ namespace trade
 	};
 	struct CPosition
 	{
-		_TyAccountIndex m_accountIndex{};
+		_TyAccount m_accountIndex{};
 		std::string m_strSecurity;
 		std::int64_t m_nTotal{ 0 }, m_nAvailable{ 0 }, m_nFrozen{ 0 }, m_nToday{ 0 }, m_nCost{ 0 };
 	};
 	struct CAccount
 	{
-		_TyAccountIndex m_accountIndex{};
+		_TyAccount m_accountIndex{};
 		std::int64_t m_nBalance{ 0 }, m_nFrozen{ 0 };
 		bool m_bConnected{ false }, m_bMigrated{ true };
 	};
 	struct CTrade
 	{
 		std::uint64_t m_tradeId{ 0 }, m_orderId{ 0 };
-		_TyAccountIndex m_accountIndex{};
+		_TyAccount m_accountIndex{};
 		std::string m_strSecurity;
 		Side m_side{ Side::Buy };
 		std::int64_t m_nPrice{ 0 }, m_nQuantity{ 0 }, m_nFee{ 0 }, m_nTime{ 0 };
@@ -97,7 +97,7 @@ namespace trade
 	struct CCountEvent
 	{
 		std::uint64_t m_sequence{ 0 }, m_requestId{ 0 };
-		_TyAccountIndex m_accountIndex{};
+		_TyAccount m_accountIndex{};
 		EventTy m_kind{ EventTy::Session };
 		COrder m_order;
 		CTrade m_trade;
@@ -108,6 +108,7 @@ namespace trade
 	{
 		static constexpr Operation m_operation{ Operation::Login };
 		std::string m_strPassword;
+		std::string m_strSite;
 	};
 
 	struct CConnectParam
@@ -157,7 +158,7 @@ namespace trade
 	struct CReqParam
 	{
 		std::uint64_t m_requestId{ 0 };
-		_TyAccountIndex m_accountIndex{};
+		_TyAccount m_accountIndex{};
 		_TyRequestParam m_param{ CFundsQueryParam{} };
 
 		Operation GetOperation() const
@@ -186,7 +187,7 @@ namespace trade
 	struct CCounterReply
 	{
 		std::uint64_t m_requestId{ 0 };
-		_TyAccountIndex m_accountIndex{};
+		_TyAccount m_accountIndex{};
 		Operation m_operation{ Operation::Funds };
 		CResult m_result;
 		std::uint64_t m_version{ 0 };
@@ -222,8 +223,8 @@ namespace trade
 	{
 		std::uint64_t m_nextOrder{ 1 }, m_nextTrade{ 1 }, m_sequence{ 0 };
 		int m_nSettledDay{ 0 }, m_nClosedDay{ 0 };
-		std::map<_TyAccountIndex, CAccount> m_accounts;
-		std::map<std::pair<_TyAccountIndex, std::string>, CPosition> m_positions;
+		std::map<_TyAccount, CAccount> m_accounts;
+		std::map<std::pair<_TyAccount, std::string>, CPosition> m_positions;
 		std::map<std::uint64_t, COrder> m_orders;
 		std::map<std::uint64_t, CTrade> m_trades;
 		std::vector<CCountEvent> m_events;

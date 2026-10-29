@@ -287,7 +287,7 @@ bool CStrategyEngine::Initialize()
 	}
 	m_trader->SetOrderEventHandler(std::bind_front(&CStrategyEngine::OnOrderEvent, this));
 	m_trader->SetTradeEventHandler(std::bind_front(&CStrategyEngine::OnTradeEvent, this));
-	m_trader->SetAccountReadyHandler([this](const _TyAccountIndex& accountIndex)
+	m_trader->SetAccountReadyHandler([this](const _TyAccount& accountIndex)
 	{
 		std::vector<_TyStrategyId> deferred;
 		{
@@ -428,7 +428,7 @@ bool CStrategyEngine::ModifyStrategy(const CRequest& req)
 			return false;
 		}
 		const db::CTable& account = lookup->ExecQuery("SELECT account_identity FROM table_strategy WHERE strategy_id=" + std::to_string(info.strategy_id()));
-		_TyAccountIndex accountIndex;
+		_TyAccount accountIndex;
 		if (account.m_rows.empty() || account.m_rows.front().empty() || !DecodeAccount(db::to_string(account.m_rows.front().front()), accountIndex))
 		{
 			net::SendError(req.GetConnectionId(), req, 1110, "strategy does not exist");

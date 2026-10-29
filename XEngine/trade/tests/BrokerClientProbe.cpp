@@ -1,9 +1,9 @@
 #include "../CBrokerClient.h"
 #include <future>
 #include <iostream>
-static _TyAccountIndex TestAccount(std::uint64_t number)
+static _TyAccount TestAccount(std::uint64_t number)
 {
-	return 0 == number ? _TyAccountIndex{} : _TyAccountIndex{ 1, "default", std::to_string(number) };
+	return 0 == number ? _TyAccount{} : _TyAccount{ 1, std::to_string(number) };
 }
 
 int main(int nArgs, char** pArgs)
@@ -19,7 +19,7 @@ int main(int nArgs, char** pArgs)
 	info.m_host.m_strName = "Broker";
 	info.m_host.m_strHost = "127.0.0.1";
 	info.m_host.m_nPort = static_cast<unsigned int>(std::stoul(pArgs[1]));
-	_TyAccountIndex accountIndex = { 1, "default", pArgs[3] };
+	_TyAccount accountIndex = { 1, pArgs[3] };
 	CBrokerClient client(info);
 	std::atomic_int nEvents{ 0 };
 	std::atomic_bool bTradeCorrelated{ false };

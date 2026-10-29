@@ -46,7 +46,7 @@ enum class LogLevel
 
 struct CStrategyConfig
 {
-	_TyAccountIndex m_accountIndex{};
+	_TyAccount m_accountIndex{};
 	_TyStrategyId m_strategyId{ 0 };
 	std::string m_strType;
 	std::string m_strName;

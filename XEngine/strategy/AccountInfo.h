@@ -26,15 +26,16 @@ struct CTradeAccountInfo
 	std::string m_strLastError;
 };
 
-inline _TyAccountIndex AccountIndex(const CTradeAccountInfo& info)
+inline _TyAccount AccountIndex(const CTradeAccountInfo& info)
 {
-	return { info.m_brokerId, info.m_strSite, info.m_strAccount };
+	return { info.m_brokerId, info.m_strAccount };
 }
 
-inline CTradeAccountInfo AccountInfo(const _TyAccountIndex& index)
+inline CTradeAccountInfo AccountInfo(const _TyAccount& index)
 {
 	CTradeAccountInfo info;
-	std::tie(info.m_brokerId, info.m_strSite, info.m_strAccount) = index;
+	info.m_brokerId = index.first;
+	info.m_strAccount = index.second;
 	return info;
 }
 

@@ -45,17 +45,15 @@ namespace trade
 		{
 			stream >> std::quoted(strValue);
 		}
-		void Write(std::ostream& stream, const _TyAccountIndex& account)
+		void Write(std::ostream& stream, const _TyAccount& account)
 		{
-			Write(stream, std::get<0>(account));
-			Write(stream, std::get<1>(account));
-			Write(stream, std::get<2>(account));
+			Write(stream, account.first);
+			Write(stream, account.second);
 		}
-		void Read(std::istream& stream, _TyAccountIndex& account)
+		void Read(std::istream& stream, _TyAccount& account)
 		{
-			Read(stream, std::get<0>(account));
-			Read(stream, std::get<1>(account));
-			Read(stream, std::get<2>(account));
+			Read(stream, account.first);
+			Read(stream, account.second);
 		}
 		void Write(std::ostream& stream, const CAccount& value)
 		{
@@ -245,7 +243,7 @@ namespace trade
 	std::string EncodeState(const CState& state)
 	{
 		std::ostringstream stream;
-		stream << "COUNTER2 ";
+		stream << "COUNTER3 ";
 		Write(stream, state.m_nextOrder);
 		Write(stream, state.m_nextTrade);
 		Write(stream, state.m_sequence);
@@ -300,7 +298,7 @@ namespace trade
 		std::istringstream stream(strData);
 		std::string strMagic;
 		stream >> strMagic;
-		if ("COUNTER2" != strMagic)
+		if ("COUNTER3" != strMagic)
 		{
 			return false;
 		}

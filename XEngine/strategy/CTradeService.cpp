@@ -96,22 +96,22 @@ void CTradeService::SetTradeEventHandler(_TyTradeEventHandler&& handler)
 	std::lock_guard<std::mutex> lock(m_mtx_accounts);
 	m_tradeHandler = std::move(handler);
 }
-std::shared_ptr<trade::ITradeCounter> CTradeService::FindService(const _TyAccountIndex& accountIndex) const
+std::shared_ptr<trade::ITradeCounter> CTradeService::FindService(const _TyAccount& accountIndex) const
 {
 	std::lock_guard<std::mutex> lock(m_mtx_accounts);
 	const auto mIter = m_accounts.find(accountIndex);
 	return ((m_accounts.end() == mIter) || (TradeAccountState::Connected != mIter->second.m_info.m_state)) ? nullptr : mIter->second.m_counter;
 }
-bool CTradeService::HasAccount(const _TyAccountIndex& accountIndex) const
+bool CTradeService::HasAccount(const _TyAccount& accountIndex) const
 {
 	std::lock_guard<std::mutex> lock(m_mtx_accounts);
 	return m_accounts.contains(accountIndex);
 }
-bool CTradeService::IsConnected(const _TyAccountIndex& accountIndex) const
+bool CTradeService::IsConnected(const _TyAccount& accountIndex) const
 {
 	return GetAccount(accountIndex).m_bReady;
 }
-bool CTradeService::BeginStrategy(const _TyAccountIndex& accountIndex, _TyStrategyId strategyId)
+bool CTradeService::BeginStrategy(const _TyAccount& accountIndex, _TyStrategyId strategyId)
 {
 	if (!GetAccount(accountIndex).m_bReady)
 	{
@@ -126,7 +126,7 @@ bool CTradeService::BeginStrategy(const _TyAccountIndex& accountIndex, _TyStrate
 	m_runningStrategies[accountIndex].emplace(strategyId);
 	return true;
 }
-void CTradeService::EndStrategy(const _TyAccountIndex& accountIndex, _TyStrategyId strategyId)
+void CTradeService::EndStrategy(const _TyAccount& accountIndex, _TyStrategyId strategyId)
 {
 	std::lock_guard<std::mutex> lock(m_mtx_accounts);
 	const auto mIter = m_accounts.find(accountIndex);
@@ -135,7 +135,7 @@ void CTradeService::EndStrategy(const _TyAccountIndex& accountIndex, _TyStrategy
 		m_runningStrategies[accountIndex].erase(strategyId);
 	}
 }
-bool CTradeService::HasActiveOrders(const _TyAccountIndex& accountIndex) const
+bool CTradeService::HasActiveOrders(const _TyAccount& accountIndex) const
 {
 	std::shared_ptr<trade::ITradeCounter> service = FindService(accountIndex);
 	if (nullptr == service)
@@ -194,7 +194,7 @@ COrderSubmitResult CTradeService::Submit(const COrderIntent& intent)
 }
 bool CTradeService::Cancel(_TyStrategyId strategyId, _TyOrderId orderId)
 {
-	_TyAccountIndex accountIndex;
+	_TyAccount accountIndex;
 	{
 		std::lock_guard<std::mutex> lock(m_mtx_accounts);
 		const auto mIter = m_orderAccounts.find({ strategyId, orderId });
@@ -226,7 +226,7 @@ CAccountSnapshot CTradeService::GetAccount() const
 {
 	return {};
 }
-CAccountSnapshot CTradeService::GetAccount(const _TyAccountIndex& accountIndex) const
+CAccountSnapshot CTradeService::GetAccount(const _TyAccount& accountIndex) const
 {
 	std::shared_ptr<trade::ITradeCounter> service = FindService(accountIndex);
 	CAccountSnapshot result;
@@ -254,7 +254,7 @@ CPositionSnapshot CTradeService::GetPosition(const CSecurity& security) const
 	result.m_security = security;
 	return result;
 }
-CPositionSnapshot CTradeService::GetPosition(const _TyAccountIndex& accountIndex, const CSecurity& security) const
+CPositionSnapshot CTradeService::GetPosition(const _TyAccount& accountIndex, const CSecurity& security) const
 {
 	std::shared_ptr<trade::ITradeCounter> service = FindService(accountIndex);
 	if (nullptr != service)
@@ -289,7 +289,7 @@ bool CTradeService::HandleAccountRequest(const CRequest& req, const std::string&
 {
 	if (_TyRequest::TRADE_ACCOUNT_DISCONNECT == req.GetType())
 	{
-		_TyAccountIndex accountIndex;
+		_TyAccount accountIndex;
 		if (ReadAccountIdentity(req, accountIndex))
 		{
 			std::lock_guard<std::mutex> lock(m_mtx_accounts);
@@ -401,7 +401,7 @@ bool CTradeService::HandleTradingRequest(const CRequest& req)
 {
 	if (_TyRequest::TRADE_ORDER_SUBMIT == req.GetType() || _TyRequest::TRADE_ORDER_CANCEL == req.GetType())
 	{
-		_TyAccountIndex accountIndex;
+		_TyAccount accountIndex;
 		if (!ReadAccountIdentity(req, accountIndex) || !GetAccount(accountIndex).m_bReady)
 		{
 			net::SendError(req.GetConnectionId(), req, static_cast<int>(trade::Error::Unavailable), "XBroker account is not synchronized");
@@ -422,7 +422,7 @@ bool CTradeService::HandleTradingRequest(const CRequest& req)
 	return bQueued;
 }
 
-std::vector<trade::COrder> CTradeService::GetOrders(const _TyAccountIndex& accountIndex) const
+std::vector<trade::COrder> CTradeService::GetOrders(const _TyAccount& accountIndex) const
 {
 	std::shared_ptr<trade::ITradeCounter> service;
 	{

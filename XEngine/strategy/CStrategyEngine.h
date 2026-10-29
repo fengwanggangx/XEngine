@@ -189,7 +189,7 @@ private:
 	std::unordered_map<std::string, CSubscriptionEntry> m_subscriptions;
 
 	mutable std::shared_mutex m_mtx_orders;
-	using _TyOrderRouteIndex = std::pair<_TyAccountIndex, _TyOrderId>;
+	using _TyOrderRouteIndex = std::pair<_TyAccount, _TyOrderId>;
 	std::map<_TyOrderRouteIndex, _TyStrategyId> m_orderRoutes;
 	std::map<_TyOrderRouteIndex, _TyStrategyId> m_clientOrderRoutes;
 

@@ -148,7 +148,7 @@ private:
 	net::_TyConnectionId m_connection_id{ -1 };
 };
 
-inline bool ReadAccountIdentity(const CRequest& request, _TyAccountIndex& account)
+inline bool ReadAccountIdentity(const CRequest& request, _TyAccount& account)
 {
 	try
 	{
@@ -157,7 +157,7 @@ inline bool ReadAccountIdentity(const CRequest& request, _TyAccountIndex& accoun
 		{
 			return false;
 		}
-		account = { std::stoull(broker), request.GetExtraData("site"), request.GetExtraData("account") };
+		account = { std::stoull(broker), request.GetExtraData("account") };
 		return IsAccountValid(account);
 	}
 	catch (const std::exception&)
@@ -166,11 +166,10 @@ inline bool ReadAccountIdentity(const CRequest& request, _TyAccountIndex& accoun
 	}
 }
 
-inline void WriteAccountIdentity(const _TyAccountIndex& account, CRequest& request)
+inline void WriteAccountIdentity(const _TyAccount& account, CRequest& request)
 {
-	request.SetExtraData("broker_id", std::to_string(std::get<0>(account)));
-	request.SetExtraData("site", std::get<1>(account));
-	request.SetExtraData("account", std::get<2>(account));
+	request.SetExtraData("broker_id", std::to_string(account.first));
+	request.SetExtraData("account", account.second);
 }
 
 #endif

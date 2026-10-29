@@ -14,7 +14,7 @@ int main()
 {
 	try
 	{
-		_TyAccountIndex account{ 17, "上海", "000123" };
+		_TyAccount account{ 17, "000123" };
 		CTradeAccountInfo info = AccountInfo(account);
 		info.m_strBrokerName = "测试券商";
 		info.m_strName = "账户别名";
@@ -48,10 +48,10 @@ int main()
 		}
 		trade::CReqParam login;
 		login.m_accountIndex = account;
-		login.m_param = trade::CLoginParam{ "secret" };
+		login.m_param = trade::CLoginParam{ "secret", "上海" };
 		CRequest wire = trade::protocol::WriteRequest(login);
-		_TyAccountIndex parsed;
-		Check(ReadAccountIdentity(wire, parsed) && parsed == account && "secret" == wire.GetExtraData("password"), "login credentials and identity");
+		_TyAccount parsed;
+		Check(ReadAccountIdentity(wire, parsed) && parsed == account && "secret" == wire.GetExtraData("password") && "上海" == wire.GetExtraData("site"), "login credentials and identity");
 		std::cout << "identity protocol tests passed\n";
 		return 0;
 	}
