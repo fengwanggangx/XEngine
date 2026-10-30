@@ -5,8 +5,13 @@
 #include "../network/CHttpServer.h"
 #include "../network/CTcpServer.h"
 #include "CHostMgr.h"
+#include "CSession.h"
+#include "CEngineService.h"
+#include "../strategy/CTradeService.h"
+#include "../strategy/CStrategyService.h"
 #include <cstdlib>
 #include <utility>
+#include <functional>
 
 namespace net
 {
@@ -109,6 +114,29 @@ bool CBootLoader::Initialize()
 	m_pTcpServer = std::make_unique<net::CTcpServer>(nTcpPort);
 	m_pHttpServer = std::make_unique<net::CHttpServer>(nHttpPort);
 
+	std::optional<CHostInfo> host = m_pHostMgr->GetActiveHost();
+	m_pSession = std::make_unique<CSession>(CLoginInfo{ m_strAccount, m_strPassword, {}, host.value() });
+	m_pTradeService = std::make_unique<CTradeService>();
+	if (!m_pTradeService->Initialize())
+	{
+		m_nErrorCode = 9;
+		m_strLastError = m_pTradeService->GetLastError();
+		return false;
+	}
+	m_pStrategyService = std::make_unique<CStrategyService>(m_pSession.get(), m_pTradeService.get());
+	if (!m_pStrategyService->Initialize())
+	{
+		m_nErrorCode = 10;
+		m_strLastError = m_pStrategyService->GetLastError();
+		return false;
+	}
+	m_pEngineService = std::make_unique<CEngineService>(m_pTcpServer.get(), m_pSession.get(), m_pStrategyService.get(), m_pTradeService.get());
+	if (!m_pEngineService->Initialize())
+	{
+		m_nErrorCode = 11;
+		m_strLastError = "Engine service initialization failed";
+		return false;
+	}
 	m_bInitialized = true;
 	return true;
 }
@@ -133,10 +161,13 @@ bool CBootLoader::Run()
 		m_strLastError = "HTTP server initialization failed";
 		return false;
 	}
-	std::jthread tcpServerThread([this]()
+	if (!m_pSession->Start())
 	{
-		m_pTcpServer->Start(true);
-	});
+		m_nErrorCode = 12;
+		m_strLastError = "HQMarket session configuration is invalid";
+		return false;
+	}
+	std::jthread tcpServerThread(std::bind_front(&net::CTcpServer::Start, m_pTcpServer.get(), true));
 	m_pHttpServer->Start(true);
 	m_pTcpServer->ShutDown();
 	return true;
@@ -152,6 +183,29 @@ void CBootLoader::Finalize()
 	{
 		m_pTcpServer->ShutDown();
 	}
+	// Quiesce request callbacks before stopping the services they borrow.
+	if (nullptr != m_pTcpServer)
+	{
+		m_pTcpServer->Drain();
+		m_pTcpServer->ClearHandlers();
+	}
+	if (nullptr != m_pStrategyService)
+	{
+		m_pStrategyService->StopAll();
+	}
+	if (nullptr != m_pSession)
+	{
+		m_pSession->Stop();
+	}
+	if (nullptr != m_pTradeService)
+	{
+		m_pTradeService->Stop();
+	}
+	// All callback producers have stopped; borrowers can now be destroyed.
+	m_pEngineService.reset();
+	m_pStrategyService.reset();
+	m_pTradeService.reset();
+	m_pSession.reset();
 	m_pHttpServer.reset();
 	m_pTcpServer.reset();
 	CDBEngine::InstanceRef().Close();

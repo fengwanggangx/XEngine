@@ -5,26 +5,26 @@
 
 #include <atomic>
 
-class CStrategyEngine;
+class CStrategyService;
 class CTradeService;
 
 class CStrategyContext final : public IStrategyContext
 {
 public:
-CStrategyContext(_TyStrategyId strategyId, const _TyAccount& accountIndex, CStrategyEngine* pEngine, CTradeService* pSnapshotProvider);
+	CStrategyContext(_TyStrategyId strategyId, const _TyAccount& accountIndex, CStrategyService* pStrategyService, CTradeService* pSnapshotProvider);
 
-COrderSubmitResult SubmitOrder(const COrderIntent& intent) override;
-bool CancelOrder(_TyOrderId orderId) override;
-CPositionSnapshot GetPosition(const CSecurity& security) const override;
-CAccountSnapshot GetAccount() const override;
-void WriteLog(LogLevel level, const std::string& strMessage) override;
-bool IsMarketAvailable() const override;
+	COrderSubmitResult SubmitOrder(const COrderIntent& intent) override;
+	bool CancelOrder(_TyOrderId orderId) override;
+	CPositionSnapshot GetPosition(const CSecurity& security) const override;
+	CAccountSnapshot GetAccount() const override;
+	void WriteLog(LogLevel level, const std::string& strMessage) override;
+	bool IsMarketAvailable() const override;
 
-void Disable();
+	void Disable();
 
 private:
 	_TyStrategyId m_strategyId{ 0 };
-	CStrategyEngine* m_pEngine{ nullptr };
+	CStrategyService* m_pStrategyService{ nullptr };
 	_TyAccount m_accountIndex{};
 	CTradeService* m_pSnapshotProvider{ nullptr };
 	std::atomic_bool m_bEnabled{ true };

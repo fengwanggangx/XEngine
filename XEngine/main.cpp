@@ -1,10 +1,7 @@
 #include "./network/CHttpServer.h"
 #include "./network/CTcpServer.h"
 #include "./network/common_net.h"
-#include "./strategy/CStrategyEngine.h"
 #include "./system/CBootLoader.h"
-#include "./system/CBrokerService.h"
-#include "./system/CSession.h"
 #include <iostream>
 #include <memory>
 #include <optional>
@@ -62,47 +59,11 @@ int main()
 		return boot.GetErrorCode();
 	}
 	HttpTest(&boot.GetHttpServer());
-	std::optional<CHostInfo> host = boot.GetHostMgr().GetActiveHost();
-	if (!host.has_value())
-	{
-		std::cerr << "HQMarket active host is unavailable\n";
-		return 7;
-	}
-	// 连接HQMarket
-	CSession session({ boot.GetAccount(), boot.GetPassword(), {}, host.value() });
-
-	// 策略引擎
-	CStrategyEngine strategyEngine(&session);
-	if (!strategyEngine.Initialize())
-	{
-		std::cerr << "Strategy engine initialization failed: " << strategyEngine.GetLastError() << '\n';
-		return 7;
-	}
-
-	// 客户端连接响应
-	CBrokerService brokerService(&boot.GetTcpServer(), &session, &strategyEngine);
-	if (!brokerService.Initialize())
-	{
-		std::cerr << "Trade service initialization failed\n";
-		return 7;
-	}
-
-	if (!session.Start())
-	{
-		std::cerr << "HQMarket session configuration is invalid\n";
-		return 7;
-	}
 	if (!boot.Run())
 	{
 		std::cerr << boot.GetLastError() << '\n';
-		strategyEngine.StopAll();
-		strategyEngine.StopTrading();
-		session.Stop();
 		return boot.GetErrorCode();
 	}
-	strategyEngine.StopAll();
-	strategyEngine.StopTrading();
-	session.Stop();
 	boot.Finalize();
 	return 0;
 }

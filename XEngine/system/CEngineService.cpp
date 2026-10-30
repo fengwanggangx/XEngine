@@ -1,4 +1,4 @@
-#include "CBrokerService.h"
+#include "CEngineService.h"
 
 #include "../common/utility.h"
 #include "../database/CDBEngine.h"
@@ -10,7 +10,8 @@
 #include "../request/request.h"
 #include "../request/request.pb.h"
 #include "../request/v1/market.pb.h"
-#include "../strategy/CStrategyEngine.h"
+#include "../strategy/CStrategyService.h"
+#include "../strategy/CTradeService.h"
 #include "CSession.h"
 
 #include <algorithm>
@@ -64,66 +65,68 @@ bool IsPasswordValid(const std::string& strPassword)
 	return (MinPasswordLength <= strPassword.size()) && (MaxPasswordLength >= strPassword.size());
 }
 
-CBrokerService::CBrokerService(net::CTcpServer* pTcpServer, CSession* pSession, CStrategyEngine* pStrategyEngine) : m_pTcpServer(pTcpServer), m_pSession(pSession), m_pStrategyEngine(pStrategyEngine)
+CEngineService::CEngineService(net::CTcpServer* pTcpServer, CSession* pSession, CStrategyService* pStrategyService, CTradeService* pTradeService) : m_pTcpServer(pTcpServer), m_pSession(pSession), m_pStrategyService(pStrategyService), m_pTradeService(pTradeService)
 {
 	m_handler = {
-		{ _TyRequest::TRADE_ORDER_SUBMIT, std::bind_front(&CBrokerService::HandleTrading, this) },
-		{ _TyRequest::TRADE_ORDER_CANCEL, std::bind_front(&CBrokerService::HandleTrading, this) },
-		{ _TyRequest::TRADE_POSITION_QUERY, std::bind_front(&CBrokerService::HandleTrading, this) },
-		{ _TyRequest::TRADE_ORDER_QUERY, std::bind_front(&CBrokerService::HandleTrading, this) },
-		{ _TyRequest::TRADE_DEAL_QUERY, std::bind_front(&CBrokerService::HandleTrading, this) },
+		{ _TyRequest::TRADE_ORDER_SUBMIT, std::bind_front(&CEngineService::HandleTradeRequest, this) },
+		{ _TyRequest::TRADE_ORDER_CANCEL, std::bind_front(&CEngineService::HandleTradeRequest, this) },
+		{ _TyRequest::TRADE_POSITION_QUERY, std::bind_front(&CEngineService::HandleTradeRequest, this) },
+		{ _TyRequest::TRADE_ORDER_QUERY, std::bind_front(&CEngineService::HandleTradeRequest, this) },
+		{ _TyRequest::TRADE_DEAL_QUERY, std::bind_front(&CEngineService::HandleTradeRequest, this) },
 
-		{ _TyRequest::AUTH_REGISTER, std::bind_front(&CBrokerService::HandleRegisterAuth, this) },
-		{ _TyRequest::AUTH_LOGIN, std::bind_front(&CBrokerService::HandleAuth, this) },
-		{ _TyRequest::HEARTBEAT, std::bind_front(&CBrokerService::HandleHeartbeat, this) },
-		{ _TyRequest::MARKET_SUBSCRIBE, std::bind_front(&CBrokerService::HandleSubscription, this) },
-		{ _TyRequest::MARKET_UNSUBSCRIBE, std::bind_front(&CBrokerService::HandleSubscription, this) },
-		{ _TyRequest::MARKET_QUOTE_QUERY, std::bind_front(&CBrokerService::HandleMarketQuery, this) },
-		{ _TyRequest::MARKET_BARS_QUERY, std::bind_front(&CBrokerService::HandleMarketQuery, this) },
-		{ _TyRequest::MARKET_SECURITIES_QUERY, std::bind_front(&CBrokerService::HandleMarketQuery, this) },
-		{ _TyRequest::MARKET_SECTORS_QUERY, std::bind_front(&CBrokerService::HandleMarketQuery, this) },
-		{ _TyRequest::MARKET_SECTOR_CONSTITUENTS_QUERY, std::bind_front(&CBrokerService::HandleMarketQuery, this) },
-		{ _TyRequest::SUPPORTED_BROKER_QUERY, std::bind_front(&CBrokerService::HandleTrading, this) },
-		{ _TyRequest::TRADE_ACCOUNT_LOGIN, std::bind_front(&CBrokerService::HandleAccount, this) },
-		{ _TyRequest::TRADE_ACCOUNT_LIST_QUERY, std::bind_front(&CBrokerService::HandleAccount, this) },
-		{ _TyRequest::TRADE_ACCOUNT_DISCONNECT, std::bind_front(&CBrokerService::HandleAccount, this) },
-		{ _TyRequest::TRADE_FUNDS_QUERY, std::bind_front(&CBrokerService::HandleAccount, this) },
-		{ _TyRequest::STRATEGY_ADD, std::bind_front(&CBrokerService::HandleStrategy, this) },
-		{ _TyRequest::STRATEGY_MODIFY, std::bind_front(&CBrokerService::HandleStrategy, this) },
-		{ _TyRequest::STRATEGY_QUERY, std::bind_front(&CBrokerService::HandleStrategy, this) },
-		{ _TyRequest::STRATEGY_DELETE, std::bind_front(&CBrokerService::HandleStrategy, this) },
-		{ _TyRequest::STRATEGY_RUNTIME_QUERY, std::bind_front(&CBrokerService::HandleStrategy, this) },
-		{ _TyRequest::STRATEGY_START, std::bind_front(&CBrokerService::HandleStrategy, this) },
-		{ _TyRequest::STRATEGY_PAUSE, std::bind_front(&CBrokerService::HandleStrategy, this) },
-		{ _TyRequest::STRATEGY_STOP, std::bind_front(&CBrokerService::HandleStrategy, this) }
+		{ _TyRequest::AUTH_REGISTER, std::bind_front(&CEngineService::HandleRegisterAuth, this) },
+		{ _TyRequest::AUTH_LOGIN, std::bind_front(&CEngineService::HandleAuth, this) },
+		{ _TyRequest::HEARTBEAT, std::bind_front(&CEngineService::HandleHeartbeat, this) },
+		{ _TyRequest::MARKET_SUBSCRIBE, std::bind_front(&CEngineService::HandleSubscription, this) },
+		{ _TyRequest::MARKET_UNSUBSCRIBE, std::bind_front(&CEngineService::HandleSubscription, this) },
+		{ _TyRequest::MARKET_QUOTE_QUERY, std::bind_front(&CEngineService::HandleMarketQuery, this) },
+		{ _TyRequest::MARKET_BARS_QUERY, std::bind_front(&CEngineService::HandleMarketQuery, this) },
+		{ _TyRequest::MARKET_SECURITIES_QUERY, std::bind_front(&CEngineService::HandleMarketQuery, this) },
+		{ _TyRequest::MARKET_SECTORS_QUERY, std::bind_front(&CEngineService::HandleMarketQuery, this) },
+		{ _TyRequest::MARKET_SECTOR_CONSTITUENTS_QUERY, std::bind_front(&CEngineService::HandleMarketQuery, this) },
+		{ _TyRequest::SUPPORTED_BROKER_QUERY, std::bind_front(&CEngineService::HandleTradeRequest, this) },
+		{ _TyRequest::TRADE_ACCOUNT_LOGIN, std::bind_front(&CEngineService::HandleTradeAccountRequest, this) },
+		{ _TyRequest::TRADE_ACCOUNT_LIST_QUERY, std::bind_front(&CEngineService::HandleTradeAccountRequest, this) },
+		{ _TyRequest::TRADE_ACCOUNT_DISCONNECT, std::bind_front(&CEngineService::HandleTradeAccountRequest, this) },
+		{ _TyRequest::TRADE_FUNDS_QUERY, std::bind_front(&CEngineService::HandleTradeAccountRequest, this) },
+		{ _TyRequest::STRATEGY_ADD, std::bind_front(&CEngineService::HandleStrategyRequest, this) },
+		{ _TyRequest::STRATEGY_MODIFY, std::bind_front(&CEngineService::HandleStrategyRequest, this) },
+		{ _TyRequest::STRATEGY_QUERY, std::bind_front(&CEngineService::HandleStrategyRequest, this) },
+		{ _TyRequest::STRATEGY_DELETE, std::bind_front(&CEngineService::HandleStrategyRequest, this) },
+		{ _TyRequest::STRATEGY_RUNTIME_QUERY, std::bind_front(&CEngineService::HandleStrategyRequest, this) },
+		{ _TyRequest::STRATEGY_START, std::bind_front(&CEngineService::HandleStrategyRequest, this) },
+		{ _TyRequest::STRATEGY_PAUSE, std::bind_front(&CEngineService::HandleStrategyRequest, this) },
+		{ _TyRequest::STRATEGY_STOP, std::bind_front(&CEngineService::HandleStrategyRequest, this) }
 	};
 }
 
-bool CBrokerService::Initialize()
+bool CEngineService::Initialize()
 {
-	if ((nullptr == m_pTcpServer) || (nullptr == m_pSession) || (nullptr == m_pStrategyEngine))
+	if ((nullptr == m_pTcpServer) || (nullptr == m_pSession) || (nullptr == m_pStrategyService) || (nullptr == m_pTradeService))
 	{
 		return false;
 	}
-	m_pStrategyEngine->SetTradingPushHandler([this](const CRequest& push)
-	{
-		std::vector<net::_TyConnectionId> clients;
-		{
-			std::lock_guard<std::mutex> lock(m_mtx_state);
-			clients.assign(m_auth_clients.begin(), m_auth_clients.end());
-		}
-		for (net::_TyConnectionId id : clients)
-		{
-			net::SendRequest(id, push);
-		}
-	});
-	m_pTcpServer->RegisterHandler(std::bind_front(&CBrokerService::OnNetEvent, this));
-	m_pSession->RegisterHandler(std::bind_front(&CBrokerService::OnHQMarketResponse, this));
-	m_pSession->RegisterStateHandler(std::bind_front(&CBrokerService::OnHQMarketState, this));
+	m_pTradeService->SetPushHandler(std::bind_front(&CEngineService::BroadcastTrading, this));
+	m_pTcpServer->RegisterHandler(std::bind_front(&CEngineService::OnNetEvent, this));
+	m_pSession->RegisterHandler(std::bind_front(&CEngineService::OnHQMarketResponse, this));
+	m_pSession->RegisterStateHandler(std::bind_front(&CEngineService::OnHQMarketState, this));
 	return true;
 }
 
-CQuoteInfo CBrokerService::GetQuoteInfo(const CRequest& req) const
+void CEngineService::BroadcastTrading(const CRequest& push)
+{
+	std::vector<net::_TyConnectionId> clients;
+	{
+		std::lock_guard<std::mutex> lock(m_mtx_state);
+		clients.assign(m_auth_clients.begin(), m_auth_clients.end());
+	}
+	for (net::_TyConnectionId id : clients)
+	{
+		net::SendRequest(id, push);
+	}
+}
+
+CQuoteInfo CEngineService::GetQuoteInfo(const CRequest& req) const
 {
 	std::string strSecurity = req.GetExtraData("security");
 	std::size_t nDot = strSecurity.rfind('.');
@@ -134,7 +137,7 @@ CQuoteInfo CBrokerService::GetQuoteInfo(const CRequest& req) const
 	return CQuoteInfo(strSecurity.substr(0, nDot), ParseMarket(strSecurity.substr(nDot + 1)), ParseChannel(req.GetExtraData("channel")));
 }
 
-void CBrokerService::SendSubscriptionResponse(net::_TyConnectionId id, _TyRequestId requestId, bool bAccepted, const std::string& strReason, _TyRequest type, const std::vector<CQuoteInfo>& subscriptions) const
+void CEngineService::SendSubscriptionResponse(net::_TyConnectionId id, _TyRequestId requestId, bool bAccepted, const std::string& strReason, _TyRequest type, const std::vector<CQuoteInfo>& subscriptions) const
 {
 	CRequest response;
 	response.SetId(requestId);
@@ -154,7 +157,7 @@ void CBrokerService::SendSubscriptionResponse(net::_TyConnectionId id, _TyReques
 	net::SendRequest(id, response);
 }
 
-std::string CBrokerService::GetMarketResponseKey(const CRequest& req) const
+std::string CEngineService::GetMarketResponseKey(const CRequest& req) const
 {
 	const _TyReqData& message = req.GetData();
 	hqmarket::market::v1::Security security;
@@ -190,7 +193,7 @@ std::string CBrokerService::GetMarketResponseKey(const CRequest& req) const
 	return {};
 }
 
-void CBrokerService::OnHQMarketResponse(const CRequest& req)
+void CEngineService::OnHQMarketResponse(const CRequest& req)
 {
 	ExpirePendingSubscriptions();
 	ExpirePendingQueries();
@@ -281,7 +284,7 @@ void CBrokerService::OnHQMarketResponse(const CRequest& req)
 	}
 }
 
-void CBrokerService::OnHQMarketState(SessionState state, const std::string& strMessage)
+void CEngineService::OnHQMarketState(SessionState state, const std::string& strMessage)
 {
 	if (SessionState::Ready == state)
 	{
@@ -298,7 +301,7 @@ void CBrokerService::OnHQMarketState(SessionState state, const std::string& strM
 	}
 }
 
-std::string CBrokerService::GetQueryKey(const CRequest& req) const
+std::string CEngineService::GetQueryKey(const CRequest& req) const
 {
 	_TyRequest type = req.GetType();
 	if (_TyRequest::MARKET_QUOTE_QUERY == type)
@@ -327,7 +330,7 @@ std::string CBrokerService::GetQueryKey(const CRequest& req) const
 	return {};
 }
 
-bool CBrokerService::HandleMarketQuery(net::_TyConnectionId id, const CRequest& req)
+bool CEngineService::HandleMarketQuery(net::_TyConnectionId id, const CRequest& req)
 {
 	std::string strKey = GetQueryKey(req);
 	if (strKey.empty())
@@ -391,7 +394,7 @@ bool CBrokerService::HandleMarketQuery(net::_TyConnectionId id, const CRequest& 
 	return false;
 }
 
-bool CBrokerService::RouteQueryRequest(const CRequest& req)
+bool CEngineService::RouteQueryRequest(const CRequest& req)
 {
 	CPendingQuery pending;
 	{
@@ -417,7 +420,7 @@ bool CBrokerService::RouteQueryRequest(const CRequest& req)
 	return true;
 }
 
-void CBrokerService::SendQueryError(const CPendingQueryClient& client, _TyRequest type, int nErrorCode, const std::string& strMessage) const
+void CEngineService::SendQueryError(const CPendingQueryClient& client, _TyRequest type, int nErrorCode, const std::string& strMessage) const
 {
 	CRequest response;
 	response.SetId(client.m_requestId);
@@ -426,7 +429,7 @@ void CBrokerService::SendQueryError(const CPendingQueryClient& client, _TyReques
 	net::SendRequest(client.m_router_id, response);
 }
 
-void CBrokerService::ExpirePendingQueries()
+void CEngineService::ExpirePendingQueries()
 {
 	std::vector<CPendingQuery> expired;
 	std::chrono::steady_clock::time_point now = std::chrono::steady_clock::now();
@@ -454,7 +457,7 @@ void CBrokerService::ExpirePendingQueries()
 	}
 }
 
-void CBrokerService::FailPendingQueries(const std::string& strReason)
+void CEngineService::FailPendingQueries(const std::string& strReason)
 {
 	std::vector<CPendingQuery> failed;
 	{
@@ -475,7 +478,7 @@ void CBrokerService::FailPendingQueries(const std::string& strReason)
 	}
 }
 
-void CBrokerService::ExpirePendingSubscriptions()
+void CEngineService::ExpirePendingSubscriptions()
 {
 	std::vector<CPendingSubscriptionBatch> expiredBatches;
 	{
@@ -538,7 +541,7 @@ void CBrokerService::ExpirePendingSubscriptions()
 	}
 }
 
-void CBrokerService::FailPendingSubscriptions(const std::string& strReason)
+void CEngineService::FailPendingSubscriptions(const std::string& strReason)
 {
 	{
 		std::lock_guard<std::mutex> lock(m_mtx_state);
@@ -568,7 +571,7 @@ void CBrokerService::FailPendingSubscriptions(const std::string& strReason)
 	}
 }
 
-void CBrokerService::SendResponse(const CRequest& req, int nErrorCode, const std::string& strMessage) const
+void CEngineService::SendResponse(const CRequest& req, int nErrorCode, const std::string& strMessage) const
 {
 	CRequest response;
 	response.SetId(req.GetId());
@@ -585,7 +588,7 @@ void CBrokerService::SendResponse(const CRequest& req, int nErrorCode, const std
 	net::SendRequest(req.GetConnectionId(), response);
 }
 
-bool CBrokerService::Login(const CRequest& req, std::string& strToken)
+bool CEngineService::Login(const CRequest& req, std::string& strToken)
 {
 	std::string strAccount = req.GetExtraData("user");
 	std::string strPassword = req.GetExtraData("password");
@@ -626,7 +629,7 @@ bool CBrokerService::Login(const CRequest& req, std::string& strToken)
 	return true;
 }
 
-bool CBrokerService::HandleRegisterAuth(net::_TyConnectionId, const CRequest& req)
+bool CEngineService::HandleRegisterAuth(net::_TyConnectionId, const CRequest& req)
 {
 	std::string strAccount = req.GetExtraData("user");
 	std::string strPassword = req.GetExtraData("password");
@@ -668,7 +671,7 @@ bool CBrokerService::HandleRegisterAuth(net::_TyConnectionId, const CRequest& re
 	return true;
 }
 
-bool CBrokerService::HandleSubscription(net::_TyConnectionId, const CRequest& req)
+bool CEngineService::HandleSubscription(net::_TyConnectionId, const CRequest& req)
 {
 	net::_TyConnectionId id = static_cast<net::_TyConnectionId>(req.GetConnectionId());
 	{
@@ -849,7 +852,7 @@ bool CBrokerService::HandleSubscription(net::_TyConnectionId, const CRequest& re
 	return true;
 }
 
-int CBrokerService::HandleDisconnected(net::_TyConnectionId id)
+int CEngineService::HandleDisconnected(net::_TyConnectionId id)
 {
 	std::vector<CQuoteInfo> removed = m_subscriptions.RemoveClient(id);
 	{
@@ -893,7 +896,7 @@ int CBrokerService::HandleDisconnected(net::_TyConnectionId id)
 	return 1;
 }
 
-bool CBrokerService::HandleReAuth(const CRequest& req)
+bool CEngineService::HandleReAuth(const CRequest& req)
 {
 	std::string strToken = req.GetExtraData("token");
 	bool bAccepted = false;
@@ -921,13 +924,13 @@ bool CBrokerService::HandleReAuth(const CRequest& req)
 	return false;
 }
 
-bool CBrokerService::IsAuthenticated(net::_TyConnectionId id) const
+bool CEngineService::IsAuthenticated(net::_TyConnectionId id) const
 {
 	std::lock_guard<std::mutex> lck(m_mtx_state);
 	return (m_auth_clients.end() != m_auth_clients.find(id));
 }
 
-bool CBrokerService::HandleAuth(net::_TyConnectionId id, const CRequest& req)
+bool CEngineService::HandleAuth(net::_TyConnectionId id, const CRequest& req)
 {
 	// 断线重连
 	std::string strToken = req.GetExtraData("token");
@@ -952,7 +955,7 @@ bool CBrokerService::HandleAuth(net::_TyConnectionId id, const CRequest& req)
 	return false;
 }
 
-void CBrokerService::OnClientRequest(net::_TyConnectionId id, const CRequest& req)
+void CEngineService::OnClientRequest(net::_TyConnectionId id, const CRequest& req)
 {
 	ExpirePendingQueries();
 	_TyRequest type = req.GetType();
@@ -978,7 +981,7 @@ void CBrokerService::OnClientRequest(net::_TyConnectionId id, const CRequest& re
 	mIter->second(id, req);
 }
 
-bool CBrokerService::HandleHeartbeat(net::_TyConnectionId id, const CRequest& req)
+bool CEngineService::HandleHeartbeat(net::_TyConnectionId id, const CRequest& req)
 {
 	CRequest response;
 	response.SetId(req.GetId());
@@ -988,17 +991,17 @@ bool CBrokerService::HandleHeartbeat(net::_TyConnectionId id, const CRequest& re
 	return net::SendRequest(id, response);
 }
 
-bool CBrokerService::HandleStrategy(net::_TyConnectionId id, const CRequest& req)
+bool CEngineService::HandleStrategyRequest(net::_TyConnectionId id, const CRequest& req)
 {
-	if ((!req.IsStrategy()) || (nullptr == m_pStrategyEngine))
+	if ((!req.IsStrategy()) || (nullptr == m_pStrategyService))
 	{
 		net::SendError(id, req, InvalidRequest, "invalid strategy request");
 		return false;
 	}
-	return m_pStrategyEngine->HandleStrategyRequest(req);
+	return m_pStrategyService->HandleStrategyRequest(req);
 }
 
-int CBrokerService::OnNetEvent(const net::CNetEvent& ev)
+int CEngineService::OnNetEvent(const net::CNetEvent& ev)
 {
 	if (net::em_event::request == ev.m_event)
 	{
@@ -1011,9 +1014,9 @@ int CBrokerService::OnNetEvent(const net::CNetEvent& ev)
 	return 1;
 }
 
-bool CBrokerService::HandleAccount(net::_TyConnectionId id, const CRequest& req)
+bool CEngineService::HandleTradeAccountRequest(net::_TyConnectionId id, const CRequest& req)
 {
-	if (!IsAuthenticated(id) || (nullptr == m_pStrategyEngine))
+	if (!IsAuthenticated(id) || (nullptr == m_pTradeService))
 	{
 		net::SendError(id, req, AuthenticationRequired, "authentication required");
 		return false;
@@ -1027,23 +1030,23 @@ bool CBrokerService::HandleAccount(net::_TyConnectionId id, const CRequest& req)
 			actor = mIter->second;
 		}
 	}
-	return m_pStrategyEngine->HandleAccountRequest(req, actor);
+	return m_pTradeService->HandleAccountRequest(req, actor);
 }
 
-bool CBrokerService::HandleTrading(net::_TyConnectionId id, const CRequest& req)
+bool CEngineService::HandleTradeRequest(net::_TyConnectionId id, const CRequest& req)
 {
-	if (!IsAuthenticated(id) || nullptr == m_pStrategyEngine)
+	if (!IsAuthenticated(id) || nullptr == m_pTradeService)
 	{
 		net::SendError(id, req, AuthenticationRequired, "authentication required");
 		return false;
 	}
-	return m_pStrategyEngine->HandleTradingRequest(req);
+	return m_pTradeService->HandleTradingRequest(req);
 }
 
-CBrokerService::~CBrokerService()
+CEngineService::~CEngineService()
 {
-	if (nullptr != m_pStrategyEngine)
+	if (nullptr != m_pTradeService)
 	{
-		m_pStrategyEngine->StopTrading();
+		m_pTradeService->SetPushHandler({});
 	}
 }

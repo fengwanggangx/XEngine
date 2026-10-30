@@ -1,5 +1,5 @@
-#ifndef XENGINE_SYSTEM_CBROKERSERVICE_H
-#define XENGINE_SYSTEM_CBROKERSERVICE_H
+#ifndef XENGINE_SYSTEM_CENGINESERVICE_H
+#define XENGINE_SYSTEM_CENGINESERVICE_H
 
 #include "../network/common_net.h"
 #include "../request/MarketTypes.h"
@@ -16,7 +16,8 @@
 #include <vector>
 
 class CSession;
-class CStrategyEngine;
+class CStrategyService;
+class CTradeService;
 enum class SessionState;
 
 namespace net
@@ -24,9 +25,11 @@ namespace net
 	class CTcpServer;
 }
 
-class CBrokerService final
+class CEngineService final
 {
-	private:
+	friend class CServiceRoutingTests;
+
+private:
 	struct PendingSubscription
 	{
 		net::_TyConnectionId m_router_id{ -1 };
@@ -58,25 +61,26 @@ class CBrokerService final
 		std::vector<CPendingQueryClient> m_clients;
 	};
 
-	public:
-	CBrokerService(net::CTcpServer* pTcpServer, CSession* pSession, CStrategyEngine* pStrategyEngine);
-	~CBrokerService();
-	CBrokerService(const CBrokerService&) = delete;
-	CBrokerService& operator=(const CBrokerService&) = delete;
+public:
+	CEngineService(net::CTcpServer* pTcpServer, CSession* pSession, CStrategyService* pStrategyService, CTradeService* pTradeService);
+	~CEngineService();
+	CEngineService(const CEngineService& arg) = delete;
+	CEngineService& operator=(const CEngineService& arg) = delete;
 
 	bool Initialize();
 
-	private:
+private:
 	int OnNetEvent(const net::CNetEvent& ev);
+	void BroadcastTrading(const CRequest& push);
 	void OnClientRequest(net::_TyConnectionId id, const CRequest& req);
 	bool HandleAuth(net::_TyConnectionId id, const CRequest& req);
 	bool HandleRegisterAuth(net::_TyConnectionId id, const CRequest& req);
 	bool HandleSubscription(net::_TyConnectionId id, const CRequest& req);
 	bool HandleMarketQuery(net::_TyConnectionId id, const CRequest& req);
 	bool HandleHeartbeat(net::_TyConnectionId id, const CRequest& req);
-	bool HandleStrategy(net::_TyConnectionId id, const CRequest& req);
-	bool HandleTrading(net::_TyConnectionId id, const CRequest& req);
-	bool HandleAccount(net::_TyConnectionId id, const CRequest& req);
+	bool HandleStrategyRequest(net::_TyConnectionId id, const CRequest& req);
+	bool HandleTradeRequest(net::_TyConnectionId id, const CRequest& req);
+	bool HandleTradeAccountRequest(net::_TyConnectionId id, const CRequest& req);
 
 	int HandleDisconnected(net::_TyConnectionId id);
 	bool HandleReAuth(const CRequest& req);
@@ -88,7 +92,7 @@ class CBrokerService final
 	void FailPendingQueries(const std::string& strReason);
 	bool RouteQueryRequest(const CRequest& response);
 
-	private:
+private:
 	bool IsAuthenticated(net::_TyConnectionId id) const;
 	CQuoteInfo GetQuoteInfo(const CRequest& req) const;
 	void SendSubscriptionResponse(net::_TyConnectionId id, _TyRequestId requestId, bool bAccepted, const std::string& strReason, _TyRequest type = _TyRequest::MARKET_SUBSCRIBE, const std::vector<CQuoteInfo>& subscriptions = {}) const;
@@ -98,7 +102,7 @@ class CBrokerService final
 	void SendResponse(const CRequest& req, int nErrorCode, const std::string& strMessage) const;
 	bool Login(const CRequest& req, std::string& strToken);
 
-	private:
+private:
 	std::unordered_map<_TyRequest, std::function<bool(net::_TyConnectionId, const CRequest&)>> m_handler;
 
 	mutable std::mutex m_mtx_state;
@@ -113,10 +117,12 @@ class CBrokerService final
 	std::unordered_map<std::string, CPendingQuery> m_pending_queries;
 	std::atomic_uint64_t m_router_id{ std::uint64_t(1) << 63 };
 
-	private:
+private:
+	// Borrowed from CBootLoader; callback producers stop before service destruction.
 	net::CTcpServer* m_pTcpServer{ nullptr };
 	CSession* m_pSession{ nullptr };
-	CStrategyEngine* m_pStrategyEngine{ nullptr };
+	CStrategyService* m_pStrategyService{ nullptr };
+	CTradeService* m_pTradeService{ nullptr };
 };
 
 #endif

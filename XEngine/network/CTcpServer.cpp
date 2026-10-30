@@ -19,6 +19,16 @@ namespace net
 	{
 	}
 
+	void CTcpServer::Drain()
+	{
+		m_dispatcher->StopAndWait();
+	}
+
+	void CTcpServer::ClearHandlers()
+	{
+		m_dispatcher->ClearHandlers();
+	}
+
 	void CTcpServer::OnListenerError(struct evconnlistener* pListener)
 	{
 	}

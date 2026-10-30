@@ -7,19 +7,21 @@
 #include <mutex>
 #include <unordered_map>
 #include <map>
+#include <set>
 #include <unordered_set>
 class CRequest;
-class CSession;
 
 class CTradeService final : public IStrategyOrderSink, public ITradingSnapshotProvider
 {
+	friend class CServiceRoutingTests;
+
 public:
 	using _TyOrderEventHandler = ITradeService::_TyOrderEventHandler;
 	using _TyPushHandler = std::function<void(const CRequest&)>;
 	using _TyAccountReadyHandler = std::function<void(const _TyAccount&)>;
 	CTradeService() = default;
 	~CTradeService();
-	bool Initialize(CSession& session);
+	bool Initialize();
 	void Stop();
 	void SetOrderEventHandler(_TyOrderEventHandler&& handler);
 	bool HandleTradingRequest(const CRequest& req);
@@ -40,7 +42,7 @@ public:
 private:
 	std::shared_ptr<trade::ITradeSession> FindService(const _TyAccount& accountIndex) const;
 	mutable std::mutex m_mtx_accounts;
-	std::mutex m_mtx_operations;
+	std::set<_TyAccount> m_disconnectingAccounts;
 	std::map<_TyAccount, CTradeAccount> m_accounts;
 	std::map<_TyAccount, std::unordered_set<_TyStrategyId>> m_runningStrategies;
 	using _TyStrategyOrderIndex = std::pair<_TyStrategyId, _TyOrderId>;

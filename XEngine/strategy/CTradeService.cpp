@@ -1,5 +1,6 @@
 #include "CTradeService.h"
 #include "../common/utility.h"
+#include "../common/container.h"
 #include "../database/CDBEngine.h"
 #include "../database/IDataBase.h"
 #include "../trade/TradeProtocol.h"
@@ -32,7 +33,7 @@ CTradeService::~CTradeService()
 	Stop();
 }
 
-bool CTradeService::Initialize(CSession&)
+bool CTradeService::Initialize()
 {
 	ini::CINIHandler& config = ini::CINIHandler::InstanceRef();
 	CLoginInfo info;
@@ -123,7 +124,7 @@ std::shared_ptr<trade::ITradeSession> CTradeService::FindService(const _TyAccoun
 {
 	std::lock_guard<std::mutex> lock(m_mtx_accounts);
 	const auto mIter = m_accounts.find(accountIndex);
-	return ((m_accounts.end() == mIter) || (TradeAccountState::Connected != mIter->second.m_info.m_state)) ? nullptr : mIter->second.m_session;
+	return (container::with(m_disconnectingAccounts, accountIndex) || (m_accounts.end() == mIter) || (TradeAccountState::Connected != mIter->second.m_info.m_state)) ? nullptr : mIter->second.m_session;
 }
 
 bool CTradeService::HasAccount(const _TyAccount& accountIndex) const
@@ -145,7 +146,7 @@ bool CTradeService::BeginStrategy(const _TyAccount& accountIndex, _TyStrategyId 
 	}
 	std::lock_guard<std::mutex> lock(m_mtx_accounts);
 	const auto mIter = m_accounts.find(accountIndex);
-	if ((m_accounts.end() == mIter) || (TradeAccountState::Connected != mIter->second.m_info.m_state))
+	if (container::with(m_disconnectingAccounts, accountIndex) || (m_accounts.end() == mIter) || (TradeAccountState::Connected != mIter->second.m_info.m_state))
 	{
 		return false;
 	}
@@ -324,23 +325,29 @@ const std::string& CTradeService::GetLastError() const
 
 bool CTradeService::HandleAccountRequest(const CRequest& req, const std::string& actor)
 {
-	if (_TyRequest::TRADE_ACCOUNT_DISCONNECT == req.GetType())
+	_TyAccount disconnectingAccount;
+	bool disconnecting = _TyRequest::TRADE_ACCOUNT_DISCONNECT == req.GetType() && ReadAccountIdentity(req, disconnectingAccount);
+	if (disconnecting)
 	{
-		_TyAccount accountIndex;
-		if (ReadAccountIdentity(req, accountIndex))
+		bool blocked = false;
 		{
 			std::lock_guard<std::mutex> lock(m_mtx_accounts);
-			auto iter = m_accounts.find(accountIndex);
-			if (m_accounts.end() != iter && !m_runningStrategies[accountIndex].empty())
+			const auto mIter = m_runningStrategies.find(disconnectingAccount);
+			blocked = container::with(m_disconnectingAccounts, disconnectingAccount) || (m_runningStrategies.end() != mIter && !mIter->second.empty());
+			if (!blocked)
 			{
-				net::SendError(req.GetConnectionId(), req, 1202, "Stop strategies before disconnecting account");
-				return false;
+				m_disconnectingAccounts.emplace(disconnectingAccount);
 			}
+		}
+		if (blocked)
+		{
+			net::SendError(req.GetConnectionId(), req, 1202, "Account is disconnecting or has running strategies");
+			return false;
 		}
 	}
 	CRequest request = req;
 	request.SetExtraData("actor", actor);
-	bool bQueued = m_broker->Forward(std::move(request), [this, original = req](const CRequest& reply)
+	bool bQueued = m_broker->Forward(std::move(request), [this, original = req, disconnecting, disconnectingAccount](const CRequest& reply)
 	{
 		if (_TyRequest::TRADE_ACCOUNT_DISCONNECT == original.GetType() && !reply.GetErrorInfo().has_value())
 		{
@@ -363,6 +370,11 @@ bool CTradeService::HandleAccountRequest(const CRequest& req, const std::string&
 				}
 			}
 		}
+		if (disconnecting)
+		{
+			std::lock_guard<std::mutex> lock(m_mtx_accounts);
+			m_disconnectingAccounts.erase(disconnectingAccount);
+		}
 		CRequest response = reply;
 		response.SetId(original.GetId());
 
@@ -370,6 +382,11 @@ bool CTradeService::HandleAccountRequest(const CRequest& req, const std::string&
 	});
 	if (!bQueued)
 	{
+		if (disconnecting)
+		{
+			std::lock_guard<std::mutex> lock(m_mtx_accounts);
+			m_disconnectingAccounts.erase(disconnectingAccount);
+		}
 		net::SendError(req.GetConnectionId(), req, static_cast<int>(trade::Error::Unavailable), "XBroker is unavailable");
 	}
 	return bQueued;

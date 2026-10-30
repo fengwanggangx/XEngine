@@ -1,5 +1,5 @@
-#ifndef XENGINE_STRATEGY_CSTRATEGYENGINE_H
-#define XENGINE_STRATEGY_CSTRATEGYENGINE_H
+#ifndef XENGINE_STRATEGY_CSTRATEGYSERVICE_H
+#define XENGINE_STRATEGY_CSTRATEGYSERVICE_H
 
 #include "IStrategy.h"
 
@@ -105,25 +105,20 @@ enum class SignalState
 	Rejected
 };
 
-class CStrategyEngine final
+class CStrategyService final
 {
 	friend class CStrategyContext;
-	using _TyTradingPushHandler = std::function<void(const CRequest&)>;
 	using _TyStateHandler = std::function<void(const CStrategySnapshot&)>;
 
 public:
-	explicit CStrategyEngine(CSession* pSession);
-	~CStrategyEngine();
-	CStrategyEngine(const CStrategyEngine& arg) = delete;
-	CStrategyEngine& operator=(const CStrategyEngine& arg) = delete;
+	CStrategyService(CSession* pSession, CTradeService* pTradeService);
+	~CStrategyService();
+	CStrategyService(const CStrategyService& arg) = delete;
+	CStrategyService& operator=(const CStrategyService& arg) = delete;
 
 public:
 	bool Initialize();
 	bool HandleStrategyRequest(const CRequest& req);
-	bool HandleTradingRequest(const CRequest& req);
-	void StopTrading();
-	void SetTradingPushHandler(_TyTradingPushHandler&& handler);
-	bool HandleAccountRequest(const CRequest& req, const std::string& actor);
 	std::unique_ptr<IStrategy> CreateStrategy(const std::string& strType) const;
 	bool CreateStrategy(const CStrategyConfig& config);
 	bool RemoveStrategy(_TyStrategyId id);
@@ -147,6 +142,7 @@ private:
 	void OnHQMarketState(SessionState state, const std::string& strReason);
 	void OnOrderEvent(const COrderEvent& ev);
 	void OnTradeEvent(const CTradeEvent& ev);
+	void OnAccountReady(const _TyAccount& accountIndex);
 
 private:
 	std::shared_ptr<CStrategyRuntime> FindRuntime(_TyStrategyId id) const;
@@ -179,7 +175,8 @@ private:
 private:
 	std::mutex m_mtx_operations;
 	CSession* m_pSession{ nullptr };
-	std::unique_ptr<CTradeService> m_trader;
+	// Borrowed from CBootLoader; trading callbacks are stopped before destruction.
+	CTradeService* m_pTradeService{ nullptr };
 
 	mutable std::shared_mutex m_mtx_strategies;
 	std::unordered_map<_TyStrategyId, std::shared_ptr<CStrategyRuntime>> m_runtimes;

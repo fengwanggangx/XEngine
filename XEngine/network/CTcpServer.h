@@ -7,7 +7,7 @@
 #include "CNet.h"
 #include "common_net.h"
 #include "CNetRouter.h"
-template<bool bAsyn, class _Ty, class _TyHandler>
+template <bool bAsyn, class _Ty, class _TyHandler>
 class CDistributor;
 
 class CRequest;
@@ -18,6 +18,7 @@ namespace net
 	{
 		using _TyHandler = std::function<int(const CNetEvent&)>;
 		using _TyDistributor = CDistributor<true, std::vector<CNetEvent>, _TyHandler>;
+
 	public:
 		explicit CTcpServer(int nPort);
 		~CTcpServer() override;
@@ -26,6 +27,8 @@ namespace net
 		void OnListenerError(struct evconnlistener* pListener);
 
 		int Initialize();
+		void Drain();
+		void ClearHandlers();
 
 		void RegisterHandler(_TyHandler&& func);
 
@@ -35,8 +38,8 @@ namespace net
 		void OnEvent(struct bufferevent* pEvent, short events) override;
 
 	private:
-		int	m_nPort{ -1 };
+		int m_nPort{ -1 };
 		std::unique_ptr<_TyDistributor> m_dispatcher;
 	};
-}
+} // namespace net
 #endif

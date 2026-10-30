@@ -91,7 +91,7 @@
   </PropertyGroup>
   <ItemGroup>
     <ClCompile Include="basic\CDistributor.cpp" />
-    <ClCompile Include="system\CBrokerService.cpp" />
+    <ClCompile Include="system\CEngineService.cpp" />
     <ClCompile Include="system\CSubscriptionMgr.cpp" />
     <ClCompile Include="request\RequestCenter.cpp" />
     <ClCompile Include="common\datetime.cpp">
@@ -124,7 +124,7 @@
     <ClCompile Include="request\request.cpp" />
     <ClCompile Include="request\request.pb.cc" />
     <ClCompile Include="strategy\CStrategyContext.cpp" />
-    <ClCompile Include="strategy\CStrategyEngine.cpp" />
+    <ClCompile Include="strategy\CStrategyService.cpp" />
     <ClCompile Include="strategy\CTradeService.cpp" />
     <ClCompile Include="strategy\StrategyTypes.cpp" />
     <ClCompile Include="strategy\strategies\CMovingAverageStrategy.cpp" />
@@ -135,7 +135,7 @@
   <ItemGroup>
     <ClInclude Include="basic\CDistributor.h" />
     <ClInclude Include="request\RequestCenter.h" />
-    <ClInclude Include="system\CBrokerService.h" />
+    <ClInclude Include="system\CEngineService.h" />
     <ClInclude Include="system\CSubscriptionMgr.h" />
     <ClInclude Include="common\container.h" />
     <ClInclude Include="common\container_traits.h" />
@@ -170,7 +170,7 @@
     <ClInclude Include="request\request.h" />
     <ClInclude Include="request\request.pb.h" />
     <ClInclude Include="strategy\CStrategyContext.h" />
-    <ClInclude Include="strategy\CStrategyEngine.h" />
+    <ClInclude Include="strategy\CStrategyService.h" />
     <ClInclude Include="strategy\AccountInfo.h" />
     <ClInclude Include="strategy\CTradeService.h" />
     <ClInclude Include="strategy\ITradeService.h" />

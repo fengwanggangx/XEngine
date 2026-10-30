@@ -1,17 +1,17 @@
 ﻿#include "CStrategyContext.h"
 
-#include "CStrategyEngine.h"
+#include "CStrategyService.h"
 #include "CTradeService.h"
 
 #include <iostream>
 
-CStrategyContext::CStrategyContext(_TyStrategyId strategyId, const _TyAccount& accountIndex, CStrategyEngine* pEngine, CTradeService* pSnapshotProvider) : m_strategyId(strategyId), m_pEngine(pEngine), m_accountIndex(accountIndex), m_pSnapshotProvider(pSnapshotProvider)
+CStrategyContext::CStrategyContext(_TyStrategyId strategyId, const _TyAccount& accountIndex, CStrategyService* pStrategyService, CTradeService* pSnapshotProvider) : m_strategyId(strategyId), m_pStrategyService(pStrategyService), m_accountIndex(accountIndex), m_pSnapshotProvider(pSnapshotProvider)
 {
 }
 
 COrderSubmitResult CStrategyContext::SubmitOrder(const COrderIntent& intent)
 {
-	if (!m_bEnabled.load() || (nullptr == m_pEngine))
+	if (!m_bEnabled.load() || (nullptr == m_pStrategyService))
 	{
 		return { false, false, 0, 0, "Strategy context is disabled" };
 	}
@@ -24,12 +24,12 @@ COrderSubmitResult CStrategyContext::SubmitOrder(const COrderIntent& intent)
 	{
 		return { false, false, 0, 0, "Order intent belongs to another strategy" };
 	}
-	return m_pEngine->SubmitOrder(m_strategyId, normalizedIntent);
+	return m_pStrategyService->SubmitOrder(m_strategyId, normalizedIntent);
 }
 
 bool CStrategyContext::CancelOrder(_TyOrderId orderId)
 {
-	return m_bEnabled.load() && (nullptr != m_pEngine) && m_pEngine->CancelOrder(m_strategyId, orderId);
+	return m_bEnabled.load() && (nullptr != m_pStrategyService) && m_pStrategyService->CancelOrder(m_strategyId, orderId);
 }
 
 CPositionSnapshot CStrategyContext::GetPosition(const CSecurity& security) const
@@ -60,7 +60,7 @@ void CStrategyContext::WriteLog(LogLevel level, const std::string& strMessage)
 
 bool CStrategyContext::IsMarketAvailable() const
 {
-	return (nullptr != m_pEngine) && m_pEngine->IsMarketAvailable();
+	return (nullptr != m_pStrategyService) && m_pStrategyService->IsMarketAvailable();
 }
 
 void CStrategyContext::Disable()

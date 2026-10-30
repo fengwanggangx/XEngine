@@ -69,3 +69,5 @@ XEngine 通过 `[Broker] host/port/token` 连接 XBroker。账户不再使用数
 ## 交易会话分层
 
 `CBrokerClient` 管理共享 Broker 连接、多账户缓存和查询同步，不再实现账户接口。账户目录为每个账户建立 `CBrokerSession`，通过 `ITradeSession::SendRequest()` 和无参数 `Snapshot()` 访问本账户；关闭账户会话不会停止共享连接。网络协议与数据库结构保持不变。
+
+`CBootLoader` 统一创建、初始化和停止 `CEngineService`、`CTradeService`、`CStrategyService`。终端的交易账户登录、目录、资金及交易请求由 `CEngineService` 直接交给 `CTradeService → CBrokerClient`；策略请求交给 `CStrategyService`，策略执行复用同一个 `CTradeService`。交易账户退出与策略启动通过交易服务中的账户状态协调，退出处理中不允许启动新策略。
