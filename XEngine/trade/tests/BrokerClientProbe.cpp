@@ -60,7 +60,7 @@ int main(int nArgs, char** pArgs)
 	std::get<trade::CSubmitParam>(request.m_param).m_order.m_nQuantity = 100;
 	std::promise<trade::CCounterReply> completion;
 	std::future<trade::CCounterReply> future = completion.get_future();
-	if (!client.Request(std::move(request), [&completion](const trade::CCounterReply& reply)
+	if (!client.SendRequest(std::move(request), [&completion](const trade::CCounterReply& reply)
 	{
 		completion.set_value(reply);
 	}).Ok())

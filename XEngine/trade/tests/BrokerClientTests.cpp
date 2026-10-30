@@ -98,6 +98,38 @@ public:
 		Check(!client.Snapshot(TestAccount(1)).m_bReady && !client.m_syncing.contains(TestAccount(1)), "failed category never marks cache ready");
 
 		Check(!client.Snapshot(TestAccount(0)).m_bReady, "zero account cannot aggregate cache");
+		std::shared_ptr<CBrokerClient> shared = std::make_shared<CBrokerClient>(CLoginInfo{});
+		shared->m_snapshots[TestAccount(1)].m_account.m_nBalance = 100;
+		shared->m_snapshots[TestAccount(2)].m_account.m_nBalance = 200;
+		std::shared_ptr<trade::ITradeSession> first = shared->CreateSession(TestAccount(1));
+		std::shared_ptr<trade::ITradeSession> second = shared->CreateSession(TestAccount(2));
+		Check(100 == first->Snapshot().m_account.m_nBalance && 200 == second->Snapshot().m_account.m_nBalance, "broker sessions bind snapshots to accounts");
+		int firstEvents = 0, secondEvents = 0, rejectedReplies = 0;
+		first->SetEventHandler([&firstEvents](const trade::CCountEvent&)
+		{
+			++firstEvents;
+		});
+		second->SetEventHandler([&secondEvents](const trade::CCountEvent&)
+		{
+			++secondEvents;
+		});
+		trade::CCountEvent accountEvent;
+		accountEvent.m_accountIndex = TestAccount(2);
+		shared->PublishSession(accountEvent);
+		Check(0 == firstEvents && 1 == secondEvents, "broker events reach only their account");
+		trade::CReqParam mismatch;
+		mismatch.m_accountIndex = TestAccount(2);
+		Check(!first->SendRequest(mismatch, [&rejectedReplies](const trade::CCounterReply&)
+		{
+			++rejectedReplies;
+		}).Ok() && 0 == rejectedReplies,
+			  "broker session rejects account mismatch without callback");
+		first->Close();
+		std::shared_ptr<trade::ITradeSession> replacement = shared->CreateSession(TestAccount(1));
+		Check(first != replacement && 100 == replacement->Snapshot().m_account.m_nBalance && 200 == second->Snapshot().m_account.m_nBalance, "closed broker session replaced without stopping shared client");
+		accountEvent.m_accountIndex = TestAccount(1);
+		shared->PublishSession(accountEvent);
+		Check(0 == firstEvents, "closed broker session receives no new events");
 	}
 };
 int main()

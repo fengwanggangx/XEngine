@@ -38,19 +38,19 @@ public:
 	const std::string& GetLastError() const;
 
 private:
-std::shared_ptr<trade::ITradeCounter> FindService(const _TyAccount& accountIndex) const;
-mutable std::mutex m_mtx_accounts;
-std::mutex m_mtx_operations;
-std::map<_TyAccount, CTradeAccount> m_accounts;
-std::map<_TyAccount, std::unordered_set<_TyStrategyId>> m_runningStrategies;
-using _TyStrategyOrderIndex = std::pair<_TyStrategyId, _TyOrderId>;
-std::map<_TyStrategyOrderIndex, _TyAccount> m_orderAccounts;
-_TyOrderEventHandler m_orderHandler;
-std::string m_strLastError;
-std::shared_ptr<CBrokerClient> m_broker;
-using _TyTradeEventHandler = std::function<void(const CTradeEvent&)>;
-_TyTradeEventHandler m_tradeHandler;
-void OnEvent(const trade::CCountEvent& event);
+	std::shared_ptr<trade::ITradeSession> FindService(const _TyAccount& accountIndex) const;
+	mutable std::mutex m_mtx_accounts;
+	std::mutex m_mtx_operations;
+	std::map<_TyAccount, CTradeAccount> m_accounts;
+	std::map<_TyAccount, std::unordered_set<_TyStrategyId>> m_runningStrategies;
+	using _TyStrategyOrderIndex = std::pair<_TyStrategyId, _TyOrderId>;
+	std::map<_TyStrategyOrderIndex, _TyAccount> m_orderAccounts;
+	_TyOrderEventHandler m_orderHandler;
+	std::string m_strLastError;
+	std::shared_ptr<CBrokerClient> m_broker;
+	using _TyTradeEventHandler = std::function<void(const CTradeEvent&)>;
+	_TyTradeEventHandler m_tradeHandler;
+	void OnEvent(const trade::CCountEvent& event);
 
 public:
 	void SetTradeEventHandler(_TyTradeEventHandler&& handler);

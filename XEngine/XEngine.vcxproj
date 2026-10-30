@@ -226,8 +226,10 @@
   <ImportGroup Label="ExtensionTargets" />
   <ItemGroup>
     <ClCompile Include="trade\CBrokerClient.cpp" />
+    <ClCompile Include="trade\CBrokerSession.cpp" />
     <ClInclude Include="trade\CBrokerClient.h" />
-    <ClInclude Include="trade\ITradeCounter.h" />
+    <ClInclude Include="trade\CBrokerSession.h" />
+    <ClInclude Include="trade\ITradeSession.h" />
     <ClCompile Include="trade\TradeProtocol.cpp" />
     <ClInclude Include="trade\TradeProtocol.h" />
     <ClCompile Include="trade\TradeTypes.cpp" />

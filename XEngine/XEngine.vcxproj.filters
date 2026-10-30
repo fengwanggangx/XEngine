@@ -315,10 +315,16 @@
     <ClCompile Include="trade\CBrokerClient.cpp">
       <Filter>trade</Filter>
     </ClCompile>
+    <ClCompile Include="trade\CBrokerSession.cpp">
+      <Filter>trade</Filter>
+    </ClCompile>
     <ClInclude Include="trade\CBrokerClient.h">
       <Filter>trade</Filter>
     </ClInclude>
-    <ClInclude Include="trade\ITradeCounter.h">
+    <ClInclude Include="trade\CBrokerSession.h">
+      <Filter>trade</Filter>
+    </ClInclude>
+    <ClInclude Include="trade\ITradeSession.h">
       <Filter>trade</Filter>
     </ClInclude>
     <ClCompile Include="trade\TradeProtocol.cpp">

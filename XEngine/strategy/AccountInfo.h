@@ -4,7 +4,7 @@
 
 namespace trade
 {
-	class ITradeCounter;
+	class ITradeSession;
 }
 
 enum class TradeAccountState
@@ -44,6 +44,6 @@ inline CTradeAccountInfo AccountInfo(const _TyAccount& index)
 struct CTradeAccount
 {
 	CTradeAccountInfo m_info;
-	// A counter can also be retained by its adapter registry or pending operations.
-	std::shared_ptr<trade::ITradeCounter> m_counter;
+	// Pending operations may retain the account session until their response completes.
+	std::shared_ptr<trade::ITradeSession> m_session;
 };

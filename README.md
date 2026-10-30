@@ -64,3 +64,8 @@ XEngine 通过 `[Broker] host/port/token` 连接 XBroker。账户不再使用数
 券商目录和开户/登录请求由 XEngine 转发；Broker 只发布运行期间成功登录的账户。XEngine 在目录发现账户后依次查询资金、持仓、委托和成交，按各类水位衔接推送。断线使缓存失效，恢复查询完成后策略才可使用账户；交易请求不自动重发，不提供一次返回全部账户数据的请求。
 
 配置与集成测试参见同级 XBroker/README.md。三端必须配套升级；账号是字符串，前导零及券商/站点隔离必须保留。
+
+
+## 交易会话分层
+
+`CBrokerClient` 管理共享 Broker 连接、多账户缓存和查询同步，不再实现账户接口。账户目录为每个账户建立 `CBrokerSession`，通过 `ITradeSession::SendRequest()` 和无参数 `Snapshot()` 访问本账户；关闭账户会话不会停止共享连接。网络协议与数据库结构保持不变。

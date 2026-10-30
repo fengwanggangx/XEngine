@@ -1,30 +1,35 @@
 #pragma once
-#include "ITradeCounter.h"
+#include "ITradeSession.h"
 #include "../system/CSession.h"
 #include <atomic>
 #include <array>
 #include <unordered_map>
 #include <map>
-class CBrokerClient final : public trade::ITradeCounter
+class CBrokerClient final : public std::enable_shared_from_this<CBrokerClient>
 {
 public:
-	using WireHandler = std::function<void(const CRequest&)>;
+	using _TyReplyHandler = trade::ITradeSession::_TyReplyHandler;
+	using _TyEventHandler = trade::ITradeSession::_TyEventHandler;
+	std::shared_ptr<trade::ITradeSession> CreateSession(const _TyAccount& account);
+	using _TyWireHandler = std::function<void(const CRequest&)>;
 	explicit CBrokerClient(const CLoginInfo& info);
-	~CBrokerClient() override;
+	~CBrokerClient();
 	bool Start();
-	bool Forward(CRequest request, WireHandler handler);
-	void SetCatalogueHandler(WireHandler handler);
-	trade::CResult Request(trade::CReqParam request, ReplyHandler handler) override;
-	void SetEventHandler(EventHandler handler) override;
-	trade::CAccountData Snapshot(const _TyAccount& accountIndex) const override;
-	void Stop() override;
+	bool Forward(CRequest request, _TyWireHandler handler);
+	void SetCatalogueHandler(_TyWireHandler handler);
+	trade::CResult SendRequest(trade::CReqParam request, _TyReplyHandler handler);
+	void SetEventHandler(_TyEventHandler handler);
+	trade::CAccountData Snapshot(const _TyAccount& accountIndex) const;
+	void Stop();
 
 private:
+	std::map<_TyAccount, std::weak_ptr<class CBrokerSession>> m_sessions;
 	friend class CBrokerClientTests;
-	void CompleteRequest(const CRequest& response, const _TyAccount& accountIndex, std::uint64_t nRequestId, trade::Operation operation, std::uint64_t nGeneration, const ReplyHandler& handler);
+	void PublishSession(const trade::CCountEvent& event);
+	void CompleteRequest(const CRequest& response, const _TyAccount& accountIndex, std::uint64_t nRequestId, trade::Operation operation, std::uint64_t nGeneration, const _TyReplyHandler& handler);
 	struct CPending
 	{
-		WireHandler m_handler;
+		_TyWireHandler m_handler;
 		std::chrono::steady_clock::time_point m_deadline;
 		_TyRequest m_type{ _TyRequest::UNKNOWN };
 	};
@@ -51,8 +56,8 @@ private:
 	};
 	std::map<_TyAccount, CSync> m_syncing;
 	std::uint64_t m_generation{ 0 };
-	EventHandler m_eventHandler;
-	WireHandler m_catalogueHandler;
+	_TyEventHandler m_eventHandler;
+	_TyWireHandler m_catalogueHandler;
 	std::atomic_uint64_t m_nNextId{ 1 };
 	std::jthread m_refresh;
 	std::mutex m_mtx_wait;

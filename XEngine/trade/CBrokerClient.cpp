@@ -1,4 +1,5 @@
 #include "CBrokerClient.h"
+#include "CBrokerSession.h"
 #include "TradeProtocol.h"
 #include "../request/request.pb.h"
 #include <algorithm>
@@ -27,6 +28,7 @@ CBrokerClient::~CBrokerClient()
 {
 	Stop();
 }
+
 bool CBrokerClient::Start()
 {
 	if (!m_session.Start())
@@ -47,6 +49,7 @@ bool CBrokerClient::Start()
 	});
 	return true;
 }
+
 void CBrokerClient::Stop()
 {
 	m_refresh.request_stop();
@@ -58,17 +61,20 @@ void CBrokerClient::Stop()
 	m_session.Stop();
 	FailPending();
 }
-void CBrokerClient::SetCatalogueHandler(WireHandler handler)
+
+void CBrokerClient::SetCatalogueHandler(_TyWireHandler handler)
 {
 	std::lock_guard<std::mutex> lock(m_mtx_state);
 	m_catalogueHandler = std::move(handler);
 }
-void CBrokerClient::SetEventHandler(EventHandler handler)
+
+void CBrokerClient::SetEventHandler(_TyEventHandler handler)
 {
 	std::lock_guard<std::mutex> lock(m_mtx_state);
 	m_eventHandler = std::move(handler);
 }
-bool CBrokerClient::Forward(CRequest request, WireHandler handler)
+
+bool CBrokerClient::Forward(CRequest request, _TyWireHandler handler)
 {
 	if (!m_session.IsAuthenticated())
 	{
@@ -96,7 +102,8 @@ bool CBrokerClient::Forward(CRequest request, WireHandler handler)
 	}
 	return true;
 }
-trade::CResult CBrokerClient::Request(trade::CReqParam request, ReplyHandler handler)
+
+trade::CResult CBrokerClient::SendRequest(trade::CReqParam request, _TyReplyHandler handler)
 {
 	if (!IsAccountValid(request.m_accountIndex))
 	{
@@ -117,7 +124,8 @@ trade::CResult CBrokerClient::Request(trade::CReqParam request, ReplyHandler han
 	});
 	return bQueued ? trade::CResult{} : trade::CResult{ trade::Error::Unavailable, "XBroker is unavailable" };
 }
-void CBrokerClient::CompleteRequest(const CRequest& response, const _TyAccount& accountIndex, std::uint64_t nRequestId, trade::Operation operation, std::uint64_t nGeneration, const ReplyHandler& handler)
+
+void CBrokerClient::CompleteRequest(const CRequest& response, const _TyAccount& accountIndex, std::uint64_t nRequestId, trade::Operation operation, std::uint64_t nGeneration, const _TyReplyHandler& handler)
 {
 	trade::CCounterReply reply;
 	if (!trade::protocol::ReadReply(response, reply) || (reply.m_result.Ok() && (accountIndex != reply.m_accountIndex || operation != reply.m_operation)))
@@ -187,7 +195,7 @@ void CBrokerClient::QueryNext(const _TyAccount& accountIndex, std::uint64_t nGen
 	default:
 		return;
 	}
-	trade::CResult result = Request(std::move(request), [this, nGeneration, nCycle](const trade::CCounterReply& reply)
+	trade::CResult result = SendRequest(std::move(request), [this, nGeneration, nCycle](const trade::CCounterReply& reply)
 	{
 		CompleteQuery(reply, nGeneration, nCycle);
 	});
@@ -204,7 +212,7 @@ void CBrokerClient::QueryNext(const _TyAccount& accountIndex, std::uint64_t nGen
 void CBrokerClient::CompleteQuery(const trade::CCounterReply& reply, std::uint64_t nGeneration, std::uint64_t nCycle)
 {
 	_TyAccount accountIndex = reply.m_accountIndex;
-	EventHandler eventHandler;
+	_TyEventHandler eventHandler;
 	std::vector<trade::CCountEvent> notifications;
 	trade::Operation next = trade::Operation::Funds;
 	bool bNext = false;
@@ -354,6 +362,10 @@ void CBrokerClient::CompleteQuery(const trade::CCounterReply& reply, std::uint64
 			eventHandler(event);
 		}
 	}
+	for (const auto& event : notifications)
+	{
+		PublishSession(event);
+	}
 }
 
 trade::CAccountData CBrokerClient::Snapshot(const _TyAccount& accountIndex) const
@@ -368,6 +380,7 @@ trade::CAccountData CBrokerClient::Snapshot(const _TyAccount& accountIndex) cons
 	}
 	return iter->second;
 }
+
 void CBrokerClient::ApplyEvent(trade::CAccountData& data, trade::CCountEvent& event)
 {
 	if (trade::EventTy::Funds != event.m_kind && !event.m_bAccountValid)
@@ -404,10 +417,11 @@ void CBrokerClient::ApplyEvent(trade::CAccountData& data, trade::CCountEvent& ev
 		data.m_version = previous;
 	}
 }
+
 void CBrokerClient::OnResponse(const CRequest& response)
 {
-	WireHandler handler;
-	EventHandler eventHandler;
+	_TyWireHandler handler;
+	_TyEventHandler eventHandler;
 	if (0 == response.GetId())
 	{
 		trade::CCountEvent event;
@@ -447,6 +461,7 @@ void CBrokerClient::OnResponse(const CRequest& response)
 		{
 			eventHandler(event);
 		}
+		PublishSession(event);
 		return;
 	}
 	{
@@ -464,13 +479,14 @@ void CBrokerClient::OnResponse(const CRequest& response)
 		handler(response);
 	}
 }
+
 void CBrokerClient::OnState(SessionState state)
 {
 	if (SessionState::Ready == state)
 	{
 		return;
 	}
-	EventHandler handler;
+	_TyEventHandler handler;
 	std::vector<trade::CCountEvent> events;
 	{
 		std::lock_guard<std::mutex> lock(m_mtx_state);
@@ -494,8 +510,13 @@ void CBrokerClient::OnState(SessionState state)
 			handler(event);
 		}
 	}
+	for (const auto& event : events)
+	{
+		PublishSession(event);
+	}
 	FailPending();
 }
+
 void CBrokerClient::FailPending()
 {
 	std::unordered_map<std::uint64_t, CPending> pending;
@@ -515,6 +536,7 @@ void CBrokerClient::FailPending()
 		}
 	}
 }
+
 void CBrokerClient::Refresh()
 {
 	std::vector<std::pair<std::uint64_t, _TyRequest>> expired;
@@ -548,7 +570,7 @@ void CBrokerClient::Refresh()
 		{
 			return;
 		}
-		WireHandler handler;
+		_TyWireHandler handler;
 		{
 			std::lock_guard<std::mutex> lock(m_mtx_state);
 			handler = m_catalogueHandler;
@@ -562,4 +584,38 @@ void CBrokerClient::Refresh()
 			QueryAccount(AccountIndex(account));
 		}
 	});
+}
+
+std::shared_ptr<trade::ITradeSession> CBrokerClient::CreateSession(const _TyAccount& account)
+{
+	std::lock_guard<std::mutex> lock(m_mtx_state);
+	const auto mIter = m_sessions.find(account);
+	if (m_sessions.end() != mIter)
+	{
+		std::shared_ptr<CBrokerSession> existing = mIter->second.lock();
+		if (nullptr != existing && !existing->IsClosed())
+		{
+			return existing;
+		}
+	}
+	std::shared_ptr<CBrokerSession> session = std::make_shared<CBrokerSession>(shared_from_this(), account);
+	m_sessions[account] = session;
+	return session;
+}
+
+void CBrokerClient::PublishSession(const trade::CCountEvent& event)
+{
+	std::shared_ptr<CBrokerSession> session;
+	{
+		std::lock_guard<std::mutex> lock(m_mtx_state);
+		const auto mIter = m_sessions.find(event.m_accountIndex);
+		if (m_sessions.end() != mIter)
+		{
+			session = mIter->second.lock();
+		}
+	}
+	if (nullptr != session)
+	{
+		session->Publish(event);
+	}
 }
