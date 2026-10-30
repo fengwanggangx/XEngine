@@ -83,7 +83,7 @@ bool CBrokerClient::Forward(CRequest request, WireHandler handler)
 		{
 			return false;
 		}
-		m_pending.emplace(nId, CPending{ std::move(handler), std::chrono::steady_clock::now() + std::chrono::seconds(10), request.GetType() });
+		m_pending.emplace(nId, CPending{ std::move(handler), std::chrono::steady_clock::now() + std::chrono::seconds(_TyRequest::TRADE_ACCOUNT_LOGIN == request.GetType() ? 60 : 15), request.GetType() });
 	}
 	if (!m_session.SendRequest(request))
 	{
@@ -269,7 +269,7 @@ void CBrokerClient::CompleteQuery(const trade::CCounterReply& reply, std::uint64
 				previousTrades.emplace(row.m_tradeId);
 			}
 			cached = std::move(pending->second.m_data);
-			cached.m_bReady = true;
+			cached.m_bReady = cached.m_account.m_bConnected && cached.m_account.m_bFundsValid;
 			// Reconcile complete state before the final session-ready notification.
 			for (const auto& order : cached.m_orders)
 			{
@@ -370,14 +370,21 @@ trade::CAccountData CBrokerClient::Snapshot(const _TyAccount& accountIndex) cons
 }
 void CBrokerClient::ApplyEvent(trade::CAccountData& data, trade::CCountEvent& event)
 {
-	if (trade::EventTy::Funds != event.m_kind)
+	if (trade::EventTy::Funds != event.m_kind && !event.m_bAccountValid)
 	{
 		bool bConnected = event.m_account.m_bConnected;
+		int state = event.m_account.m_nState;
 		event.m_account = data.m_account;
 		if (trade::EventTy::Session == event.m_kind)
 		{
 			event.m_account.m_bConnected = bConnected;
+			event.m_account.m_nState = state;
+			if (!bConnected)
+			{
+				event.m_account.m_bFundsValid = false;
+			}
 		}
+		event.m_bAccountValid = true;
 	}
 	if (trade::EventTy::Deal == event.m_kind)
 	{
@@ -390,7 +397,12 @@ void CBrokerClient::ApplyEvent(trade::CAccountData& data, trade::CCountEvent& ev
 			}
 		}
 	}
+	std::uint64_t previous = data.m_version;
 	trade::UpdateAccountData(data, event);
+	if (0 == event.m_sequence)
+	{
+		data.m_version = previous;
+	}
 }
 void CBrokerClient::OnResponse(const CRequest& response)
 {
@@ -419,7 +431,7 @@ void CBrokerClient::OnResponse(const CRequest& response)
 				return;
 			}
 			auto iter = m_snapshots.find(event.m_accountIndex);
-			if (m_snapshots.end() == iter || !iter->second.m_bReady || event.m_sequence <= iter->second.m_version)
+			if (m_snapshots.end() == iter || (!iter->second.m_bReady && trade::EventTy::Session != event.m_kind) || (0 != event.m_sequence && event.m_sequence <= iter->second.m_version))
 			{
 				return;
 			}
@@ -427,6 +439,7 @@ void CBrokerClient::OnResponse(const CRequest& response)
 			if (trade::EventTy::Session == event.m_kind)
 			{
 				iter->second.m_bReady = false;
+				iter->second.m_account.m_bFundsValid = false;
 			}
 			eventHandler = m_eventHandler;
 		}

@@ -69,7 +69,7 @@ message StrategyList {
 }
 
 
-enum TradingAccountState { ACCOUNT_DISCONNECTED = 0; ACCOUNT_CONNECTED = 1; ACCOUNT_ERROR = 2; ACCOUNT_CONNECTING = 3; }
+enum TradingAccountState { ACCOUNT_DISCONNECTED = 0; ACCOUNT_CONNECTED = 1; ACCOUNT_ERROR = 2; ACCOUNT_CONNECTING = 3; ACCOUNT_SYNCHRONIZING = 4; ACCOUNT_RECONNECTING = 5; }
 // Account display/response data only; login credentials belong in RequestData.extra.
 message TradeAccountRecord {
  uint64 broker_id = 1; string site = 2; string account = 3;
@@ -89,6 +89,7 @@ message TradeAccountInfo {
  int64 server_time_ms = 6;
  int32 error_code = 7;
  string error_message = 8;
+ bool extended_fields = 12; bool funds_valid = 13; bool frozen_known = 14; int32 account_state = 15;
 }
 message TradeAccountInfoList { repeated TradeAccountInfo accounts = 1; }
 message TradeAccountLog {
@@ -115,16 +116,21 @@ message TradeOrderRecord {
  uint64 strategy_id = 5; uint64 signal_id = 6; string security = 7; int32 side = 8; int32 state = 9;
  int64 price = 10; int32 price_scale = 11; int64 quantity = 12; int64 filled_quantity = 13;
  int64 frozen = 14; int64 turnover = 15; int64 fee = 16; int64 time_ms = 17; string rule_version = 18;
+ string broker_order_id = 21; int32 trading_day = 22; string raw_status = 23; string broker_error = 24;
+ bool cancel_pending = 25; bool extended_fields = 26; bool fee_known = 27; bool frozen_known = 28;
+ uint32 sdk_client_id = 29; int64 broker_time = 30;
 }
 message TradeOrderList { repeated TradeOrderRecord orders = 1; }
 message TradeRecord {
  uint64 broker_id = 1; string site = 11; string account = 12; uint64 trade_id = 2; uint64 order_id = 3; string security = 4;
  int32 side = 5; int64 price = 6; int32 price_scale = 7; int64 quantity = 8; int64 fee = 9; int64 time_ms = 10;
+ string broker_trade_id = 13; string broker_order_id = 14; int32 trading_day = 15; uint64 report_index = 16;
+ int32 market = 17; bool extended_fields = 18; bool fee_known = 19;
 }
 message TradeList { repeated TradeRecord trades = 1; }
 message TradePositionRecord {
  uint64 broker_id = 1; string site = 8; string account = 9; string security = 2; int64 total_quantity = 3; int64 available_quantity = 4;
- int64 frozen_quantity = 5; int64 today_quantity = 6; int64 book_cost_cents = 7;
+ int64 frozen_quantity = 5; int64 today_quantity = 6; int64 book_cost_cents = 7; bool extended_fields = 10; bool frozen_known = 11; bool cost_known = 12;
 }
 message TradePositionList { repeated TradePositionRecord positions = 1; }
 
@@ -133,6 +139,7 @@ message TradeEventRecord {
  uint64 sequence = 1; uint64 request_id = 2; uint64 broker_id = 3; string site = 10; string account = 11; int32 kind = 4;
  TradeOrderRecord order = 5; TradeRecord trade = 6; TradeAccountInfo funds = 7;
  TradePositionRecord position = 8; bool connected = 9;
+ bool extended_fields = 12; bool account_valid = 13; TradeAccountInfo account_snapshot = 14;
 }
 message TradeOperationReceipt { uint64 order_id = 1; }
 message TradeCounterReply {
@@ -159,6 +166,7 @@ message RequestData {
     reserved 2, 4, 10, 11, 12, 20, 32;
     reserved "cmd", "ret", "auth_request", "subscribe_request", "unsubscribe_request", "query_request", "account_snapshot";
     map<string, string> extra = 3;
+    TradeAccountInfo event_account = 43;
 
 	uint64 id = 5;
 	int32 error_code = 6;
@@ -189,4 +197,11 @@ message RequestData {
         TradePositionList trade_positions = 38;
 
 	}
+}
+
+// Durable local adapter journal. Credentials must never be included.
+message ZhongTaiJournal {
+ uint64 revision = 1; uint64 sequence = 2; uint64 next_order = 3; uint64 next_trade = 4;
+ int32 trading_day = 5; repeated TradeOrderRecord orders = 6; repeated TradeRecord trades = 7;
+ repeated TradeEventRecord events = 8;
 }

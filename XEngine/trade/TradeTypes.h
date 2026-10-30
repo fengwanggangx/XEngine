@@ -43,7 +43,9 @@ namespace trade
 		Filled,
 		Cancelled,
 		Expired,
-		Rejected
+		Rejected,
+		Pending,
+		Unknown
 	};
 	enum class EventTy
 	{
@@ -72,18 +74,26 @@ namespace trade
 		std::int64_t m_nPrice{ 0 }, m_nQuantity{ 0 }, m_nFilled{ 0 }, m_nFrozen{ 0 }, m_nTurnover{ 0 }, m_nFee{ 0 }, m_nTime{ 0 };
 		int m_nPriceScale{ 2 }, m_nDay{ 0 };
 		std::string m_strRuleVersion;
+		std::string m_strBrokerOrderId, m_strRawStatus, m_strError;
+		bool m_bCancelPending{ false }, m_bFeeKnown{ true }, m_bFrozenKnown{ true };
+		std::uint32_t m_sdkClientId{ 0 };
+		std::int64_t m_nBrokerTime{ 0 };
 	};
 	struct CPosition
 	{
 		_TyAccount m_accountIndex{};
 		std::string m_strSecurity;
 		std::int64_t m_nTotal{ 0 }, m_nAvailable{ 0 }, m_nFrozen{ 0 }, m_nToday{ 0 }, m_nCost{ 0 };
+		bool m_bFrozenKnown{ true }, m_bCostKnown{ true };
 	};
 	struct CAccount
 	{
 		_TyAccount m_accountIndex{};
 		std::int64_t m_nBalance{ 0 }, m_nFrozen{ 0 };
 		bool m_bConnected{ false }, m_bMigrated{ true };
+		std::int64_t m_nAvailable{ 0 };
+		bool m_bExplicitAvailable{ false }, m_bFundsValid{ true }, m_bFrozenKnown{ true };
+		int m_nState{ 0 };
 	};
 	struct CTrade
 	{
@@ -93,6 +103,11 @@ namespace trade
 		Side m_side{ Side::Buy };
 		std::int64_t m_nPrice{ 0 }, m_nQuantity{ 0 }, m_nFee{ 0 }, m_nTime{ 0 };
 		int m_nPriceScale{ 2 };
+		int m_nDay{ 0 };
+		std::string m_strBrokerTradeId, m_strBrokerOrderId;
+		std::uint64_t m_reportIndex{ 0 };
+		int m_market{ 0 };
+		bool m_bFeeKnown{ true };
 	};
 	struct CCountEvent
 	{
@@ -103,6 +118,7 @@ namespace trade
 		CTrade m_trade;
 		CAccount m_account;
 		CPosition m_position;
+		bool m_bAccountValid{ true };
 	};
 	struct CLoginParam
 	{

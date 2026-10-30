@@ -6,7 +6,7 @@ namespace trade
 {
 	bool IsActive(Status status)
 	{
-		return (Status::Accepted == status) || (Status::PartiallyFilled == status);
+		return (Status::Accepted == status) || (Status::PartiallyFilled == status) || (Status::Pending == status) || (Status::Unknown == status);
 	}
 
 	namespace
@@ -457,7 +457,10 @@ namespace trade
 		{
 			return;
 		}
-		snapshot.m_account = event.m_account;
+		if (event.m_bAccountValid)
+		{
+			snapshot.m_account = event.m_account;
+		}
 		snapshot.m_version = event.m_sequence;
 		switch (event.m_kind)
 		{

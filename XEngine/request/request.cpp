@@ -304,3 +304,8 @@ void CRequest::SetData(const request::BrokerList& value)
 {
 	m_data->mutable_broker_list()->CopyFrom(value);
 }
+
+void CRequest::SetEventAccount(const request::TradeAccountInfo& value)
+{
+	m_data->mutable_event_account()->CopyFrom(value);
+}

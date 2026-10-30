@@ -135,6 +135,9 @@ extern TradePositionRecordDefaultTypeInternal _TradePositionRecord_default_insta
 class TradeRecord;
 struct TradeRecordDefaultTypeInternal;
 extern TradeRecordDefaultTypeInternal _TradeRecord_default_instance_;
+class ZhongTaiJournal;
+struct ZhongTaiJournalDefaultTypeInternal;
+extern ZhongTaiJournalDefaultTypeInternal _ZhongTaiJournal_default_instance_;
 }  // namespace request
 namespace google {
 namespace protobuf {
@@ -214,6 +217,8 @@ enum TradingAccountState : int {
   ACCOUNT_CONNECTED = 1,
   ACCOUNT_ERROR = 2,
   ACCOUNT_CONNECTING = 3,
+  ACCOUNT_SYNCHRONIZING = 4,
+  ACCOUNT_RECONNECTING = 5,
   TradingAccountState_INT_MIN_SENTINEL_DO_NOT_USE_ =
       std::numeric_limits<::int32_t>::min(),
   TradingAccountState_INT_MAX_SENTINEL_DO_NOT_USE_ =
@@ -223,8 +228,8 @@ enum TradingAccountState : int {
 bool TradingAccountState_IsValid(int value);
 extern const uint32_t TradingAccountState_internal_data_[];
 constexpr TradingAccountState TradingAccountState_MIN = static_cast<TradingAccountState>(0);
-constexpr TradingAccountState TradingAccountState_MAX = static_cast<TradingAccountState>(3);
-constexpr int TradingAccountState_ARRAYSIZE = 3 + 1;
+constexpr TradingAccountState TradingAccountState_MAX = static_cast<TradingAccountState>(5);
+constexpr int TradingAccountState_ARRAYSIZE = 5 + 1;
 const ::google::protobuf::EnumDescriptor*
 TradingAccountState_descriptor();
 template <typename T>
@@ -237,7 +242,7 @@ const std::string& TradingAccountState_Name(T value) {
 template <>
 inline const std::string& TradingAccountState_Name(TradingAccountState value) {
   return ::google::protobuf::internal::NameOfDenseEnum<TradingAccountState_descriptor,
-                                                 0, 3>(
+                                                 0, 5>(
       static_cast<int>(value));
 }
 inline bool TradingAccountState_Parse(absl::string_view name, TradingAccountState* value) {
@@ -399,6 +404,8 @@ class TradeRecord final : public ::google::protobuf::Message
     kSecurityFieldNumber = 4,
     kSiteFieldNumber = 11,
     kAccountFieldNumber = 12,
+    kBrokerTradeIdFieldNumber = 13,
+    kBrokerOrderIdFieldNumber = 14,
     kBrokerIdFieldNumber = 1,
     kTradeIdFieldNumber = 2,
     kOrderIdFieldNumber = 3,
@@ -408,6 +415,11 @@ class TradeRecord final : public ::google::protobuf::Message
     kQuantityFieldNumber = 8,
     kFeeFieldNumber = 9,
     kTimeMsFieldNumber = 10,
+    kReportIndexFieldNumber = 16,
+    kTradingDayFieldNumber = 15,
+    kMarketFieldNumber = 17,
+    kExtendedFieldsFieldNumber = 18,
+    kFeeKnownFieldNumber = 19,
   };
   // string security = 4;
   void clear_security() ;
@@ -455,6 +467,38 @@ class TradeRecord final : public ::google::protobuf::Message
   inline PROTOBUF_ALWAYS_INLINE void _internal_set_account(
       const std::string& value);
   std::string* _internal_mutable_account();
+
+  public:
+  // string broker_trade_id = 13;
+  void clear_broker_trade_id() ;
+  const std::string& broker_trade_id() const;
+  template <typename Arg_ = const std::string&, typename... Args_>
+  void set_broker_trade_id(Arg_&& arg, Args_... args);
+  std::string* mutable_broker_trade_id();
+  PROTOBUF_NODISCARD std::string* release_broker_trade_id();
+  void set_allocated_broker_trade_id(std::string* value);
+
+  private:
+  const std::string& _internal_broker_trade_id() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_broker_trade_id(
+      const std::string& value);
+  std::string* _internal_mutable_broker_trade_id();
+
+  public:
+  // string broker_order_id = 14;
+  void clear_broker_order_id() ;
+  const std::string& broker_order_id() const;
+  template <typename Arg_ = const std::string&, typename... Args_>
+  void set_broker_order_id(Arg_&& arg, Args_... args);
+  std::string* mutable_broker_order_id();
+  PROTOBUF_NODISCARD std::string* release_broker_order_id();
+  void set_allocated_broker_order_id(std::string* value);
+
+  private:
+  const std::string& _internal_broker_order_id() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_broker_order_id(
+      const std::string& value);
+  std::string* _internal_mutable_broker_order_id();
 
   public:
   // uint64 broker_id = 1;
@@ -547,13 +591,63 @@ class TradeRecord final : public ::google::protobuf::Message
   void _internal_set_time_ms(::int64_t value);
 
   public:
+  // uint64 report_index = 16;
+  void clear_report_index() ;
+  ::uint64_t report_index() const;
+  void set_report_index(::uint64_t value);
+
+  private:
+  ::uint64_t _internal_report_index() const;
+  void _internal_set_report_index(::uint64_t value);
+
+  public:
+  // int32 trading_day = 15;
+  void clear_trading_day() ;
+  ::int32_t trading_day() const;
+  void set_trading_day(::int32_t value);
+
+  private:
+  ::int32_t _internal_trading_day() const;
+  void _internal_set_trading_day(::int32_t value);
+
+  public:
+  // int32 market = 17;
+  void clear_market() ;
+  ::int32_t market() const;
+  void set_market(::int32_t value);
+
+  private:
+  ::int32_t _internal_market() const;
+  void _internal_set_market(::int32_t value);
+
+  public:
+  // bool extended_fields = 18;
+  void clear_extended_fields() ;
+  bool extended_fields() const;
+  void set_extended_fields(bool value);
+
+  private:
+  bool _internal_extended_fields() const;
+  void _internal_set_extended_fields(bool value);
+
+  public:
+  // bool fee_known = 19;
+  void clear_fee_known() ;
+  bool fee_known() const;
+  void set_fee_known(bool value);
+
+  private:
+  bool _internal_fee_known() const;
+  void _internal_set_fee_known(bool value);
+
+  public:
   // @@protoc_insertion_point(class_scope:request.TradeRecord)
  private:
   class _Internal;
   friend class ::google::protobuf::internal::TcParser;
   static const ::google::protobuf::internal::TcParseTable<
-      4, 12, 0,
-      55, 2>
+      5, 19, 0,
+      93, 2>
       _table_;
 
   friend class ::google::protobuf::MessageLite;
@@ -573,6 +667,8 @@ class TradeRecord final : public ::google::protobuf::Message
     ::google::protobuf::internal::ArenaStringPtr security_;
     ::google::protobuf::internal::ArenaStringPtr site_;
     ::google::protobuf::internal::ArenaStringPtr account_;
+    ::google::protobuf::internal::ArenaStringPtr broker_trade_id_;
+    ::google::protobuf::internal::ArenaStringPtr broker_order_id_;
     ::uint64_t broker_id_;
     ::uint64_t trade_id_;
     ::uint64_t order_id_;
@@ -582,6 +678,11 @@ class TradeRecord final : public ::google::protobuf::Message
     ::int64_t quantity_;
     ::int64_t fee_;
     ::int64_t time_ms_;
+    ::uint64_t report_index_;
+    ::int32_t trading_day_;
+    ::int32_t market_;
+    bool extended_fields_;
+    bool fee_known_;
     ::google::protobuf::internal::CachedSize _cached_size_;
     PROTOBUF_TSAN_DECLARE_MEMBER
   };
@@ -745,6 +846,9 @@ class TradePositionRecord final : public ::google::protobuf::Message
     kFrozenQuantityFieldNumber = 5,
     kTodayQuantityFieldNumber = 6,
     kBookCostCentsFieldNumber = 7,
+    kExtendedFieldsFieldNumber = 10,
+    kFrozenKnownFieldNumber = 11,
+    kCostKnownFieldNumber = 12,
   };
   // string security = 2;
   void clear_security() ;
@@ -854,12 +958,42 @@ class TradePositionRecord final : public ::google::protobuf::Message
   void _internal_set_book_cost_cents(::int64_t value);
 
   public:
+  // bool extended_fields = 10;
+  void clear_extended_fields() ;
+  bool extended_fields() const;
+  void set_extended_fields(bool value);
+
+  private:
+  bool _internal_extended_fields() const;
+  void _internal_set_extended_fields(bool value);
+
+  public:
+  // bool frozen_known = 11;
+  void clear_frozen_known() ;
+  bool frozen_known() const;
+  void set_frozen_known(bool value);
+
+  private:
+  bool _internal_frozen_known() const;
+  void _internal_set_frozen_known(bool value);
+
+  public:
+  // bool cost_known = 12;
+  void clear_cost_known() ;
+  bool cost_known() const;
+  void set_cost_known(bool value);
+
+  private:
+  bool _internal_cost_known() const;
+  void _internal_set_cost_known(bool value);
+
+  public:
   // @@protoc_insertion_point(class_scope:request.TradePositionRecord)
  private:
   class _Internal;
   friend class ::google::protobuf::internal::TcParser;
   static const ::google::protobuf::internal::TcParseTable<
-      4, 9, 0,
+      4, 12, 0,
       63, 2>
       _table_;
 
@@ -886,6 +1020,9 @@ class TradePositionRecord final : public ::google::protobuf::Message
     ::int64_t frozen_quantity_;
     ::int64_t today_quantity_;
     ::int64_t book_cost_cents_;
+    bool extended_fields_;
+    bool frozen_known_;
+    bool cost_known_;
     ::google::protobuf::internal::CachedSize _cached_size_;
     PROTOBUF_TSAN_DECLARE_MEMBER
   };
@@ -1044,6 +1181,9 @@ class TradeOrderRecord final : public ::google::protobuf::Message
     kRuleVersionFieldNumber = 18,
     kSiteFieldNumber = 19,
     kAccountFieldNumber = 20,
+    kBrokerOrderIdFieldNumber = 21,
+    kRawStatusFieldNumber = 23,
+    kBrokerErrorFieldNumber = 24,
     kBrokerIdFieldNumber = 1,
     kClientOrderIdFieldNumber = 2,
     kOrderIdFieldNumber = 3,
@@ -1058,8 +1198,15 @@ class TradeOrderRecord final : public ::google::protobuf::Message
     kFrozenFieldNumber = 14,
     kTurnoverFieldNumber = 15,
     kFeeFieldNumber = 16,
-    kTimeMsFieldNumber = 17,
     kPriceScaleFieldNumber = 11,
+    kTradingDayFieldNumber = 22,
+    kTimeMsFieldNumber = 17,
+    kCancelPendingFieldNumber = 25,
+    kExtendedFieldsFieldNumber = 26,
+    kFeeKnownFieldNumber = 27,
+    kFrozenKnownFieldNumber = 28,
+    kSdkClientIdFieldNumber = 29,
+    kBrokerTimeFieldNumber = 30,
   };
   // string security = 7;
   void clear_security() ;
@@ -1123,6 +1270,54 @@ class TradeOrderRecord final : public ::google::protobuf::Message
   inline PROTOBUF_ALWAYS_INLINE void _internal_set_account(
       const std::string& value);
   std::string* _internal_mutable_account();
+
+  public:
+  // string broker_order_id = 21;
+  void clear_broker_order_id() ;
+  const std::string& broker_order_id() const;
+  template <typename Arg_ = const std::string&, typename... Args_>
+  void set_broker_order_id(Arg_&& arg, Args_... args);
+  std::string* mutable_broker_order_id();
+  PROTOBUF_NODISCARD std::string* release_broker_order_id();
+  void set_allocated_broker_order_id(std::string* value);
+
+  private:
+  const std::string& _internal_broker_order_id() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_broker_order_id(
+      const std::string& value);
+  std::string* _internal_mutable_broker_order_id();
+
+  public:
+  // string raw_status = 23;
+  void clear_raw_status() ;
+  const std::string& raw_status() const;
+  template <typename Arg_ = const std::string&, typename... Args_>
+  void set_raw_status(Arg_&& arg, Args_... args);
+  std::string* mutable_raw_status();
+  PROTOBUF_NODISCARD std::string* release_raw_status();
+  void set_allocated_raw_status(std::string* value);
+
+  private:
+  const std::string& _internal_raw_status() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_raw_status(
+      const std::string& value);
+  std::string* _internal_mutable_raw_status();
+
+  public:
+  // string broker_error = 24;
+  void clear_broker_error() ;
+  const std::string& broker_error() const;
+  template <typename Arg_ = const std::string&, typename... Args_>
+  void set_broker_error(Arg_&& arg, Args_... args);
+  std::string* mutable_broker_error();
+  PROTOBUF_NODISCARD std::string* release_broker_error();
+  void set_allocated_broker_error(std::string* value);
+
+  private:
+  const std::string& _internal_broker_error() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_broker_error(
+      const std::string& value);
+  std::string* _internal_mutable_broker_error();
 
   public:
   // uint64 broker_id = 1;
@@ -1265,16 +1460,6 @@ class TradeOrderRecord final : public ::google::protobuf::Message
   void _internal_set_fee(::int64_t value);
 
   public:
-  // int64 time_ms = 17;
-  void clear_time_ms() ;
-  ::int64_t time_ms() const;
-  void set_time_ms(::int64_t value);
-
-  private:
-  ::int64_t _internal_time_ms() const;
-  void _internal_set_time_ms(::int64_t value);
-
-  public:
   // int32 price_scale = 11;
   void clear_price_scale() ;
   ::int32_t price_scale() const;
@@ -1285,13 +1470,93 @@ class TradeOrderRecord final : public ::google::protobuf::Message
   void _internal_set_price_scale(::int32_t value);
 
   public:
+  // int32 trading_day = 22;
+  void clear_trading_day() ;
+  ::int32_t trading_day() const;
+  void set_trading_day(::int32_t value);
+
+  private:
+  ::int32_t _internal_trading_day() const;
+  void _internal_set_trading_day(::int32_t value);
+
+  public:
+  // int64 time_ms = 17;
+  void clear_time_ms() ;
+  ::int64_t time_ms() const;
+  void set_time_ms(::int64_t value);
+
+  private:
+  ::int64_t _internal_time_ms() const;
+  void _internal_set_time_ms(::int64_t value);
+
+  public:
+  // bool cancel_pending = 25;
+  void clear_cancel_pending() ;
+  bool cancel_pending() const;
+  void set_cancel_pending(bool value);
+
+  private:
+  bool _internal_cancel_pending() const;
+  void _internal_set_cancel_pending(bool value);
+
+  public:
+  // bool extended_fields = 26;
+  void clear_extended_fields() ;
+  bool extended_fields() const;
+  void set_extended_fields(bool value);
+
+  private:
+  bool _internal_extended_fields() const;
+  void _internal_set_extended_fields(bool value);
+
+  public:
+  // bool fee_known = 27;
+  void clear_fee_known() ;
+  bool fee_known() const;
+  void set_fee_known(bool value);
+
+  private:
+  bool _internal_fee_known() const;
+  void _internal_set_fee_known(bool value);
+
+  public:
+  // bool frozen_known = 28;
+  void clear_frozen_known() ;
+  bool frozen_known() const;
+  void set_frozen_known(bool value);
+
+  private:
+  bool _internal_frozen_known() const;
+  void _internal_set_frozen_known(bool value);
+
+  public:
+  // uint32 sdk_client_id = 29;
+  void clear_sdk_client_id() ;
+  ::uint32_t sdk_client_id() const;
+  void set_sdk_client_id(::uint32_t value);
+
+  private:
+  ::uint32_t _internal_sdk_client_id() const;
+  void _internal_set_sdk_client_id(::uint32_t value);
+
+  public:
+  // int64 broker_time = 30;
+  void clear_broker_time() ;
+  ::int64_t broker_time() const;
+  void set_broker_time(::int64_t value);
+
+  private:
+  ::int64_t _internal_broker_time() const;
+  void _internal_set_broker_time(::int64_t value);
+
+  public:
   // @@protoc_insertion_point(class_scope:request.TradeOrderRecord)
  private:
   class _Internal;
   friend class ::google::protobuf::internal::TcParser;
   static const ::google::protobuf::internal::TcParseTable<
-      5, 20, 0,
-      80, 2>
+      5, 30, 0,
+      125, 2>
       _table_;
 
   friend class ::google::protobuf::MessageLite;
@@ -1312,6 +1577,9 @@ class TradeOrderRecord final : public ::google::protobuf::Message
     ::google::protobuf::internal::ArenaStringPtr rule_version_;
     ::google::protobuf::internal::ArenaStringPtr site_;
     ::google::protobuf::internal::ArenaStringPtr account_;
+    ::google::protobuf::internal::ArenaStringPtr broker_order_id_;
+    ::google::protobuf::internal::ArenaStringPtr raw_status_;
+    ::google::protobuf::internal::ArenaStringPtr broker_error_;
     ::uint64_t broker_id_;
     ::uint64_t client_order_id_;
     ::uint64_t order_id_;
@@ -1326,8 +1594,15 @@ class TradeOrderRecord final : public ::google::protobuf::Message
     ::int64_t frozen_;
     ::int64_t turnover_;
     ::int64_t fee_;
-    ::int64_t time_ms_;
     ::int32_t price_scale_;
+    ::int32_t trading_day_;
+    ::int64_t time_ms_;
+    bool cancel_pending_;
+    bool extended_fields_;
+    bool fee_known_;
+    bool frozen_known_;
+    ::uint32_t sdk_client_id_;
+    ::int64_t broker_time_;
     ::google::protobuf::internal::CachedSize _cached_size_;
     PROTOBUF_TSAN_DECLARE_MEMBER
   };
@@ -2225,6 +2500,10 @@ class TradeAccountInfo final : public ::google::protobuf::Message
     kErrorCodeFieldNumber = 7,
     kAvailableSnapshotFieldNumber = 5,
     kConnectedFieldNumber = 9,
+    kExtendedFieldsFieldNumber = 12,
+    kFundsValidFieldNumber = 13,
+    kFrozenKnownFieldNumber = 14,
+    kAccountStateFieldNumber = 15,
   };
   // string error_message = 8;
   void clear_error_message() ;
@@ -2354,12 +2633,52 @@ class TradeAccountInfo final : public ::google::protobuf::Message
   void _internal_set_connected(bool value);
 
   public:
+  // bool extended_fields = 12;
+  void clear_extended_fields() ;
+  bool extended_fields() const;
+  void set_extended_fields(bool value);
+
+  private:
+  bool _internal_extended_fields() const;
+  void _internal_set_extended_fields(bool value);
+
+  public:
+  // bool funds_valid = 13;
+  void clear_funds_valid() ;
+  bool funds_valid() const;
+  void set_funds_valid(bool value);
+
+  private:
+  bool _internal_funds_valid() const;
+  void _internal_set_funds_valid(bool value);
+
+  public:
+  // bool frozen_known = 14;
+  void clear_frozen_known() ;
+  bool frozen_known() const;
+  void set_frozen_known(bool value);
+
+  private:
+  bool _internal_frozen_known() const;
+  void _internal_set_frozen_known(bool value);
+
+  public:
+  // int32 account_state = 15;
+  void clear_account_state() ;
+  ::int32_t account_state() const;
+  void set_account_state(::int32_t value);
+
+  private:
+  ::int32_t _internal_account_state() const;
+  void _internal_set_account_state(::int32_t value);
+
+  public:
   // @@protoc_insertion_point(class_scope:request.TradeAccountInfo)
  private:
   class _Internal;
   friend class ::google::protobuf::internal::TcParser;
   static const ::google::protobuf::internal::TcParseTable<
-      4, 11, 0,
+      4, 15, 0,
       65, 2>
       _table_;
 
@@ -2388,6 +2707,10 @@ class TradeAccountInfo final : public ::google::protobuf::Message
     ::int32_t error_code_;
     bool available_snapshot_;
     bool connected_;
+    bool extended_fields_;
+    bool funds_valid_;
+    bool frozen_known_;
+    ::int32_t account_state_;
     ::google::protobuf::internal::CachedSize _cached_size_;
     PROTOBUF_TSAN_DECLARE_MEMBER
   };
@@ -3919,11 +4242,14 @@ class TradeEventRecord final : public ::google::protobuf::Message
     kTradeFieldNumber = 6,
     kFundsFieldNumber = 7,
     kPositionFieldNumber = 8,
+    kAccountSnapshotFieldNumber = 14,
     kSequenceFieldNumber = 1,
     kRequestIdFieldNumber = 2,
     kBrokerIdFieldNumber = 3,
     kKindFieldNumber = 4,
     kConnectedFieldNumber = 9,
+    kExtendedFieldsFieldNumber = 12,
+    kAccountValidFieldNumber = 13,
   };
   // string site = 10;
   void clear_site() ;
@@ -4017,6 +4343,21 @@ class TradeEventRecord final : public ::google::protobuf::Message
   ::request::TradePositionRecord* _internal_mutable_position();
 
   public:
+  // .request.TradeAccountInfo account_snapshot = 14;
+  bool has_account_snapshot() const;
+  void clear_account_snapshot() ;
+  const ::request::TradeAccountInfo& account_snapshot() const;
+  PROTOBUF_NODISCARD ::request::TradeAccountInfo* release_account_snapshot();
+  ::request::TradeAccountInfo* mutable_account_snapshot();
+  void set_allocated_account_snapshot(::request::TradeAccountInfo* value);
+  void unsafe_arena_set_allocated_account_snapshot(::request::TradeAccountInfo* value);
+  ::request::TradeAccountInfo* unsafe_arena_release_account_snapshot();
+
+  private:
+  const ::request::TradeAccountInfo& _internal_account_snapshot() const;
+  ::request::TradeAccountInfo* _internal_mutable_account_snapshot();
+
+  public:
   // uint64 sequence = 1;
   void clear_sequence() ;
   ::uint64_t sequence() const;
@@ -4067,12 +4408,32 @@ class TradeEventRecord final : public ::google::protobuf::Message
   void _internal_set_connected(bool value);
 
   public:
+  // bool extended_fields = 12;
+  void clear_extended_fields() ;
+  bool extended_fields() const;
+  void set_extended_fields(bool value);
+
+  private:
+  bool _internal_extended_fields() const;
+  void _internal_set_extended_fields(bool value);
+
+  public:
+  // bool account_valid = 13;
+  void clear_account_valid() ;
+  bool account_valid() const;
+  void set_account_valid(bool value);
+
+  private:
+  bool _internal_account_valid() const;
+  void _internal_set_account_valid(bool value);
+
+  public:
   // @@protoc_insertion_point(class_scope:request.TradeEventRecord)
  private:
   class _Internal;
   friend class ::google::protobuf::internal::TcParser;
   static const ::google::protobuf::internal::TcParseTable<
-      4, 11, 4,
+      4, 14, 5,
       52, 2>
       _table_;
 
@@ -4098,11 +4459,14 @@ class TradeEventRecord final : public ::google::protobuf::Message
     ::request::TradeRecord* trade_;
     ::request::TradeAccountInfo* funds_;
     ::request::TradePositionRecord* position_;
+    ::request::TradeAccountInfo* account_snapshot_;
     ::uint64_t sequence_;
     ::uint64_t request_id_;
     ::uint64_t broker_id_;
     ::int32_t kind_;
     bool connected_;
+    bool extended_fields_;
+    bool account_valid_;
     PROTOBUF_TSAN_DECLARE_MEMBER
   };
   union { Impl_ _impl_; };
@@ -5522,6 +5886,301 @@ class BrokerRecord final : public ::google::protobuf::Message
 };
 // -------------------------------------------------------------------
 
+class ZhongTaiJournal final : public ::google::protobuf::Message
+/* @@protoc_insertion_point(class_definition:request.ZhongTaiJournal) */ {
+ public:
+  inline ZhongTaiJournal() : ZhongTaiJournal(nullptr) {}
+  ~ZhongTaiJournal() PROTOBUF_FINAL;
+
+#if defined(PROTOBUF_CUSTOM_VTABLE)
+  void operator delete(ZhongTaiJournal* msg, std::destroying_delete_t) {
+    SharedDtor(*msg);
+    ::google::protobuf::internal::SizedDelete(msg, sizeof(ZhongTaiJournal));
+  }
+#endif
+
+  template <typename = void>
+  explicit PROTOBUF_CONSTEXPR ZhongTaiJournal(
+      ::google::protobuf::internal::ConstantInitialized);
+
+  inline ZhongTaiJournal(const ZhongTaiJournal& from) : ZhongTaiJournal(nullptr, from) {}
+  inline ZhongTaiJournal(ZhongTaiJournal&& from) noexcept
+      : ZhongTaiJournal(nullptr, std::move(from)) {}
+  inline ZhongTaiJournal& operator=(const ZhongTaiJournal& from) {
+    CopyFrom(from);
+    return *this;
+  }
+  inline ZhongTaiJournal& operator=(ZhongTaiJournal&& from) noexcept {
+    if (this == &from) return *this;
+    if (::google::protobuf::internal::CanMoveWithInternalSwap(GetArena(), from.GetArena())) {
+      InternalSwap(&from);
+    } else {
+      CopyFrom(from);
+    }
+    return *this;
+  }
+
+  inline const ::google::protobuf::UnknownFieldSet& unknown_fields() const
+      ABSL_ATTRIBUTE_LIFETIME_BOUND {
+    return _internal_metadata_.unknown_fields<::google::protobuf::UnknownFieldSet>(::google::protobuf::UnknownFieldSet::default_instance);
+  }
+  inline ::google::protobuf::UnknownFieldSet* mutable_unknown_fields()
+      ABSL_ATTRIBUTE_LIFETIME_BOUND {
+    return _internal_metadata_.mutable_unknown_fields<::google::protobuf::UnknownFieldSet>();
+  }
+
+  static const ::google::protobuf::Descriptor* descriptor() {
+    return GetDescriptor();
+  }
+  static const ::google::protobuf::Descriptor* GetDescriptor() {
+    return default_instance().GetMetadata().descriptor;
+  }
+  static const ::google::protobuf::Reflection* GetReflection() {
+    return default_instance().GetMetadata().reflection;
+  }
+  static const ZhongTaiJournal& default_instance() {
+    return *internal_default_instance();
+  }
+  static inline const ZhongTaiJournal* internal_default_instance() {
+    return reinterpret_cast<const ZhongTaiJournal*>(
+        &_ZhongTaiJournal_default_instance_);
+  }
+  static constexpr int kIndexInFileMessages = 26;
+  friend void swap(ZhongTaiJournal& a, ZhongTaiJournal& b) { a.Swap(&b); }
+  inline void Swap(ZhongTaiJournal* other) {
+    if (other == this) return;
+    if (::google::protobuf::internal::CanUseInternalSwap(GetArena(), other->GetArena())) {
+      InternalSwap(other);
+    } else {
+      ::google::protobuf::internal::GenericSwap(this, other);
+    }
+  }
+  void UnsafeArenaSwap(ZhongTaiJournal* other) {
+    if (other == this) return;
+    ABSL_DCHECK(GetArena() == other->GetArena());
+    InternalSwap(other);
+  }
+
+  // implements Message ----------------------------------------------
+
+  ZhongTaiJournal* New(::google::protobuf::Arena* arena = nullptr) const {
+    return ::google::protobuf::Message::DefaultConstruct<ZhongTaiJournal>(arena);
+  }
+  using ::google::protobuf::Message::CopyFrom;
+  void CopyFrom(const ZhongTaiJournal& from);
+  using ::google::protobuf::Message::MergeFrom;
+  void MergeFrom(const ZhongTaiJournal& from) { ZhongTaiJournal::MergeImpl(*this, from); }
+
+  private:
+  static void MergeImpl(
+      ::google::protobuf::MessageLite& to_msg,
+      const ::google::protobuf::MessageLite& from_msg);
+
+  public:
+  bool IsInitialized() const {
+    return true;
+  }
+  ABSL_ATTRIBUTE_REINITIALIZES void Clear() PROTOBUF_FINAL;
+  #if defined(PROTOBUF_CUSTOM_VTABLE)
+  private:
+  static ::size_t ByteSizeLong(const ::google::protobuf::MessageLite& msg);
+  static ::uint8_t* _InternalSerialize(
+      const MessageLite& msg, ::uint8_t* target,
+      ::google::protobuf::io::EpsCopyOutputStream* stream);
+
+  public:
+  ::size_t ByteSizeLong() const { return ByteSizeLong(*this); }
+  ::uint8_t* _InternalSerialize(
+      ::uint8_t* target,
+      ::google::protobuf::io::EpsCopyOutputStream* stream) const {
+    return _InternalSerialize(*this, target, stream);
+  }
+  #else   // PROTOBUF_CUSTOM_VTABLE
+  ::size_t ByteSizeLong() const final;
+  ::uint8_t* _InternalSerialize(
+      ::uint8_t* target,
+      ::google::protobuf::io::EpsCopyOutputStream* stream) const final;
+  #endif  // PROTOBUF_CUSTOM_VTABLE
+  int GetCachedSize() const { return _impl_._cached_size_.Get(); }
+
+  private:
+  void SharedCtor(::google::protobuf::Arena* arena);
+  static void SharedDtor(MessageLite& self);
+  void InternalSwap(ZhongTaiJournal* other);
+ private:
+  template <typename T>
+  friend ::absl::string_view(
+      ::google::protobuf::internal::GetAnyMessageName)();
+  static ::absl::string_view FullMessageName() { return "request.ZhongTaiJournal"; }
+
+ protected:
+  explicit ZhongTaiJournal(::google::protobuf::Arena* arena);
+  ZhongTaiJournal(::google::protobuf::Arena* arena, const ZhongTaiJournal& from);
+  ZhongTaiJournal(::google::protobuf::Arena* arena, ZhongTaiJournal&& from) noexcept
+      : ZhongTaiJournal(arena) {
+    *this = ::std::move(from);
+  }
+  const ::google::protobuf::internal::ClassData* GetClassData() const PROTOBUF_FINAL;
+  static void* PlacementNew_(const void*, void* mem,
+                             ::google::protobuf::Arena* arena);
+  static constexpr auto InternalNewImpl_();
+  static const ::google::protobuf::internal::ClassDataFull _class_data_;
+
+ public:
+  ::google::protobuf::Metadata GetMetadata() const;
+  // nested types ----------------------------------------------------
+
+  // accessors -------------------------------------------------------
+  enum : int {
+    kOrdersFieldNumber = 6,
+    kTradesFieldNumber = 7,
+    kEventsFieldNumber = 8,
+    kRevisionFieldNumber = 1,
+    kSequenceFieldNumber = 2,
+    kNextOrderFieldNumber = 3,
+    kNextTradeFieldNumber = 4,
+    kTradingDayFieldNumber = 5,
+  };
+  // repeated .request.TradeOrderRecord orders = 6;
+  int orders_size() const;
+  private:
+  int _internal_orders_size() const;
+
+  public:
+  void clear_orders() ;
+  ::request::TradeOrderRecord* mutable_orders(int index);
+  ::google::protobuf::RepeatedPtrField<::request::TradeOrderRecord>* mutable_orders();
+
+  private:
+  const ::google::protobuf::RepeatedPtrField<::request::TradeOrderRecord>& _internal_orders() const;
+  ::google::protobuf::RepeatedPtrField<::request::TradeOrderRecord>* _internal_mutable_orders();
+  public:
+  const ::request::TradeOrderRecord& orders(int index) const;
+  ::request::TradeOrderRecord* add_orders();
+  const ::google::protobuf::RepeatedPtrField<::request::TradeOrderRecord>& orders() const;
+  // repeated .request.TradeRecord trades = 7;
+  int trades_size() const;
+  private:
+  int _internal_trades_size() const;
+
+  public:
+  void clear_trades() ;
+  ::request::TradeRecord* mutable_trades(int index);
+  ::google::protobuf::RepeatedPtrField<::request::TradeRecord>* mutable_trades();
+
+  private:
+  const ::google::protobuf::RepeatedPtrField<::request::TradeRecord>& _internal_trades() const;
+  ::google::protobuf::RepeatedPtrField<::request::TradeRecord>* _internal_mutable_trades();
+  public:
+  const ::request::TradeRecord& trades(int index) const;
+  ::request::TradeRecord* add_trades();
+  const ::google::protobuf::RepeatedPtrField<::request::TradeRecord>& trades() const;
+  // repeated .request.TradeEventRecord events = 8;
+  int events_size() const;
+  private:
+  int _internal_events_size() const;
+
+  public:
+  void clear_events() ;
+  ::request::TradeEventRecord* mutable_events(int index);
+  ::google::protobuf::RepeatedPtrField<::request::TradeEventRecord>* mutable_events();
+
+  private:
+  const ::google::protobuf::RepeatedPtrField<::request::TradeEventRecord>& _internal_events() const;
+  ::google::protobuf::RepeatedPtrField<::request::TradeEventRecord>* _internal_mutable_events();
+  public:
+  const ::request::TradeEventRecord& events(int index) const;
+  ::request::TradeEventRecord* add_events();
+  const ::google::protobuf::RepeatedPtrField<::request::TradeEventRecord>& events() const;
+  // uint64 revision = 1;
+  void clear_revision() ;
+  ::uint64_t revision() const;
+  void set_revision(::uint64_t value);
+
+  private:
+  ::uint64_t _internal_revision() const;
+  void _internal_set_revision(::uint64_t value);
+
+  public:
+  // uint64 sequence = 2;
+  void clear_sequence() ;
+  ::uint64_t sequence() const;
+  void set_sequence(::uint64_t value);
+
+  private:
+  ::uint64_t _internal_sequence() const;
+  void _internal_set_sequence(::uint64_t value);
+
+  public:
+  // uint64 next_order = 3;
+  void clear_next_order() ;
+  ::uint64_t next_order() const;
+  void set_next_order(::uint64_t value);
+
+  private:
+  ::uint64_t _internal_next_order() const;
+  void _internal_set_next_order(::uint64_t value);
+
+  public:
+  // uint64 next_trade = 4;
+  void clear_next_trade() ;
+  ::uint64_t next_trade() const;
+  void set_next_trade(::uint64_t value);
+
+  private:
+  ::uint64_t _internal_next_trade() const;
+  void _internal_set_next_trade(::uint64_t value);
+
+  public:
+  // int32 trading_day = 5;
+  void clear_trading_day() ;
+  ::int32_t trading_day() const;
+  void set_trading_day(::int32_t value);
+
+  private:
+  ::int32_t _internal_trading_day() const;
+  void _internal_set_trading_day(::int32_t value);
+
+  public:
+  // @@protoc_insertion_point(class_scope:request.ZhongTaiJournal)
+ private:
+  class _Internal;
+  friend class ::google::protobuf::internal::TcParser;
+  static const ::google::protobuf::internal::TcParseTable<
+      3, 8, 3,
+      0, 2>
+      _table_;
+
+  friend class ::google::protobuf::MessageLite;
+  friend class ::google::protobuf::Arena;
+  template <typename T>
+  friend class ::google::protobuf::Arena::InternalHelper;
+  using InternalArenaConstructable_ = void;
+  using DestructorSkippable_ = void;
+  struct Impl_ {
+    inline explicit constexpr Impl_(
+        ::google::protobuf::internal::ConstantInitialized) noexcept;
+    inline explicit Impl_(::google::protobuf::internal::InternalVisibility visibility,
+                          ::google::protobuf::Arena* arena);
+    inline explicit Impl_(::google::protobuf::internal::InternalVisibility visibility,
+                          ::google::protobuf::Arena* arena, const Impl_& from,
+                          const ZhongTaiJournal& from_msg);
+    ::google::protobuf::RepeatedPtrField< ::request::TradeOrderRecord > orders_;
+    ::google::protobuf::RepeatedPtrField< ::request::TradeRecord > trades_;
+    ::google::protobuf::RepeatedPtrField< ::request::TradeEventRecord > events_;
+    ::uint64_t revision_;
+    ::uint64_t sequence_;
+    ::uint64_t next_order_;
+    ::uint64_t next_trade_;
+    ::int32_t trading_day_;
+    ::google::protobuf::internal::CachedSize _cached_size_;
+    PROTOBUF_TSAN_DECLARE_MEMBER
+  };
+  union { Impl_ _impl_; };
+  friend struct ::TableStruct_request_2eproto;
+};
+// -------------------------------------------------------------------
+
 class TradeCounterReply final : public ::google::protobuf::Message
 /* @@protoc_insertion_point(class_definition:request.TradeCounterReply) */ {
  public:
@@ -6521,6 +7180,7 @@ class RequestData final : public ::google::protobuf::Message
   enum : int {
     kExtraFieldNumber = 3,
     kErrorMessageFieldNumber = 7,
+    kEventAccountFieldNumber = 43,
     kTypeFieldNumber = 1,
     kErrorCodeFieldNumber = 6,
     kIdFieldNumber = 5,
@@ -6577,6 +7237,21 @@ class RequestData final : public ::google::protobuf::Message
   inline PROTOBUF_ALWAYS_INLINE void _internal_set_error_message(
       const std::string& value);
   std::string* _internal_mutable_error_message();
+
+  public:
+  // .request.TradeAccountInfo event_account = 43;
+  bool has_event_account() const;
+  void clear_event_account() ;
+  const ::request::TradeAccountInfo& event_account() const;
+  PROTOBUF_NODISCARD ::request::TradeAccountInfo* release_event_account();
+  ::request::TradeAccountInfo* mutable_event_account();
+  void set_allocated_event_account(::request::TradeAccountInfo* value);
+  void unsafe_arena_set_allocated_event_account(::request::TradeAccountInfo* value);
+  ::request::TradeAccountInfo* unsafe_arena_release_event_account();
+
+  private:
+  const ::request::TradeAccountInfo& _internal_event_account() const;
+  ::request::TradeAccountInfo* _internal_mutable_event_account();
 
   public:
   // .request.RequestType type = 1;
@@ -7078,7 +7753,7 @@ class RequestData final : public ::google::protobuf::Message
   inline void clear_has_payload();
   friend class ::google::protobuf::internal::TcParser;
   static const ::google::protobuf::internal::TcParseTable<
-      3, 28, 24,
+      3, 29, 25,
       70, 7>
       _table_;
 
@@ -7096,11 +7771,14 @@ class RequestData final : public ::google::protobuf::Message
     inline explicit Impl_(::google::protobuf::internal::InternalVisibility visibility,
                           ::google::protobuf::Arena* arena, const Impl_& from,
                           const RequestData& from_msg);
+    ::google::protobuf::internal::HasBits<1> _has_bits_;
+    ::google::protobuf::internal::CachedSize _cached_size_;
     ::google::protobuf::internal::MapField<RequestData_ExtraEntry_DoNotUse, std::string, std::string,
                       ::google::protobuf::internal::WireFormatLite::TYPE_STRING,
                       ::google::protobuf::internal::WireFormatLite::TYPE_STRING>
         extra_;
     ::google::protobuf::internal::ArenaStringPtr error_message_;
+    ::request::TradeAccountInfo* event_account_;
     int type_;
     ::int32_t error_code_;
     ::uint64_t id_;
@@ -7131,7 +7809,6 @@ class RequestData final : public ::google::protobuf::Message
       ::request::TradeList* trades_;
       ::request::TradePositionList* trade_positions_;
     } payload_;
-    ::google::protobuf::internal::CachedSize _cached_size_;
     ::uint32_t _oneof_case_[1];
     PROTOBUF_TSAN_DECLARE_MEMBER
   };
@@ -8678,6 +9355,94 @@ inline void TradeAccountInfo::set_allocated_error_message(std::string* value) {
   // @@protoc_insertion_point(field_set_allocated:request.TradeAccountInfo.error_message)
 }
 
+// bool extended_fields = 12;
+inline void TradeAccountInfo::clear_extended_fields() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.extended_fields_ = false;
+}
+inline bool TradeAccountInfo::extended_fields() const {
+  // @@protoc_insertion_point(field_get:request.TradeAccountInfo.extended_fields)
+  return _internal_extended_fields();
+}
+inline void TradeAccountInfo::set_extended_fields(bool value) {
+  _internal_set_extended_fields(value);
+  // @@protoc_insertion_point(field_set:request.TradeAccountInfo.extended_fields)
+}
+inline bool TradeAccountInfo::_internal_extended_fields() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.extended_fields_;
+}
+inline void TradeAccountInfo::_internal_set_extended_fields(bool value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.extended_fields_ = value;
+}
+
+// bool funds_valid = 13;
+inline void TradeAccountInfo::clear_funds_valid() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.funds_valid_ = false;
+}
+inline bool TradeAccountInfo::funds_valid() const {
+  // @@protoc_insertion_point(field_get:request.TradeAccountInfo.funds_valid)
+  return _internal_funds_valid();
+}
+inline void TradeAccountInfo::set_funds_valid(bool value) {
+  _internal_set_funds_valid(value);
+  // @@protoc_insertion_point(field_set:request.TradeAccountInfo.funds_valid)
+}
+inline bool TradeAccountInfo::_internal_funds_valid() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.funds_valid_;
+}
+inline void TradeAccountInfo::_internal_set_funds_valid(bool value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.funds_valid_ = value;
+}
+
+// bool frozen_known = 14;
+inline void TradeAccountInfo::clear_frozen_known() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.frozen_known_ = false;
+}
+inline bool TradeAccountInfo::frozen_known() const {
+  // @@protoc_insertion_point(field_get:request.TradeAccountInfo.frozen_known)
+  return _internal_frozen_known();
+}
+inline void TradeAccountInfo::set_frozen_known(bool value) {
+  _internal_set_frozen_known(value);
+  // @@protoc_insertion_point(field_set:request.TradeAccountInfo.frozen_known)
+}
+inline bool TradeAccountInfo::_internal_frozen_known() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.frozen_known_;
+}
+inline void TradeAccountInfo::_internal_set_frozen_known(bool value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.frozen_known_ = value;
+}
+
+// int32 account_state = 15;
+inline void TradeAccountInfo::clear_account_state() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.account_state_ = 0;
+}
+inline ::int32_t TradeAccountInfo::account_state() const {
+  // @@protoc_insertion_point(field_get:request.TradeAccountInfo.account_state)
+  return _internal_account_state();
+}
+inline void TradeAccountInfo::set_account_state(::int32_t value) {
+  _internal_set_account_state(value);
+  // @@protoc_insertion_point(field_set:request.TradeAccountInfo.account_state)
+}
+inline ::int32_t TradeAccountInfo::_internal_account_state() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.account_state_;
+}
+inline void TradeAccountInfo::_internal_set_account_state(::int32_t value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.account_state_ = value;
+}
+
 // -------------------------------------------------------------------
 
 // TradeAccountInfoList
@@ -9861,6 +10626,304 @@ inline void TradeOrderRecord::set_allocated_rule_version(std::string* value) {
   // @@protoc_insertion_point(field_set_allocated:request.TradeOrderRecord.rule_version)
 }
 
+// string broker_order_id = 21;
+inline void TradeOrderRecord::clear_broker_order_id() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.broker_order_id_.ClearToEmpty();
+}
+inline const std::string& TradeOrderRecord::broker_order_id() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:request.TradeOrderRecord.broker_order_id)
+  return _internal_broker_order_id();
+}
+template <typename Arg_, typename... Args_>
+inline PROTOBUF_ALWAYS_INLINE void TradeOrderRecord::set_broker_order_id(Arg_&& arg,
+                                                     Args_... args) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.broker_order_id_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:request.TradeOrderRecord.broker_order_id)
+}
+inline std::string* TradeOrderRecord::mutable_broker_order_id() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  std::string* _s = _internal_mutable_broker_order_id();
+  // @@protoc_insertion_point(field_mutable:request.TradeOrderRecord.broker_order_id)
+  return _s;
+}
+inline const std::string& TradeOrderRecord::_internal_broker_order_id() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.broker_order_id_.Get();
+}
+inline void TradeOrderRecord::_internal_set_broker_order_id(const std::string& value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.broker_order_id_.Set(value, GetArena());
+}
+inline std::string* TradeOrderRecord::_internal_mutable_broker_order_id() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  return _impl_.broker_order_id_.Mutable( GetArena());
+}
+inline std::string* TradeOrderRecord::release_broker_order_id() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  // @@protoc_insertion_point(field_release:request.TradeOrderRecord.broker_order_id)
+  return _impl_.broker_order_id_.Release();
+}
+inline void TradeOrderRecord::set_allocated_broker_order_id(std::string* value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.broker_order_id_.SetAllocated(value, GetArena());
+  if (::google::protobuf::internal::DebugHardenForceCopyDefaultString() && _impl_.broker_order_id_.IsDefault()) {
+    _impl_.broker_order_id_.Set("", GetArena());
+  }
+  // @@protoc_insertion_point(field_set_allocated:request.TradeOrderRecord.broker_order_id)
+}
+
+// int32 trading_day = 22;
+inline void TradeOrderRecord::clear_trading_day() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.trading_day_ = 0;
+}
+inline ::int32_t TradeOrderRecord::trading_day() const {
+  // @@protoc_insertion_point(field_get:request.TradeOrderRecord.trading_day)
+  return _internal_trading_day();
+}
+inline void TradeOrderRecord::set_trading_day(::int32_t value) {
+  _internal_set_trading_day(value);
+  // @@protoc_insertion_point(field_set:request.TradeOrderRecord.trading_day)
+}
+inline ::int32_t TradeOrderRecord::_internal_trading_day() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.trading_day_;
+}
+inline void TradeOrderRecord::_internal_set_trading_day(::int32_t value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.trading_day_ = value;
+}
+
+// string raw_status = 23;
+inline void TradeOrderRecord::clear_raw_status() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.raw_status_.ClearToEmpty();
+}
+inline const std::string& TradeOrderRecord::raw_status() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:request.TradeOrderRecord.raw_status)
+  return _internal_raw_status();
+}
+template <typename Arg_, typename... Args_>
+inline PROTOBUF_ALWAYS_INLINE void TradeOrderRecord::set_raw_status(Arg_&& arg,
+                                                     Args_... args) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.raw_status_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:request.TradeOrderRecord.raw_status)
+}
+inline std::string* TradeOrderRecord::mutable_raw_status() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  std::string* _s = _internal_mutable_raw_status();
+  // @@protoc_insertion_point(field_mutable:request.TradeOrderRecord.raw_status)
+  return _s;
+}
+inline const std::string& TradeOrderRecord::_internal_raw_status() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.raw_status_.Get();
+}
+inline void TradeOrderRecord::_internal_set_raw_status(const std::string& value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.raw_status_.Set(value, GetArena());
+}
+inline std::string* TradeOrderRecord::_internal_mutable_raw_status() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  return _impl_.raw_status_.Mutable( GetArena());
+}
+inline std::string* TradeOrderRecord::release_raw_status() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  // @@protoc_insertion_point(field_release:request.TradeOrderRecord.raw_status)
+  return _impl_.raw_status_.Release();
+}
+inline void TradeOrderRecord::set_allocated_raw_status(std::string* value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.raw_status_.SetAllocated(value, GetArena());
+  if (::google::protobuf::internal::DebugHardenForceCopyDefaultString() && _impl_.raw_status_.IsDefault()) {
+    _impl_.raw_status_.Set("", GetArena());
+  }
+  // @@protoc_insertion_point(field_set_allocated:request.TradeOrderRecord.raw_status)
+}
+
+// string broker_error = 24;
+inline void TradeOrderRecord::clear_broker_error() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.broker_error_.ClearToEmpty();
+}
+inline const std::string& TradeOrderRecord::broker_error() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:request.TradeOrderRecord.broker_error)
+  return _internal_broker_error();
+}
+template <typename Arg_, typename... Args_>
+inline PROTOBUF_ALWAYS_INLINE void TradeOrderRecord::set_broker_error(Arg_&& arg,
+                                                     Args_... args) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.broker_error_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:request.TradeOrderRecord.broker_error)
+}
+inline std::string* TradeOrderRecord::mutable_broker_error() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  std::string* _s = _internal_mutable_broker_error();
+  // @@protoc_insertion_point(field_mutable:request.TradeOrderRecord.broker_error)
+  return _s;
+}
+inline const std::string& TradeOrderRecord::_internal_broker_error() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.broker_error_.Get();
+}
+inline void TradeOrderRecord::_internal_set_broker_error(const std::string& value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.broker_error_.Set(value, GetArena());
+}
+inline std::string* TradeOrderRecord::_internal_mutable_broker_error() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  return _impl_.broker_error_.Mutable( GetArena());
+}
+inline std::string* TradeOrderRecord::release_broker_error() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  // @@protoc_insertion_point(field_release:request.TradeOrderRecord.broker_error)
+  return _impl_.broker_error_.Release();
+}
+inline void TradeOrderRecord::set_allocated_broker_error(std::string* value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.broker_error_.SetAllocated(value, GetArena());
+  if (::google::protobuf::internal::DebugHardenForceCopyDefaultString() && _impl_.broker_error_.IsDefault()) {
+    _impl_.broker_error_.Set("", GetArena());
+  }
+  // @@protoc_insertion_point(field_set_allocated:request.TradeOrderRecord.broker_error)
+}
+
+// bool cancel_pending = 25;
+inline void TradeOrderRecord::clear_cancel_pending() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.cancel_pending_ = false;
+}
+inline bool TradeOrderRecord::cancel_pending() const {
+  // @@protoc_insertion_point(field_get:request.TradeOrderRecord.cancel_pending)
+  return _internal_cancel_pending();
+}
+inline void TradeOrderRecord::set_cancel_pending(bool value) {
+  _internal_set_cancel_pending(value);
+  // @@protoc_insertion_point(field_set:request.TradeOrderRecord.cancel_pending)
+}
+inline bool TradeOrderRecord::_internal_cancel_pending() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.cancel_pending_;
+}
+inline void TradeOrderRecord::_internal_set_cancel_pending(bool value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.cancel_pending_ = value;
+}
+
+// bool extended_fields = 26;
+inline void TradeOrderRecord::clear_extended_fields() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.extended_fields_ = false;
+}
+inline bool TradeOrderRecord::extended_fields() const {
+  // @@protoc_insertion_point(field_get:request.TradeOrderRecord.extended_fields)
+  return _internal_extended_fields();
+}
+inline void TradeOrderRecord::set_extended_fields(bool value) {
+  _internal_set_extended_fields(value);
+  // @@protoc_insertion_point(field_set:request.TradeOrderRecord.extended_fields)
+}
+inline bool TradeOrderRecord::_internal_extended_fields() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.extended_fields_;
+}
+inline void TradeOrderRecord::_internal_set_extended_fields(bool value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.extended_fields_ = value;
+}
+
+// bool fee_known = 27;
+inline void TradeOrderRecord::clear_fee_known() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.fee_known_ = false;
+}
+inline bool TradeOrderRecord::fee_known() const {
+  // @@protoc_insertion_point(field_get:request.TradeOrderRecord.fee_known)
+  return _internal_fee_known();
+}
+inline void TradeOrderRecord::set_fee_known(bool value) {
+  _internal_set_fee_known(value);
+  // @@protoc_insertion_point(field_set:request.TradeOrderRecord.fee_known)
+}
+inline bool TradeOrderRecord::_internal_fee_known() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.fee_known_;
+}
+inline void TradeOrderRecord::_internal_set_fee_known(bool value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.fee_known_ = value;
+}
+
+// bool frozen_known = 28;
+inline void TradeOrderRecord::clear_frozen_known() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.frozen_known_ = false;
+}
+inline bool TradeOrderRecord::frozen_known() const {
+  // @@protoc_insertion_point(field_get:request.TradeOrderRecord.frozen_known)
+  return _internal_frozen_known();
+}
+inline void TradeOrderRecord::set_frozen_known(bool value) {
+  _internal_set_frozen_known(value);
+  // @@protoc_insertion_point(field_set:request.TradeOrderRecord.frozen_known)
+}
+inline bool TradeOrderRecord::_internal_frozen_known() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.frozen_known_;
+}
+inline void TradeOrderRecord::_internal_set_frozen_known(bool value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.frozen_known_ = value;
+}
+
+// uint32 sdk_client_id = 29;
+inline void TradeOrderRecord::clear_sdk_client_id() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.sdk_client_id_ = 0u;
+}
+inline ::uint32_t TradeOrderRecord::sdk_client_id() const {
+  // @@protoc_insertion_point(field_get:request.TradeOrderRecord.sdk_client_id)
+  return _internal_sdk_client_id();
+}
+inline void TradeOrderRecord::set_sdk_client_id(::uint32_t value) {
+  _internal_set_sdk_client_id(value);
+  // @@protoc_insertion_point(field_set:request.TradeOrderRecord.sdk_client_id)
+}
+inline ::uint32_t TradeOrderRecord::_internal_sdk_client_id() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.sdk_client_id_;
+}
+inline void TradeOrderRecord::_internal_set_sdk_client_id(::uint32_t value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.sdk_client_id_ = value;
+}
+
+// int64 broker_time = 30;
+inline void TradeOrderRecord::clear_broker_time() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.broker_time_ = ::int64_t{0};
+}
+inline ::int64_t TradeOrderRecord::broker_time() const {
+  // @@protoc_insertion_point(field_get:request.TradeOrderRecord.broker_time)
+  return _internal_broker_time();
+}
+inline void TradeOrderRecord::set_broker_time(::int64_t value) {
+  _internal_set_broker_time(value);
+  // @@protoc_insertion_point(field_set:request.TradeOrderRecord.broker_time)
+}
+inline ::int64_t TradeOrderRecord::_internal_broker_time() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.broker_time_;
+}
+inline void TradeOrderRecord::_internal_set_broker_time(::int64_t value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.broker_time_ = value;
+}
+
 // -------------------------------------------------------------------
 
 // TradeOrderList
@@ -10260,6 +11323,212 @@ inline void TradeRecord::_internal_set_time_ms(::int64_t value) {
   _impl_.time_ms_ = value;
 }
 
+// string broker_trade_id = 13;
+inline void TradeRecord::clear_broker_trade_id() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.broker_trade_id_.ClearToEmpty();
+}
+inline const std::string& TradeRecord::broker_trade_id() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:request.TradeRecord.broker_trade_id)
+  return _internal_broker_trade_id();
+}
+template <typename Arg_, typename... Args_>
+inline PROTOBUF_ALWAYS_INLINE void TradeRecord::set_broker_trade_id(Arg_&& arg,
+                                                     Args_... args) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.broker_trade_id_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:request.TradeRecord.broker_trade_id)
+}
+inline std::string* TradeRecord::mutable_broker_trade_id() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  std::string* _s = _internal_mutable_broker_trade_id();
+  // @@protoc_insertion_point(field_mutable:request.TradeRecord.broker_trade_id)
+  return _s;
+}
+inline const std::string& TradeRecord::_internal_broker_trade_id() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.broker_trade_id_.Get();
+}
+inline void TradeRecord::_internal_set_broker_trade_id(const std::string& value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.broker_trade_id_.Set(value, GetArena());
+}
+inline std::string* TradeRecord::_internal_mutable_broker_trade_id() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  return _impl_.broker_trade_id_.Mutable( GetArena());
+}
+inline std::string* TradeRecord::release_broker_trade_id() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  // @@protoc_insertion_point(field_release:request.TradeRecord.broker_trade_id)
+  return _impl_.broker_trade_id_.Release();
+}
+inline void TradeRecord::set_allocated_broker_trade_id(std::string* value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.broker_trade_id_.SetAllocated(value, GetArena());
+  if (::google::protobuf::internal::DebugHardenForceCopyDefaultString() && _impl_.broker_trade_id_.IsDefault()) {
+    _impl_.broker_trade_id_.Set("", GetArena());
+  }
+  // @@protoc_insertion_point(field_set_allocated:request.TradeRecord.broker_trade_id)
+}
+
+// string broker_order_id = 14;
+inline void TradeRecord::clear_broker_order_id() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.broker_order_id_.ClearToEmpty();
+}
+inline const std::string& TradeRecord::broker_order_id() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:request.TradeRecord.broker_order_id)
+  return _internal_broker_order_id();
+}
+template <typename Arg_, typename... Args_>
+inline PROTOBUF_ALWAYS_INLINE void TradeRecord::set_broker_order_id(Arg_&& arg,
+                                                     Args_... args) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.broker_order_id_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:request.TradeRecord.broker_order_id)
+}
+inline std::string* TradeRecord::mutable_broker_order_id() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  std::string* _s = _internal_mutable_broker_order_id();
+  // @@protoc_insertion_point(field_mutable:request.TradeRecord.broker_order_id)
+  return _s;
+}
+inline const std::string& TradeRecord::_internal_broker_order_id() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.broker_order_id_.Get();
+}
+inline void TradeRecord::_internal_set_broker_order_id(const std::string& value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.broker_order_id_.Set(value, GetArena());
+}
+inline std::string* TradeRecord::_internal_mutable_broker_order_id() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  return _impl_.broker_order_id_.Mutable( GetArena());
+}
+inline std::string* TradeRecord::release_broker_order_id() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  // @@protoc_insertion_point(field_release:request.TradeRecord.broker_order_id)
+  return _impl_.broker_order_id_.Release();
+}
+inline void TradeRecord::set_allocated_broker_order_id(std::string* value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.broker_order_id_.SetAllocated(value, GetArena());
+  if (::google::protobuf::internal::DebugHardenForceCopyDefaultString() && _impl_.broker_order_id_.IsDefault()) {
+    _impl_.broker_order_id_.Set("", GetArena());
+  }
+  // @@protoc_insertion_point(field_set_allocated:request.TradeRecord.broker_order_id)
+}
+
+// int32 trading_day = 15;
+inline void TradeRecord::clear_trading_day() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.trading_day_ = 0;
+}
+inline ::int32_t TradeRecord::trading_day() const {
+  // @@protoc_insertion_point(field_get:request.TradeRecord.trading_day)
+  return _internal_trading_day();
+}
+inline void TradeRecord::set_trading_day(::int32_t value) {
+  _internal_set_trading_day(value);
+  // @@protoc_insertion_point(field_set:request.TradeRecord.trading_day)
+}
+inline ::int32_t TradeRecord::_internal_trading_day() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.trading_day_;
+}
+inline void TradeRecord::_internal_set_trading_day(::int32_t value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.trading_day_ = value;
+}
+
+// uint64 report_index = 16;
+inline void TradeRecord::clear_report_index() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.report_index_ = ::uint64_t{0u};
+}
+inline ::uint64_t TradeRecord::report_index() const {
+  // @@protoc_insertion_point(field_get:request.TradeRecord.report_index)
+  return _internal_report_index();
+}
+inline void TradeRecord::set_report_index(::uint64_t value) {
+  _internal_set_report_index(value);
+  // @@protoc_insertion_point(field_set:request.TradeRecord.report_index)
+}
+inline ::uint64_t TradeRecord::_internal_report_index() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.report_index_;
+}
+inline void TradeRecord::_internal_set_report_index(::uint64_t value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.report_index_ = value;
+}
+
+// int32 market = 17;
+inline void TradeRecord::clear_market() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.market_ = 0;
+}
+inline ::int32_t TradeRecord::market() const {
+  // @@protoc_insertion_point(field_get:request.TradeRecord.market)
+  return _internal_market();
+}
+inline void TradeRecord::set_market(::int32_t value) {
+  _internal_set_market(value);
+  // @@protoc_insertion_point(field_set:request.TradeRecord.market)
+}
+inline ::int32_t TradeRecord::_internal_market() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.market_;
+}
+inline void TradeRecord::_internal_set_market(::int32_t value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.market_ = value;
+}
+
+// bool extended_fields = 18;
+inline void TradeRecord::clear_extended_fields() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.extended_fields_ = false;
+}
+inline bool TradeRecord::extended_fields() const {
+  // @@protoc_insertion_point(field_get:request.TradeRecord.extended_fields)
+  return _internal_extended_fields();
+}
+inline void TradeRecord::set_extended_fields(bool value) {
+  _internal_set_extended_fields(value);
+  // @@protoc_insertion_point(field_set:request.TradeRecord.extended_fields)
+}
+inline bool TradeRecord::_internal_extended_fields() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.extended_fields_;
+}
+inline void TradeRecord::_internal_set_extended_fields(bool value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.extended_fields_ = value;
+}
+
+// bool fee_known = 19;
+inline void TradeRecord::clear_fee_known() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.fee_known_ = false;
+}
+inline bool TradeRecord::fee_known() const {
+  // @@protoc_insertion_point(field_get:request.TradeRecord.fee_known)
+  return _internal_fee_known();
+}
+inline void TradeRecord::set_fee_known(bool value) {
+  _internal_set_fee_known(value);
+  // @@protoc_insertion_point(field_set:request.TradeRecord.fee_known)
+}
+inline bool TradeRecord::_internal_fee_known() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.fee_known_;
+}
+inline void TradeRecord::_internal_set_fee_known(bool value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.fee_known_ = value;
+}
+
 // -------------------------------------------------------------------
 
 // TradeList
@@ -10591,6 +11860,72 @@ inline ::int64_t TradePositionRecord::_internal_book_cost_cents() const {
 inline void TradePositionRecord::_internal_set_book_cost_cents(::int64_t value) {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   _impl_.book_cost_cents_ = value;
+}
+
+// bool extended_fields = 10;
+inline void TradePositionRecord::clear_extended_fields() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.extended_fields_ = false;
+}
+inline bool TradePositionRecord::extended_fields() const {
+  // @@protoc_insertion_point(field_get:request.TradePositionRecord.extended_fields)
+  return _internal_extended_fields();
+}
+inline void TradePositionRecord::set_extended_fields(bool value) {
+  _internal_set_extended_fields(value);
+  // @@protoc_insertion_point(field_set:request.TradePositionRecord.extended_fields)
+}
+inline bool TradePositionRecord::_internal_extended_fields() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.extended_fields_;
+}
+inline void TradePositionRecord::_internal_set_extended_fields(bool value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.extended_fields_ = value;
+}
+
+// bool frozen_known = 11;
+inline void TradePositionRecord::clear_frozen_known() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.frozen_known_ = false;
+}
+inline bool TradePositionRecord::frozen_known() const {
+  // @@protoc_insertion_point(field_get:request.TradePositionRecord.frozen_known)
+  return _internal_frozen_known();
+}
+inline void TradePositionRecord::set_frozen_known(bool value) {
+  _internal_set_frozen_known(value);
+  // @@protoc_insertion_point(field_set:request.TradePositionRecord.frozen_known)
+}
+inline bool TradePositionRecord::_internal_frozen_known() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.frozen_known_;
+}
+inline void TradePositionRecord::_internal_set_frozen_known(bool value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.frozen_known_ = value;
+}
+
+// bool cost_known = 12;
+inline void TradePositionRecord::clear_cost_known() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.cost_known_ = false;
+}
+inline bool TradePositionRecord::cost_known() const {
+  // @@protoc_insertion_point(field_get:request.TradePositionRecord.cost_known)
+  return _internal_cost_known();
+}
+inline void TradePositionRecord::set_cost_known(bool value) {
+  _internal_set_cost_known(value);
+  // @@protoc_insertion_point(field_set:request.TradePositionRecord.cost_known)
+}
+inline bool TradePositionRecord::_internal_cost_known() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.cost_known_;
+}
+inline void TradePositionRecord::_internal_set_cost_known(bool value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.cost_known_ = value;
 }
 
 // -------------------------------------------------------------------
@@ -11238,6 +12573,146 @@ inline bool TradeEventRecord::_internal_connected() const {
 inline void TradeEventRecord::_internal_set_connected(bool value) {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   _impl_.connected_ = value;
+}
+
+// bool extended_fields = 12;
+inline void TradeEventRecord::clear_extended_fields() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.extended_fields_ = false;
+}
+inline bool TradeEventRecord::extended_fields() const {
+  // @@protoc_insertion_point(field_get:request.TradeEventRecord.extended_fields)
+  return _internal_extended_fields();
+}
+inline void TradeEventRecord::set_extended_fields(bool value) {
+  _internal_set_extended_fields(value);
+  // @@protoc_insertion_point(field_set:request.TradeEventRecord.extended_fields)
+}
+inline bool TradeEventRecord::_internal_extended_fields() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.extended_fields_;
+}
+inline void TradeEventRecord::_internal_set_extended_fields(bool value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.extended_fields_ = value;
+}
+
+// bool account_valid = 13;
+inline void TradeEventRecord::clear_account_valid() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.account_valid_ = false;
+}
+inline bool TradeEventRecord::account_valid() const {
+  // @@protoc_insertion_point(field_get:request.TradeEventRecord.account_valid)
+  return _internal_account_valid();
+}
+inline void TradeEventRecord::set_account_valid(bool value) {
+  _internal_set_account_valid(value);
+  // @@protoc_insertion_point(field_set:request.TradeEventRecord.account_valid)
+}
+inline bool TradeEventRecord::_internal_account_valid() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.account_valid_;
+}
+inline void TradeEventRecord::_internal_set_account_valid(bool value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.account_valid_ = value;
+}
+
+// .request.TradeAccountInfo account_snapshot = 14;
+inline bool TradeEventRecord::has_account_snapshot() const {
+  bool value = (_impl_._has_bits_[0] & 0x00000010u) != 0;
+  PROTOBUF_ASSUME(!value || _impl_.account_snapshot_ != nullptr);
+  return value;
+}
+inline void TradeEventRecord::clear_account_snapshot() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  if (_impl_.account_snapshot_ != nullptr) _impl_.account_snapshot_->Clear();
+  _impl_._has_bits_[0] &= ~0x00000010u;
+}
+inline const ::request::TradeAccountInfo& TradeEventRecord::_internal_account_snapshot() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  const ::request::TradeAccountInfo* p = _impl_.account_snapshot_;
+  return p != nullptr ? *p : reinterpret_cast<const ::request::TradeAccountInfo&>(::request::_TradeAccountInfo_default_instance_);
+}
+inline const ::request::TradeAccountInfo& TradeEventRecord::account_snapshot() const ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:request.TradeEventRecord.account_snapshot)
+  return _internal_account_snapshot();
+}
+inline void TradeEventRecord::unsafe_arena_set_allocated_account_snapshot(::request::TradeAccountInfo* value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  if (GetArena() == nullptr) {
+    delete reinterpret_cast<::google::protobuf::MessageLite*>(_impl_.account_snapshot_);
+  }
+  _impl_.account_snapshot_ = reinterpret_cast<::request::TradeAccountInfo*>(value);
+  if (value != nullptr) {
+    _impl_._has_bits_[0] |= 0x00000010u;
+  } else {
+    _impl_._has_bits_[0] &= ~0x00000010u;
+  }
+  // @@protoc_insertion_point(field_unsafe_arena_set_allocated:request.TradeEventRecord.account_snapshot)
+}
+inline ::request::TradeAccountInfo* TradeEventRecord::release_account_snapshot() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+
+  _impl_._has_bits_[0] &= ~0x00000010u;
+  ::request::TradeAccountInfo* released = _impl_.account_snapshot_;
+  _impl_.account_snapshot_ = nullptr;
+  if (::google::protobuf::internal::DebugHardenForceCopyInRelease()) {
+    auto* old = reinterpret_cast<::google::protobuf::MessageLite*>(released);
+    released = ::google::protobuf::internal::DuplicateIfNonNull(released);
+    if (GetArena() == nullptr) {
+      delete old;
+    }
+  } else {
+    if (GetArena() != nullptr) {
+      released = ::google::protobuf::internal::DuplicateIfNonNull(released);
+    }
+  }
+  return released;
+}
+inline ::request::TradeAccountInfo* TradeEventRecord::unsafe_arena_release_account_snapshot() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  // @@protoc_insertion_point(field_release:request.TradeEventRecord.account_snapshot)
+
+  _impl_._has_bits_[0] &= ~0x00000010u;
+  ::request::TradeAccountInfo* temp = _impl_.account_snapshot_;
+  _impl_.account_snapshot_ = nullptr;
+  return temp;
+}
+inline ::request::TradeAccountInfo* TradeEventRecord::_internal_mutable_account_snapshot() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  if (_impl_.account_snapshot_ == nullptr) {
+    auto* p = ::google::protobuf::Message::DefaultConstruct<::request::TradeAccountInfo>(GetArena());
+    _impl_.account_snapshot_ = reinterpret_cast<::request::TradeAccountInfo*>(p);
+  }
+  return _impl_.account_snapshot_;
+}
+inline ::request::TradeAccountInfo* TradeEventRecord::mutable_account_snapshot() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  _impl_._has_bits_[0] |= 0x00000010u;
+  ::request::TradeAccountInfo* _msg = _internal_mutable_account_snapshot();
+  // @@protoc_insertion_point(field_mutable:request.TradeEventRecord.account_snapshot)
+  return _msg;
+}
+inline void TradeEventRecord::set_allocated_account_snapshot(::request::TradeAccountInfo* value) {
+  ::google::protobuf::Arena* message_arena = GetArena();
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  if (message_arena == nullptr) {
+    delete (_impl_.account_snapshot_);
+  }
+
+  if (value != nullptr) {
+    ::google::protobuf::Arena* submessage_arena = (value)->GetArena();
+    if (message_arena != submessage_arena) {
+      value = ::google::protobuf::internal::GetOwnedMessage(message_arena, value, submessage_arena);
+    }
+    _impl_._has_bits_[0] |= 0x00000010u;
+  } else {
+    _impl_._has_bits_[0] &= ~0x00000010u;
+  }
+
+  _impl_.account_snapshot_ = reinterpret_cast<::request::TradeAccountInfo*>(value);
+  // @@protoc_insertion_point(field_set_allocated:request.TradeEventRecord.account_snapshot)
 }
 
 // -------------------------------------------------------------------
@@ -12004,6 +13479,102 @@ inline ::google::protobuf::Map<std::string, std::string>* RequestData::_internal
 inline ::google::protobuf::Map<std::string, std::string>* RequestData::mutable_extra() ABSL_ATTRIBUTE_LIFETIME_BOUND {
   // @@protoc_insertion_point(field_mutable_map:request.RequestData.extra)
   return _internal_mutable_extra();
+}
+
+// .request.TradeAccountInfo event_account = 43;
+inline bool RequestData::has_event_account() const {
+  bool value = (_impl_._has_bits_[0] & 0x00000001u) != 0;
+  PROTOBUF_ASSUME(!value || _impl_.event_account_ != nullptr);
+  return value;
+}
+inline void RequestData::clear_event_account() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  if (_impl_.event_account_ != nullptr) _impl_.event_account_->Clear();
+  _impl_._has_bits_[0] &= ~0x00000001u;
+}
+inline const ::request::TradeAccountInfo& RequestData::_internal_event_account() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  const ::request::TradeAccountInfo* p = _impl_.event_account_;
+  return p != nullptr ? *p : reinterpret_cast<const ::request::TradeAccountInfo&>(::request::_TradeAccountInfo_default_instance_);
+}
+inline const ::request::TradeAccountInfo& RequestData::event_account() const ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:request.RequestData.event_account)
+  return _internal_event_account();
+}
+inline void RequestData::unsafe_arena_set_allocated_event_account(::request::TradeAccountInfo* value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  if (GetArena() == nullptr) {
+    delete reinterpret_cast<::google::protobuf::MessageLite*>(_impl_.event_account_);
+  }
+  _impl_.event_account_ = reinterpret_cast<::request::TradeAccountInfo*>(value);
+  if (value != nullptr) {
+    _impl_._has_bits_[0] |= 0x00000001u;
+  } else {
+    _impl_._has_bits_[0] &= ~0x00000001u;
+  }
+  // @@protoc_insertion_point(field_unsafe_arena_set_allocated:request.RequestData.event_account)
+}
+inline ::request::TradeAccountInfo* RequestData::release_event_account() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+
+  _impl_._has_bits_[0] &= ~0x00000001u;
+  ::request::TradeAccountInfo* released = _impl_.event_account_;
+  _impl_.event_account_ = nullptr;
+  if (::google::protobuf::internal::DebugHardenForceCopyInRelease()) {
+    auto* old = reinterpret_cast<::google::protobuf::MessageLite*>(released);
+    released = ::google::protobuf::internal::DuplicateIfNonNull(released);
+    if (GetArena() == nullptr) {
+      delete old;
+    }
+  } else {
+    if (GetArena() != nullptr) {
+      released = ::google::protobuf::internal::DuplicateIfNonNull(released);
+    }
+  }
+  return released;
+}
+inline ::request::TradeAccountInfo* RequestData::unsafe_arena_release_event_account() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  // @@protoc_insertion_point(field_release:request.RequestData.event_account)
+
+  _impl_._has_bits_[0] &= ~0x00000001u;
+  ::request::TradeAccountInfo* temp = _impl_.event_account_;
+  _impl_.event_account_ = nullptr;
+  return temp;
+}
+inline ::request::TradeAccountInfo* RequestData::_internal_mutable_event_account() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  if (_impl_.event_account_ == nullptr) {
+    auto* p = ::google::protobuf::Message::DefaultConstruct<::request::TradeAccountInfo>(GetArena());
+    _impl_.event_account_ = reinterpret_cast<::request::TradeAccountInfo*>(p);
+  }
+  return _impl_.event_account_;
+}
+inline ::request::TradeAccountInfo* RequestData::mutable_event_account() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  _impl_._has_bits_[0] |= 0x00000001u;
+  ::request::TradeAccountInfo* _msg = _internal_mutable_event_account();
+  // @@protoc_insertion_point(field_mutable:request.RequestData.event_account)
+  return _msg;
+}
+inline void RequestData::set_allocated_event_account(::request::TradeAccountInfo* value) {
+  ::google::protobuf::Arena* message_arena = GetArena();
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  if (message_arena == nullptr) {
+    delete (_impl_.event_account_);
+  }
+
+  if (value != nullptr) {
+    ::google::protobuf::Arena* submessage_arena = (value)->GetArena();
+    if (message_arena != submessage_arena) {
+      value = ::google::protobuf::internal::GetOwnedMessage(message_arena, value, submessage_arena);
+    }
+    _impl_._has_bits_[0] |= 0x00000001u;
+  } else {
+    _impl_._has_bits_[0] &= ~0x00000001u;
+  }
+
+  _impl_.event_account_ = reinterpret_cast<::request::TradeAccountInfo*>(value);
+  // @@protoc_insertion_point(field_set_allocated:request.RequestData.event_account)
 }
 
 // uint64 id = 5;
@@ -13803,6 +15374,267 @@ inline void RequestData::clear_has_payload() {
 inline RequestData::PayloadCase RequestData::payload_case() const {
   return RequestData::PayloadCase(_impl_._oneof_case_[0]);
 }
+// -------------------------------------------------------------------
+
+// ZhongTaiJournal
+
+// uint64 revision = 1;
+inline void ZhongTaiJournal::clear_revision() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.revision_ = ::uint64_t{0u};
+}
+inline ::uint64_t ZhongTaiJournal::revision() const {
+  // @@protoc_insertion_point(field_get:request.ZhongTaiJournal.revision)
+  return _internal_revision();
+}
+inline void ZhongTaiJournal::set_revision(::uint64_t value) {
+  _internal_set_revision(value);
+  // @@protoc_insertion_point(field_set:request.ZhongTaiJournal.revision)
+}
+inline ::uint64_t ZhongTaiJournal::_internal_revision() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.revision_;
+}
+inline void ZhongTaiJournal::_internal_set_revision(::uint64_t value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.revision_ = value;
+}
+
+// uint64 sequence = 2;
+inline void ZhongTaiJournal::clear_sequence() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.sequence_ = ::uint64_t{0u};
+}
+inline ::uint64_t ZhongTaiJournal::sequence() const {
+  // @@protoc_insertion_point(field_get:request.ZhongTaiJournal.sequence)
+  return _internal_sequence();
+}
+inline void ZhongTaiJournal::set_sequence(::uint64_t value) {
+  _internal_set_sequence(value);
+  // @@protoc_insertion_point(field_set:request.ZhongTaiJournal.sequence)
+}
+inline ::uint64_t ZhongTaiJournal::_internal_sequence() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.sequence_;
+}
+inline void ZhongTaiJournal::_internal_set_sequence(::uint64_t value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.sequence_ = value;
+}
+
+// uint64 next_order = 3;
+inline void ZhongTaiJournal::clear_next_order() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.next_order_ = ::uint64_t{0u};
+}
+inline ::uint64_t ZhongTaiJournal::next_order() const {
+  // @@protoc_insertion_point(field_get:request.ZhongTaiJournal.next_order)
+  return _internal_next_order();
+}
+inline void ZhongTaiJournal::set_next_order(::uint64_t value) {
+  _internal_set_next_order(value);
+  // @@protoc_insertion_point(field_set:request.ZhongTaiJournal.next_order)
+}
+inline ::uint64_t ZhongTaiJournal::_internal_next_order() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.next_order_;
+}
+inline void ZhongTaiJournal::_internal_set_next_order(::uint64_t value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.next_order_ = value;
+}
+
+// uint64 next_trade = 4;
+inline void ZhongTaiJournal::clear_next_trade() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.next_trade_ = ::uint64_t{0u};
+}
+inline ::uint64_t ZhongTaiJournal::next_trade() const {
+  // @@protoc_insertion_point(field_get:request.ZhongTaiJournal.next_trade)
+  return _internal_next_trade();
+}
+inline void ZhongTaiJournal::set_next_trade(::uint64_t value) {
+  _internal_set_next_trade(value);
+  // @@protoc_insertion_point(field_set:request.ZhongTaiJournal.next_trade)
+}
+inline ::uint64_t ZhongTaiJournal::_internal_next_trade() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.next_trade_;
+}
+inline void ZhongTaiJournal::_internal_set_next_trade(::uint64_t value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.next_trade_ = value;
+}
+
+// int32 trading_day = 5;
+inline void ZhongTaiJournal::clear_trading_day() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.trading_day_ = 0;
+}
+inline ::int32_t ZhongTaiJournal::trading_day() const {
+  // @@protoc_insertion_point(field_get:request.ZhongTaiJournal.trading_day)
+  return _internal_trading_day();
+}
+inline void ZhongTaiJournal::set_trading_day(::int32_t value) {
+  _internal_set_trading_day(value);
+  // @@protoc_insertion_point(field_set:request.ZhongTaiJournal.trading_day)
+}
+inline ::int32_t ZhongTaiJournal::_internal_trading_day() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.trading_day_;
+}
+inline void ZhongTaiJournal::_internal_set_trading_day(::int32_t value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.trading_day_ = value;
+}
+
+// repeated .request.TradeOrderRecord orders = 6;
+inline int ZhongTaiJournal::_internal_orders_size() const {
+  return _internal_orders().size();
+}
+inline int ZhongTaiJournal::orders_size() const {
+  return _internal_orders_size();
+}
+inline void ZhongTaiJournal::clear_orders() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.orders_.Clear();
+}
+inline ::request::TradeOrderRecord* ZhongTaiJournal::mutable_orders(int index)
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_mutable:request.ZhongTaiJournal.orders)
+  return _internal_mutable_orders()->Mutable(index);
+}
+inline ::google::protobuf::RepeatedPtrField<::request::TradeOrderRecord>* ZhongTaiJournal::mutable_orders()
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_mutable_list:request.ZhongTaiJournal.orders)
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  return _internal_mutable_orders();
+}
+inline const ::request::TradeOrderRecord& ZhongTaiJournal::orders(int index) const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:request.ZhongTaiJournal.orders)
+  return _internal_orders().Get(index);
+}
+inline ::request::TradeOrderRecord* ZhongTaiJournal::add_orders() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  ::request::TradeOrderRecord* _add = _internal_mutable_orders()->Add();
+  // @@protoc_insertion_point(field_add:request.ZhongTaiJournal.orders)
+  return _add;
+}
+inline const ::google::protobuf::RepeatedPtrField<::request::TradeOrderRecord>& ZhongTaiJournal::orders() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_list:request.ZhongTaiJournal.orders)
+  return _internal_orders();
+}
+inline const ::google::protobuf::RepeatedPtrField<::request::TradeOrderRecord>&
+ZhongTaiJournal::_internal_orders() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.orders_;
+}
+inline ::google::protobuf::RepeatedPtrField<::request::TradeOrderRecord>*
+ZhongTaiJournal::_internal_mutable_orders() {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return &_impl_.orders_;
+}
+
+// repeated .request.TradeRecord trades = 7;
+inline int ZhongTaiJournal::_internal_trades_size() const {
+  return _internal_trades().size();
+}
+inline int ZhongTaiJournal::trades_size() const {
+  return _internal_trades_size();
+}
+inline void ZhongTaiJournal::clear_trades() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.trades_.Clear();
+}
+inline ::request::TradeRecord* ZhongTaiJournal::mutable_trades(int index)
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_mutable:request.ZhongTaiJournal.trades)
+  return _internal_mutable_trades()->Mutable(index);
+}
+inline ::google::protobuf::RepeatedPtrField<::request::TradeRecord>* ZhongTaiJournal::mutable_trades()
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_mutable_list:request.ZhongTaiJournal.trades)
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  return _internal_mutable_trades();
+}
+inline const ::request::TradeRecord& ZhongTaiJournal::trades(int index) const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:request.ZhongTaiJournal.trades)
+  return _internal_trades().Get(index);
+}
+inline ::request::TradeRecord* ZhongTaiJournal::add_trades() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  ::request::TradeRecord* _add = _internal_mutable_trades()->Add();
+  // @@protoc_insertion_point(field_add:request.ZhongTaiJournal.trades)
+  return _add;
+}
+inline const ::google::protobuf::RepeatedPtrField<::request::TradeRecord>& ZhongTaiJournal::trades() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_list:request.ZhongTaiJournal.trades)
+  return _internal_trades();
+}
+inline const ::google::protobuf::RepeatedPtrField<::request::TradeRecord>&
+ZhongTaiJournal::_internal_trades() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.trades_;
+}
+inline ::google::protobuf::RepeatedPtrField<::request::TradeRecord>*
+ZhongTaiJournal::_internal_mutable_trades() {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return &_impl_.trades_;
+}
+
+// repeated .request.TradeEventRecord events = 8;
+inline int ZhongTaiJournal::_internal_events_size() const {
+  return _internal_events().size();
+}
+inline int ZhongTaiJournal::events_size() const {
+  return _internal_events_size();
+}
+inline void ZhongTaiJournal::clear_events() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.events_.Clear();
+}
+inline ::request::TradeEventRecord* ZhongTaiJournal::mutable_events(int index)
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_mutable:request.ZhongTaiJournal.events)
+  return _internal_mutable_events()->Mutable(index);
+}
+inline ::google::protobuf::RepeatedPtrField<::request::TradeEventRecord>* ZhongTaiJournal::mutable_events()
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_mutable_list:request.ZhongTaiJournal.events)
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  return _internal_mutable_events();
+}
+inline const ::request::TradeEventRecord& ZhongTaiJournal::events(int index) const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:request.ZhongTaiJournal.events)
+  return _internal_events().Get(index);
+}
+inline ::request::TradeEventRecord* ZhongTaiJournal::add_events() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  ::request::TradeEventRecord* _add = _internal_mutable_events()->Add();
+  // @@protoc_insertion_point(field_add:request.ZhongTaiJournal.events)
+  return _add;
+}
+inline const ::google::protobuf::RepeatedPtrField<::request::TradeEventRecord>& ZhongTaiJournal::events() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_list:request.ZhongTaiJournal.events)
+  return _internal_events();
+}
+inline const ::google::protobuf::RepeatedPtrField<::request::TradeEventRecord>&
+ZhongTaiJournal::_internal_events() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.events_;
+}
+inline ::google::protobuf::RepeatedPtrField<::request::TradeEventRecord>*
+ZhongTaiJournal::_internal_mutable_events() {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return &_impl_.events_;
+}
+
 #ifdef __GNUC__
 #pragma GCC diagnostic pop
 #endif  // __GNUC__

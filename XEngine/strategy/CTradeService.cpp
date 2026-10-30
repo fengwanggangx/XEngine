@@ -63,7 +63,7 @@ bool CTradeService::Initialize(CSession&)
 			account.m_info.m_strBrokerName = row.broker_name();
 			account.m_counter = m_broker;
 			trade::CAccountData cached = m_broker->Snapshot(AccountIndex(row));
-			account.m_info.m_state = cached.m_bReady && cached.m_account.m_bConnected && request::ACCOUNT_CONNECTED == row.state() ? TradeAccountState::Connected : TradeAccountState::Disconnected;
+			account.m_info.m_state = request::ACCOUNT_CONNECTED != row.state() ? static_cast<TradeAccountState>(row.state()) : (cached.m_bReady && cached.m_account.m_bConnected ? TradeAccountState::Connected : TradeAccountState::Synchronizing);
 		}
 	});
 	// Missing configuration keeps non-trading XEngine functions available.
@@ -245,7 +245,8 @@ CAccountSnapshot CTradeService::GetAccount(const _TyAccount& accountIndex) const
 	}
 	result.m_balance = snapshot.m_account.m_nBalance;
 	result.m_frozen = snapshot.m_account.m_nFrozen;
-	result.m_available = result.m_balance - result.m_frozen;
+	result.m_available = snapshot.m_account.m_bExplicitAvailable ? snapshot.m_account.m_nAvailable : result.m_balance - result.m_frozen;
+	result.m_bReady = result.m_bReady && snapshot.m_account.m_bFundsValid;
 	return result;
 }
 CPositionSnapshot CTradeService::GetPosition(const CSecurity& security) const
@@ -354,7 +355,7 @@ void CTradeService::OnEvent(const trade::CCountEvent& event)
 		}
 		if (trade::EventTy::Session == event.m_kind)
 		{
-			mIter->second.m_info.m_state = event.m_account.m_bConnected ? TradeAccountState::Connected : TradeAccountState::Disconnected;
+			mIter->second.m_info.m_state = 0 != event.m_account.m_nState ? static_cast<TradeAccountState>(event.m_account.m_nState) : (event.m_account.m_bConnected ? TradeAccountState::Connected : TradeAccountState::Disconnected);
 		}
 		if (trade::EventTy::Order == event.m_kind)
 		{
