@@ -141,7 +141,7 @@ public:
 	bool IsMarketAvailable() const;
 
 private:
-	void OnHQMarketResponse(const CRequest& req);
+	bool OnHQMarketResponse(const CRequest& req);
 	void OnHQMarketState(SessionState state, const std::string& strReason);
 	bool BeginAccountUse(const _TyAccount& accountIndex, _TyStrategyId strategyId);
 	void EndAccountUse(const _TyAccount& accountIndex, _TyStrategyId strategyId);

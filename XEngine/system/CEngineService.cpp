@@ -114,17 +114,19 @@ bool CEngineService::Initialize()
 	return true;
 }
 
-void CEngineService::BroadcastTrading(const CRequest& push)
+bool CEngineService::BroadcastTrading(const CRequest& push)
 {
 	std::vector<net::_TyConnectionId> clients;
 	{
 		std::lock_guard<std::mutex> lock(m_mtx_state);
 		clients.assign(m_auth_clients.begin(), m_auth_clients.end());
 	}
+	bool bSent = true;
 	for (net::_TyConnectionId id : clients)
 	{
-		net::SendRequest(id, push);
+		bSent = net::SendRequest(id, push) && bSent;
 	}
+	return bSent;
 }
 
 CQuoteInfo CEngineService::GetQuoteInfo(const CRequest& req) const
@@ -194,7 +196,7 @@ std::string CEngineService::GetMarketResponseKey(const CRequest& req) const
 	return {};
 }
 
-void CEngineService::OnHQMarketResponse(const CRequest& req)
+bool CEngineService::OnHQMarketResponse(const CRequest& req)
 {
 	ExpirePendingSubscriptions();
 	ExpirePendingQueries();
@@ -227,17 +229,17 @@ void CEngineService::OnHQMarketResponse(const CRequest& req)
 				}
 			}
 			SendSubscriptionResponse(pending.m_client.m_router_id, pending.m_client.m_requestId, !error.has_value(), error.has_value() ? error->second : "", pending.m_type, pending.m_requested);
-			return;
+			return true;
 		}
 	}
 	if (RouteQueryRequest(req))
 	{
-		return;
+		return true;
 	}
 	std::string strKey = GetMarketResponseKey(req);
 	if (strKey.empty())
 	{
-		return;
+		return false;
 	}
 
 	_TyRequest type = req.GetType();
@@ -252,7 +254,7 @@ void CEngineService::OnHQMarketResponse(const CRequest& req)
 			auto mIter = m_pending_subscriptions.find(strKey);
 			if (m_pending_subscriptions.end() == mIter)
 			{
-				return;
+				return false;
 			}
 			pending = std::move(mIter->second);
 			m_pending_subscriptions.erase(mIter);
@@ -265,7 +267,7 @@ void CEngineService::OnHQMarketResponse(const CRequest& req)
 		{
 			SendSubscriptionResponse(v.m_router_id, v.m_requestId, bAccepted, strReason, _TyRequest::MARKET_SUBSCRIBE, { v.m_quote });
 		}
-		return;
+		return true;
 	}
 
 	CRequest push = req;
@@ -283,6 +285,7 @@ void CEngineService::OnHQMarketResponse(const CRequest& req)
 	{
 		HandleDisconnected(id);
 	}
+	return true;
 }
 
 void CEngineService::OnHQMarketState(SessionState state, const std::string& strMessage)

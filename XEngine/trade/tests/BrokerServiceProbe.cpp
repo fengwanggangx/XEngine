@@ -24,12 +24,13 @@ int main(int nArgs, char** pArgs)
 	std::atomic_bool bTradeCorrelated{ false };
 	std::promise<trade::CCounterReply> completion;
 	std::future<trade::CCounterReply> future = completion.get_future();
-	CBrokerClient broker(info);
+	info.m_bOrdered = true;
+	CSession broker(info);
 	CAccountService accounts(&broker);
 	CTradeService client(&accounts, &broker);
 	struct CBrokerGuard
 	{
-		CBrokerClient* m_pBroker;
+		CSession* m_pBroker;
 		~CBrokerGuard()
 		{
 			m_pBroker->Stop();
@@ -37,16 +38,6 @@ int main(int nArgs, char** pArgs)
 	};
 	CBrokerGuard guard{ &broker };
 	accounts.SetAccountStateHandler(std::bind_front(&CTradeService::OnAccountState, &client));
-	broker.SetEventHandler([&accounts, &client](const trade::CCountEvent& event)
-	{
-		accounts.OnBrokerEvent(event);
-		client.OnBrokerEvent(event);
-	});
-	broker.SetStateHandler([&accounts, &client](SessionState state)
-	{
-		accounts.OnBrokerState(state);
-		client.OnBrokerState(state);
-	});
 	client.SetEventHandler([&nEvents, &bTradeCorrelated](const trade::CCountEvent& event)
 	{
 		if (trade::EventTy::Deal == event.m_kind && 700 == event.m_order.m_clientId && 77 == event.m_order.m_strategyId)

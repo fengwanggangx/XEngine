@@ -43,7 +43,7 @@ void CSession::Stop()
 		return;
 	}
 	m_bStopping.store(true);
-	NotifyState(SessionState::Stopping, "HQMarket session is stopping");
+	NotifyState(SessionState::Stopping, "upstream session is stopping");
 	m_cv_loops.notify_all();
 	{
 		std::lock_guard<std::mutex> lock(m_mtx_client);
@@ -71,7 +71,7 @@ void CSession::Stop()
 			pClient->Release();
 		}
 	}
-	NotifyState(SessionState::Disconnected, "HQMarket session stopped");
+	NotifyState(SessionState::Disconnected, "upstream session stopped");
 }
 
 bool CSession::SendRequest(const CRequest& request)
@@ -86,7 +86,7 @@ bool CSession::SendRequest(const CRequest& request)
 	return (nullptr != m_client) && m_client->SendRequest(request);
 }
 
-void CSession::RegisterHandler(_TyResponseHandler&& handler)
+void CSession::RegisterHandler(_TyRequestNotify&& handler)
 {
 	std::lock_guard<std::mutex> lock(m_mtx_handlers);
 	m_handlers.emplace_back(std::move(handler));
@@ -133,7 +133,7 @@ void CSession::ConnectionLoop()
 	int nReConnectSeconds = 1;
 	while (!m_bStopping.load())
 	{
-		NotifyState(1 == nReConnectSeconds ? SessionState::Connecting : SessionState::Reconnecting, 1 == nReConnectSeconds ? "Connecting to HQMarket" : "Reconnecting to HQMarket in " + std::to_string(nReConnectSeconds) + " seconds");
+		NotifyState(1 == nReConnectSeconds ? SessionState::Connecting : SessionState::Reconnecting, 1 == nReConnectSeconds ? "Connecting to upstream" : "Reconnecting to upstream in " + std::to_string(nReConnectSeconds) + " seconds");
 		std::optional<CLoginInfo> info;
 		{
 			std::lock_guard<std::mutex> lock(m_mtx_auth);
@@ -141,7 +141,7 @@ void CSession::ConnectionLoop()
 		}
 		if (!info.has_value() || !info->Valid())
 		{
-			NotifyState(SessionState::Disconnected, "HQMarket login information is invalid");
+			NotifyState(SessionState::Disconnected, "upstream login information is invalid");
 			break;
 		}
 		decltype(m_client) pClient = std::make_unique<net::CTcpClient>(info->m_host.m_strHost, static_cast<int>(info->m_host.m_nPort), info->m_bOrdered);
@@ -157,7 +157,7 @@ void CSession::ConnectionLoop()
 		}
 		else
 		{
-			std::cerr << "HQMarket connection initialization failed: " << nRet << '\n';
+			std::cerr << "upstream connection initialization failed: " << nRet << '\n';
 		}
 		bool bAuthed = IsAuthenticated();
 		decltype(m_client) pClosedClient;
@@ -173,7 +173,7 @@ void CSession::ConnectionLoop()
 		{
 			break;
 		}
-		NotifyState(SessionState::Disconnected, "HQMarket connection closed");
+		NotifyState(SessionState::Disconnected, "upstream connection closed");
 		std::unique_lock<std::mutex> lock(m_mtx_loops);
 		m_cv_loops.wait_for(lock, std::chrono::seconds(nReConnectSeconds), [this]()
 		{
@@ -210,7 +210,7 @@ int CSession::OnNetEvent(const net::CNetEvent& ev)
 {
 	if (net::em_event::connected == ev.m_event)
 	{
-		NotifyState(SessionState::Connected, "Connected to HQMarket");
+		NotifyState(SessionState::Connected, "Connected to upstream");
 		SendAuthentication();
 		return 1;
 	}
@@ -221,7 +221,7 @@ int CSession::OnNetEvent(const net::CNetEvent& ev)
 	}
 	if ((net::em_event::disconnected == ev.m_event) || (net::em_event::error == ev.m_event) || (net::em_event::timeout == ev.m_event))
 	{
-		NotifyState(SessionState::Disconnected, "HQMarket connection lost");
+		NotifyState(SessionState::Disconnected, "upstream connection lost");
 		return 1;
 	}
 	return 0;
@@ -246,7 +246,7 @@ bool CSession::HandleAuthRequest(const CRequest& req)
 			return false;
 		}
 		std::optional<std::pair<int, std::string>> errorInfo = req.GetErrorInfo();
-		NotifyState(SessionState::Connected, "HQMarket authentication failed: " + (errorInfo.has_value() ? errorInfo->second : req.GetExtraData("reason")));
+		NotifyState(SessionState::Connected, "upstream authentication failed: " + (errorInfo.has_value() ? errorInfo->second : req.GetExtraData("reason")));
 		return false;
 	}
 	{
@@ -270,7 +270,7 @@ bool CSession::HandleAuthRequest(const CRequest& req)
 			m_client->SetReadTimeout(20);
 		}
 	}
-	NotifyState(SessionState::Ready, "HQMarket session ready");
+	NotifyState(SessionState::Ready, "upstream session ready");
 	return true;
 }
 
@@ -295,10 +295,10 @@ bool CSession::SendAuthentication()
 	}
 	if (!info.has_value() || !info->Valid())
 	{
-		NotifyState(SessionState::Connected, "HQMarket credentials are invalid");
+		NotifyState(SessionState::Connected, "upstream credentials are invalid");
 		return false;
 	}
-	NotifyState(SessionState::Authenticating, "Authenticating with HQMarket");
+	NotifyState(SessionState::Authenticating, "Authenticating with upstream");
 	if (!info->m_strToken.empty())
 	{
 		return SendRequest(request::Auth(info->m_strToken));
@@ -325,7 +325,7 @@ void CSession::NotifyState(SessionState state, const std::string& strMessage)
 
 void CSession::Dispatch(const CRequest& req)
 {
-	std::vector<_TyResponseHandler> handlers;
+	std::vector<_TyRequestNotify> handlers;
 	{
 		std::lock_guard<std::mutex> lock(m_mtx_handlers);
 		handlers = m_handlers;
@@ -337,4 +337,11 @@ void CSession::Dispatch(const CRequest& req)
 			handler(req);
 		}
 	}
+}
+
+void CSession::ClearHandlers()
+{
+	std::lock_guard<std::mutex> lock(m_mtx_handlers);
+	m_handlers.clear();
+	m_stateHandlers.clear();
 }

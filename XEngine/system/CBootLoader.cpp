@@ -34,7 +34,7 @@ bool CBootLoader::Initialize()
 		return true;
 	}
 
-	if (nullptr != m_pTcpServer || nullptr != m_pHttpServer || nullptr != m_pHostMgr || nullptr != m_pSession || nullptr != m_pBroker || nullptr != m_pAccountService || nullptr != m_pTradeService || nullptr != m_pStrategyService || nullptr != m_pEngineService)
+	if (nullptr != m_pTcpServer || nullptr != m_pHttpServer || nullptr != m_pHostMgr || nullptr != m_pHQMarket || nullptr != m_pBroker || nullptr != m_pAccountService || nullptr != m_pTradeService || nullptr != m_pStrategyService || nullptr != m_pEngineService)
 	{
 		Finalize();
 	}
@@ -60,22 +60,6 @@ bool CBootLoader::Initialize()
 	}
 
 	ini::CINIHandler& hIni = ini::CINIHandler::InstanceRef();
-
-	m_strUser = hIni.GetValue(ini::Config::System, "HQMarket", "user", std::string());
-	if (m_strUser.empty())
-	{
-		m_nErrorCode = 3;
-		m_strLastError = "HQMarket user is required in ini/system.ini";
-		return false;
-	}
-
-	m_strPassword = hIni.GetValue(ini::Config::System, "HQMarket", "password", std::string());
-	if (m_strPassword.empty())
-	{
-		m_nErrorCode = 4;
-		m_strLastError = "HQMarket password is required in ini/system.ini";
-		return false;
-	}
 
 	std::string strMySqlHost = hIni.GetValue(ini::Config::System, "MySQL", "host", "");
 	int nMySqlPort = hIni.GetValue(ini::Config::System, "MySQL", "port", -1);
@@ -120,14 +104,25 @@ bool CBootLoader::Initialize()
 	m_pTcpServer = new net::CTcpServer(nTcpPort);
 	m_pHttpServer = new net::CHttpServer(nHttpPort);
 
-	std::optional<CHostInfo> host = m_pHostMgr->GetActiveHost();
-	m_pSession = new CSession(CLoginInfo{ m_strUser, m_strPassword, {}, host.value() });
-	CLoginInfo brokerInfo;
-	brokerInfo.m_host.m_strName = "Broker";
-	brokerInfo.m_host.m_strHost = hIni.GetValue(ini::Config::System, "Broker", "host", std::string("127.0.0.1"));
-	brokerInfo.m_host.m_nPort = hIni.GetValue(ini::Config::System, "Broker", "port", 9803);
-	brokerInfo.m_strToken = hIni.GetValue(ini::Config::System, "Broker", "token", std::string());
-	m_pBroker = new CBrokerClient(brokerInfo);
+	std::string strhqMarketHost = "HQMarket";
+	CLoginInfo hq;
+	hq.m_strUser = hIni.GetValue(ini::Config::System, strhqMarketHost, "user", std::string());
+	hq.m_strPassword = hIni.GetValue(ini::Config::System, strhqMarketHost, "password", std::string());
+	hq.m_host.m_strName = strhqMarketHost;
+	hq.m_host.m_strHost = hIni.GetValue(ini::Config::System, strhqMarketHost, "host", std::string("127.0.0.1"));
+	hq.m_host.m_nPort = hIni.GetValue(ini::Config::System, strhqMarketHost, "port", 9803);
+	m_pHQMarket = new CSession(hq);
+
+	std::string strBrokerHost = "Broker";
+	CLoginInfo broker;
+	broker.m_strUser = hIni.GetValue(ini::Config::System, strBrokerHost, "user", std::string());
+	broker.m_strPassword = hIni.GetValue(ini::Config::System, strBrokerHost, "password", std::string());
+	broker.m_host.m_strName = strBrokerHost;
+	broker.m_host.m_strHost = hIni.GetValue(ini::Config::System, strBrokerHost, "host", std::string("127.0.0.1"));
+	broker.m_host.m_nPort = hIni.GetValue(ini::Config::System, strBrokerHost, "port", 9804);
+	broker.m_bOrdered = true;
+	m_pBroker = new CSession(broker);
+
 	m_pAccountService = new CAccountService(m_pBroker);
 	if (!m_pAccountService->Initialize())
 	{
@@ -142,14 +137,14 @@ bool CBootLoader::Initialize()
 		m_strLastError = m_pTradeService->GetLastError();
 		return false;
 	}
-	m_pStrategyService = new CStrategyService(m_pSession, m_pTradeService, m_pAccountService);
+	m_pStrategyService = new CStrategyService(m_pHQMarket, m_pTradeService, m_pAccountService);
 	if (!m_pStrategyService->Initialize())
 	{
 		m_nErrorCode = 10;
 		m_strLastError = m_pStrategyService->GetLastError();
 		return false;
 	}
-	m_pEngineService = new CEngineService(m_pTcpServer, m_pSession, m_pStrategyService, m_pTradeService, m_pAccountService);
+	m_pEngineService = new CEngineService(m_pTcpServer, m_pHQMarket, m_pStrategyService, m_pTradeService, m_pAccountService);
 	if (!m_pEngineService->Initialize())
 	{
 		m_nErrorCode = 11;
@@ -157,20 +152,10 @@ bool CBootLoader::Initialize()
 		return false;
 	}
 	m_pAccountService->SetAccountStateHandler(std::bind_front(&CTradeService::OnAccountState, m_pTradeService));
-	m_pBroker->SetEventHandler([this](const trade::CCountEvent& event)
-	{
-		m_pAccountService->OnBrokerEvent(event);
-		m_pTradeService->OnBrokerEvent(event);
-	});
-	m_pBroker->SetStateHandler([this](SessionState state)
-	{
-		m_pAccountService->OnBrokerState(state);
-		m_pTradeService->OnBrokerState(state);
-	});
-	if (brokerInfo.Valid() && !m_pBroker->Start())
+	if (broker.Valid() && !m_pBroker->Start())
 	{
 		m_nErrorCode = 14;
-		m_strLastError = "Broker client initialization failed";
+		m_strLastError = "Broker session initialization failed";
 		return false;
 	}
 	m_bInitialized = true;
@@ -197,7 +182,7 @@ bool CBootLoader::Run()
 		m_strLastError = "HTTP server initialization failed";
 		return false;
 	}
-	if (!m_pSession->Start())
+	if (!m_pHQMarket->Start())
 	{
 		m_nErrorCode = 12;
 		m_strLastError = "HQMarket session configuration is invalid";
@@ -229,9 +214,13 @@ void CBootLoader::Finalize()
 	{
 		m_pStrategyService->StopAll();
 	}
-	if (nullptr != m_pSession)
+	if (nullptr != m_pHQMarket)
 	{
-		m_pSession->Stop();
+		m_pHQMarket->Stop();
+	}
+	if (nullptr != m_pBroker)
+	{
+		m_pBroker->Stop();
 	}
 	if (nullptr != m_pTradeService)
 	{
@@ -243,7 +232,7 @@ void CBootLoader::Finalize()
 	}
 	if (nullptr != m_pBroker)
 	{
-		m_pBroker->Stop();
+		m_pBroker->ClearHandlers();
 	}
 	// All callback producers have stopped; borrowers can now be destroyed.
 	delete m_pEngineService;
@@ -256,8 +245,8 @@ void CBootLoader::Finalize()
 	m_pAccountService = nullptr;
 	delete m_pBroker;
 	m_pBroker = nullptr;
-	delete m_pSession;
-	m_pSession = nullptr;
+	delete m_pHQMarket;
+	m_pHQMarket = nullptr;
 	delete m_pHttpServer;
 	m_pHttpServer = nullptr;
 	delete m_pTcpServer;
@@ -276,16 +265,6 @@ net::CTcpServer& CBootLoader::GetTcpServer()
 net::CHttpServer& CBootLoader::GetHttpServer()
 {
 	return *m_pHttpServer;
-}
-
-const std::string& CBootLoader::GetUser() const
-{
-	return m_strUser;
-}
-
-const std::string& CBootLoader::GetPassword() const
-{
-	return m_strPassword;
 }
 
 CHostMgr& CBootLoader::GetHostMgr()

@@ -1008,16 +1008,16 @@ void CStrategyService::StopAll()
 	}
 }
 
-void CStrategyService::OnHQMarketResponse(const CRequest& req)
+bool CStrategyService::OnHQMarketResponse(const CRequest& req)
 {
 	if (m_bStopping.load() || !m_bMarketAvailable.load() || (!req.IsMarket()))
 	{
-		return;
+		return false;
 	}
 	std::string strKey = GetMarketKey(req);
 	if (strKey.empty())
 	{
-		return;
+		return false;
 	}
 	const _TyReqData& data = req.GetData();
 	CStrategyEvent ev;
@@ -1043,9 +1043,10 @@ void CStrategyService::OnHQMarketResponse(const CRequest& req)
 	}
 	else
 	{
-		return;
+		return false;
 	}
 	RouteMarketEvent(strKey, std::move(ev));
+	return true;
 }
 
 void CStrategyService::OnHQMarketState(SessionState state, const std::string& strReason)

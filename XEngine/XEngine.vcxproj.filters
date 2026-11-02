@@ -309,12 +309,8 @@
   <ItemGroup>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="trade\CBrokerClient.cpp">
-      <Filter>trade</Filter>
-    </ClCompile>
-    <ClInclude Include="trade\CBrokerClient.h">
-      <Filter>trade</Filter>
-    </ClInclude>
+
+
     <ClCompile Include="trade\TradeProtocol.cpp">
       <Filter>trade</Filter>
     </ClCompile>

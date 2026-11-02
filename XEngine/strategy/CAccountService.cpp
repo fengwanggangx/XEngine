@@ -4,7 +4,7 @@
 #include "../network/CNetTools.h"
 #include <algorithm>
 
-CAccountService::CAccountService(CBrokerClient* pBroker) : m_pBroker(pBroker)
+CAccountService::CAccountService(CSession* pSession) : m_pSession(pSession)
 {
 }
 
@@ -15,16 +15,19 @@ CAccountService::~CAccountService()
 
 bool CAccountService::Initialize()
 {
-	if (nullptr == m_pBroker)
+	if (nullptr == m_pSession)
 	{
-		m_strLastError = "Broker client is unavailable";
+		m_strLastError = "Broker session is unavailable";
 		return false;
 	}
 	m_bStopping.store(false);
+	m_pSession->RegisterHandler(std::bind_front(&CAccountService::OnRequestReply, this));
+	m_pSession->RegisterStateHandler(std::bind_front(&CAccountService::OnBrokerState, this));
 	m_refresh = std::jthread([this](std::stop_token stop)
 	{
 		while (!stop.stop_requested())
 		{
+			RefreshPending();
 			RefreshAccounts();
 			std::unique_lock<std::mutex> lock(m_mtx_wait);
 			m_wake.wait_for(lock, std::chrono::seconds(1), [&stop]()
@@ -70,7 +73,7 @@ std::vector<_TyAccount> CAccountService::GetAccounts() const
 	return accounts;
 }
 
-void CAccountService::SetPushHandler(_TyPushHandler&& handler)
+void CAccountService::SetPushHandler(_TyRequestNotify&& handler)
 {
 	std::lock_guard<std::mutex> lock(m_mtx_accounts);
 	m_pushHandler = std::move(handler);
@@ -85,7 +88,7 @@ void CAccountService::SetAccountStateHandler(_TyAccountStateHandler&& handler)
 void CAccountService::NotifyState(const CAccountInfo& info)
 {
 	_TyAccountStateHandler stateHandler;
-	_TyPushHandler pushHandler;
+	_TyRequestNotify pushHandler;
 	{
 		std::lock_guard<std::mutex> lock(m_mtx_accounts);
 		stateHandler = m_accountStateHandler;
@@ -128,7 +131,7 @@ void CAccountService::OnBrokerEvent(const trade::CCountEvent& event)
 	NotifyState(info);
 }
 
-void CAccountService::OnBrokerState(SessionState state)
+void CAccountService::OnBrokerState(SessionState state, const std::string&)
 {
 	if (SessionState::Ready == state)
 	{
@@ -150,6 +153,7 @@ void CAccountService::OnBrokerState(SessionState state)
 		event.m_accountIndex = account;
 		OnBrokerEvent(event);
 	}
+	FailPending();
 }
 
 bool CAccountService::HasAccount(const _TyAccount& accountIndex) const
@@ -213,7 +217,7 @@ bool CAccountService::HandleAccountRequest(const CRequest& req, const std::strin
 	}
 	CRequest request = req;
 	request.SetExtraData("actor", actor);
-	bool bQueued = m_pBroker->Forward(std::move(request), [this, original = req, disconnecting, disconnectingAccount](const CRequest& reply)
+	bool bQueued = SendRequest(std::move(request), [this, original = req, disconnecting, disconnectingAccount](const CRequest& reply)
 	{
 		if (_TyRequest::TRADE_ACCOUNT_DISCONNECT == original.GetType() && !reply.GetErrorInfo().has_value())
 		{
@@ -234,7 +238,7 @@ bool CAccountService::HandleAccountRequest(const CRequest& req, const std::strin
 		CRequest response = reply;
 		response.SetId(original.GetId());
 
-		net::SendRequest(original.GetConnectionId(), response);
+		return net::SendRequest(original.GetConnectionId(), response);
 	});
 	if (!bQueued)
 	{
@@ -250,7 +254,7 @@ bool CAccountService::HandleAccountRequest(const CRequest& req, const std::strin
 
 void CAccountService::RefreshAccounts()
 {
-	if (!m_pBroker->IsReady())
+	if (!m_pSession->IsAuthenticated())
 	{
 		return;
 	}
@@ -261,9 +265,10 @@ void CAccountService::RefreshAccounts()
 	}
 	CRequest query;
 	query.SetType(_TyRequest::TRADE_ACCOUNT_LIST_QUERY);
-	m_pBroker->Forward(std::move(query), [this, nGeneration](const CRequest& response)
+	SendRequest(std::move(query), [this, nGeneration](const CRequest& response)
 	{
 		OnCatalogue(response, nGeneration);
+		return true;
 	});
 }
 
@@ -310,5 +315,115 @@ void CAccountService::OnCatalogue(const CRequest& response, std::uint64_t nGener
 	for (const auto& info : changes)
 	{
 		NotifyState(info);
+	}
+}
+
+bool CAccountService::SendRequest(CRequest&& request, _TyRequestNotify&& handler)
+{
+	if ((m_bStopping.load()) || !m_pSession->IsAuthenticated())
+	{
+		return false;
+	}
+	std::uint64_t nId = CRequest().GetId();
+	request.SetExtraData("source_request_id", std::to_string(request.GetId()));
+	request.SetId(nId);
+	{
+		std::lock_guard<std::mutex> lock(m_mtx_requests);
+		if (!m_pSession->IsAuthenticated() || m_bStopping.load())
+		{
+			return false;
+		}
+		if (4096 <= m_pending.size())
+		{
+			return false;
+		}
+		m_pending.emplace(nId, CPending{ std::move(handler), std::chrono::steady_clock::now() + std::chrono::seconds(_TyRequest::TRADE_ACCOUNT_LOGIN == request.GetType() ? 60 : 15), request.GetType() });
+	}
+	if (!m_pSession->SendRequest(request))
+	{
+		// A write failure may follow a partial write. Complete as uncertain, never retry.
+		CRequest response;
+		response.SetId(nId);
+		response.SetType(request.GetType());
+		response.SetErrorInfo(static_cast<int>(trade::Error::UnknownResult), "XBroker write failed; reconcile before retry");
+		OnRequestReply(response);
+	}
+	return true;
+}
+
+bool CAccountService::OnRequestReply(const CRequest& req)
+{
+	if (m_bStopping.load())
+	{
+		return false;
+	}
+	if (0 == req.GetId())
+	{
+		trade::CCountEvent event;
+		if (!trade::protocol::ReadPush(req, event))
+		{
+			return false;
+		}
+		if (trade::EventTy::Session != event.m_kind)
+		{
+			return false;
+		}
+		OnBrokerEvent(event);
+		return true;
+	}
+	_TyRequestNotify handler;
+	{
+		std::lock_guard<std::mutex> lock(m_mtx_requests);
+		const auto mIter = m_pending.find(req.GetId());
+		if (m_pending.end() == mIter || req.GetType() != mIter->second.m_type)
+		{
+			return false;
+		}
+		handler = std::move(mIter->second.m_handler);
+		m_pending.erase(mIter);
+	}
+	return (nullptr != handler) && handler(req);
+}
+
+void CAccountService::FailPending()
+{
+	std::unordered_map<std::uint64_t, CPending> pending;
+	{
+		std::lock_guard<std::mutex> lock(m_mtx_requests);
+		pending.swap(m_pending);
+	}
+	for (const auto& item : pending)
+	{
+		CRequest response;
+		response.SetId(item.first);
+		response.SetType(item.second.m_type);
+		response.SetErrorInfo(static_cast<int>(trade::Error::UnknownResult), "XBroker disconnected; reconcile before retry");
+		if (nullptr != item.second.m_handler)
+		{
+			item.second.m_handler(response);
+		}
+	}
+}
+
+void CAccountService::RefreshPending()
+{
+	std::vector<std::pair<std::uint64_t, _TyRequest>> expired;
+	{
+		std::lock_guard<std::mutex> lock(m_mtx_requests);
+		for (const auto& item : m_pending)
+		{
+			if (item.second.m_deadline <= std::chrono::steady_clock::now())
+			{
+				expired.emplace_back(item.first, item.second.m_type);
+			}
+		}
+	}
+	for (const auto& item : expired)
+	{
+		CRequest req;
+		req.SetId(item.first);
+		req.SetType(item.second);
+		req.SetErrorInfo(static_cast<int>(trade::Error::UnknownResult), "XBroker request timed out; reconcile before retry");
+		OnRequestReply(req);
 	}
 }

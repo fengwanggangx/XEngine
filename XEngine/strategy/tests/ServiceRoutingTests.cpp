@@ -39,7 +39,7 @@ class CServiceRoutingTests
 public:
 	static void Run(bufferevent* event)
 	{
-		CBrokerClient broker(CLoginInfo{});
+		CSession broker(CLoginInfo{});
 		CAccountService accounts(&broker);
 		Check(accounts.Initialize(), "account service initializes independently");
 		CTradeService trader(&accounts, &broker);
@@ -105,6 +105,9 @@ public:
 		Check(accounts.IsConnected(account), "stopping trade service leaves account state available");
 		Check(accounts.AcquireAccount(account), "account service remains usable after trade service stops");
 		accounts.ReleaseAccount(account);
+		accounts.Stop();
+		broker.Stop();
+		broker.ClearHandlers();
 		CTradeService unavailable(nullptr, nullptr);
 		Check(!unavailable.Initialize(), "trade service requires an injected account service");
 	}

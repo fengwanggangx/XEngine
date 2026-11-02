@@ -72,7 +72,7 @@ public:
 
 private:
 	int OnNetEvent(const net::CNetEvent& ev);
-	void BroadcastTrading(const CRequest& push);
+	bool BroadcastTrading(const CRequest& push);
 	void OnClientRequest(net::_TyConnectionId id, const CRequest& req);
 	bool HandleAuth(net::_TyConnectionId id, const CRequest& req);
 	bool HandleRegisterAuth(net::_TyConnectionId id, const CRequest& req);
@@ -85,7 +85,7 @@ private:
 
 	int HandleDisconnected(net::_TyConnectionId id);
 	bool HandleReAuth(const CRequest& req);
-	void OnHQMarketResponse(const CRequest& req);
+	bool OnHQMarketResponse(const CRequest& req);
 	void OnHQMarketState(SessionState state, const std::string& strMessage);
 	void ExpirePendingSubscriptions();
 	void FailPendingSubscriptions(const std::string& strReason);

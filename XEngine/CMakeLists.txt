@@ -35,13 +35,13 @@ add_test(NAME trading_protocol_tests COMMAND trading_protocol_tests)
 
 set(CMAKE_BUILD_RPATH "${depLib}")
 
-add_executable(broker_client_probe trade/tests/BrokerClientProbe.cpp)
+add_executable(broker_client_probe trade/tests/BrokerServiceProbe.cpp)
 target_link_libraries(broker_client_probe PRIVATE xengine_services)
 
-add_executable(broker_client_tests trade/tests/BrokerClientTests.cpp)
-target_link_libraries(broker_client_tests PRIVATE xengine_services)
-target_include_directories(broker_client_tests PRIVATE trade)
-add_test(NAME broker_client_tests COMMAND broker_client_tests)
+add_executable(broker_service_tests trade/tests/BrokerServiceTests.cpp)
+target_link_libraries(broker_service_tests PRIVATE xengine_services)
+target_include_directories(broker_service_tests PRIVATE trade)
+add_test(NAME broker_service_tests COMMAND broker_service_tests)
 
 add_executable(service_routing_tests strategy/tests/ServiceRoutingTests.cpp)
 target_link_libraries(service_routing_tests PRIVATE xengine_services)

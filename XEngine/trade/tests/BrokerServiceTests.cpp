@@ -7,7 +7,7 @@ static _TyAccount TestAccount(std::uint64_t number)
 	return 0 == number ? _TyAccount{} : _TyAccount{ 1, std::to_string(number) };
 }
 
-class CBrokerClientTests
+class CBrokerServiceTests
 {
 	static void Check(bool bCondition, const char* strMessage)
 	{
@@ -51,24 +51,18 @@ public:
 	static void Run()
 	{
 		int nFunds = 0;
-		CBrokerClient client(CLoginInfo{});
-		CAccountService accounts(&client);
-		CTradeService service(&accounts, &client);
+		CSession session(CLoginInfo{});
+		CAccountService accounts(&session);
+		CTradeService service(&accounts, &session);
 		service.m_bRunning.store(true);
 		CAccountInfo info = AccountInfo(TestAccount(1));
 		info.m_state = TradeAccountState::Connected;
 		accounts.m_accounts[TestAccount(1)] = info;
 		accounts.SetAccountStateHandler(std::bind_front(&CTradeService::OnAccountState, &service));
-		client.SetEventHandler([&accounts, &service](const trade::CCountEvent& event)
-		{
-			accounts.OnBrokerEvent(event);
-			service.OnBrokerEvent(event);
-		});
-		client.SetStateHandler([&accounts, &service](SessionState state)
-		{
-			accounts.OnBrokerState(state);
-			service.OnBrokerState(state);
-		});
+		session.RegisterHandler(std::bind_front(&CAccountService::OnResponse, &accounts));
+		session.RegisterHandler(std::bind_front(&CTradeService::OnResponse, &service));
+		session.RegisterStateHandler(std::bind_front(&CAccountService::OnBrokerState, &accounts));
+		session.RegisterStateHandler(std::bind_front(&CTradeService::OnBrokerState, &service));
 		service.SetEventHandler([&nFunds](const trade::CCountEvent& event)
 		{
 			if (trade::EventTy::Funds == event.m_kind)
@@ -80,12 +74,12 @@ public:
 		Prepare(service, 1);
 		service.QueryAccount(TestAccount(1));
 		Check(1 == service.m_syncing.at(TestAccount(1)).m_cycle, "same account query sequence serialized");
-		client.OnResponse(FundsPush(9, 90));
-		client.OnResponse(FundsPush(12, 120));
-		client.OnResponse(FundsPush(12, 999));
+		session.Dispatch(FundsPush(9, 90));
+		session.Dispatch(FundsPush(12, 120));
+		session.Dispatch(FundsPush(12, 999));
 		service.CompleteQuery(Trades(20), 0, 1);
 		Check(service.Snapshot(TestAccount(1)).m_bReady && 120 == service.Snapshot(TestAccount(1)).m_account.m_nBalance && 20 == service.Snapshot(TestAccount(1)).m_version && 1 == nFunds, "funds use their own watermark even below the trades watermark");
-		client.OnResponse(FundsPush(25, 150));
+		session.Dispatch(FundsPush(25, 150));
 		Check(150 == service.Snapshot(TestAccount(1)).m_account.m_nBalance && 2 == nFunds, "live push continues after queries");
 		trade::CCounterReply query;
 		query.m_accountIndex = TestAccount(1);
@@ -95,9 +89,9 @@ public:
 		CRequest response;
 		response.SetType(_TyRequest::TRADE_FUNDS_QUERY);
 		trade::protocol::WriteReply(query, response);
-		client.CompleteRequest(response, TestAccount(1), 2, trade::Operation::Funds, 0, {});
+		service.CompleteRequest(response, TestAccount(1), 2, trade::Operation::Funds, 0, {});
 		Check(25 == service.Snapshot(TestAccount(1)).m_version && 150 == service.Snapshot(TestAccount(1)).m_account.m_nBalance, "ordinary query never replaces account cache");
-		client.OnState(SessionState::Disconnected);
+		session.NotifyState(SessionState::Disconnected, "test disconnect");
 		Check(!accounts.IsConnected(TestAccount(1)) && !service.IsReady(TestAccount(1)), "disconnect invalidates account connectivity and trade readiness");
 		Prepare(service, 2);
 		service.CompleteQuery(Trades(200), 0, 1);
@@ -106,7 +100,7 @@ public:
 		Check(!service.Snapshot(TestAccount(1)).m_bReady && service.m_syncing.contains(TestAccount(1)), "old query cycle cannot replace new queries");
 		service.CompleteQuery(Trades(30), service.m_generation, 2);
 		Check(service.Snapshot(TestAccount(1)).m_bReady && 30 == service.Snapshot(TestAccount(1)).m_version, "fresh reconnect restores all categories");
-		client.OnState(SessionState::Disconnected);
+		session.NotifyState(SessionState::Disconnected, "test disconnect");
 		Prepare(service, 3);
 		service.m_syncing.at(TestAccount(1)).m_bOverflow = true;
 		service.CompleteQuery(Trades(40), service.m_generation, 3);
@@ -132,21 +126,99 @@ public:
 		service.CompleteQuery(Trades(50), service.m_generation, 5);
 		Check(service.m_snapshots.empty(), "late query cannot recreate a removed account");
 
+		int accountReplies = 0;
+		int tradeReplies = 0;
+		CRequest responseA;
+		responseA.SetType(_TyRequest::TRADE_ACCOUNT_LOGIN);
+		CRequest responseB;
+		responseB.SetType(_TyRequest::TRADE_FUNDS_QUERY);
+		std::chrono::steady_clock::time_point deadline = std::chrono::steady_clock::now() - std::chrono::seconds(1);
+		accounts.m_pending.emplace(responseA.GetId(), CAccountService::CPending{ [&accountReplies](const CRequest&)
+		{
+			++accountReplies;
+			return true;
+		}, deadline, responseA.GetType() });
+		service.m_pending.emplace(responseB.GetId(), CTradeService::CPending{ [&tradeReplies](const CRequest&)
+		{
+			++tradeReplies;
+			return true;
+		}, deadline, responseB.GetType() });
+		CRequest mismatched = responseA;
+		mismatched.SetType(_TyRequest::TRADE_FUNDS_QUERY);
+		session.Dispatch(mismatched);
+		Check(0 == accountReplies && 0 == tradeReplies && 1 == accounts.m_pending.size(), "wrong response type does not consume a pending account request");
+		session.Dispatch(responseA);
+		session.Dispatch(responseA);
+		Check(1 == accountReplies && 0 == tradeReplies && accounts.m_pending.empty(), "shared session dispatches account response exactly once to its owner");
+		service.RefreshPending();
+		session.Dispatch(responseB);
+		Check(1 == tradeReplies && service.m_pending.empty(), "timeout completes trade request once and ignores late response");
+		accounts.m_pending.emplace(responseA.GetId(), CAccountService::CPending{ [&accountReplies](const CRequest& reply)
+		{
+			Check(static_cast<int>(trade::Error::UnknownResult) == reply.GetErrorInfo()->first, "disconnect leaves result unknown");
+			++accountReplies;
+			return true;
+		}, deadline, responseA.GetType() });
+		service.m_pending.emplace(responseB.GetId(), CTradeService::CPending{ [&tradeReplies](const CRequest& reply)
+		{
+			Check(static_cast<int>(trade::Error::UnknownResult) == reply.GetErrorInfo()->first, "disconnect leaves trade result unknown");
+			++tradeReplies;
+			return true;
+		}, deadline, responseB.GetType() });
+		session.NotifyState(SessionState::Disconnected, "test disconnect");
+		session.Dispatch(responseA);
+		session.Dispatch(responseB);
+		Check(2 == accountReplies && 2 == tradeReplies && accounts.m_pending.empty() && service.m_pending.empty(), "disconnect drains both services without replaying callbacks");
+		int staleReplies = 0;
+		service.CompleteRequest(response, TestAccount(1), 9, trade::Operation::Funds, service.m_generation - 1, [&staleReplies](const trade::CCounterReply& reply)
+		{
+			Check(trade::Error::UnknownResult == reply.m_result.m_error, "old connection response cannot succeed");
+			++staleReplies;
+		});
+		Check(1 == staleReplies, "stale connection response completes once");
+		session.NotifyState(SessionState::Ready, "test ready");
+		CRequest accountWire;
+		accountWire.SetId(42);
+		accountWire.SetType(_TyRequest::TRADE_ACCOUNT_LOGIN);
+		CRequest tradeWire;
+		tradeWire.SetId(42);
+		tradeWire.SetType(_TyRequest::TRADE_ORDER_SUBMIT);
+		int uncertainReplies = 0;
+		Check(accounts.SendWireRequest(std::move(accountWire), [&uncertainReplies](const CRequest& reply)
+		{
+			Check(static_cast<int>(trade::Error::UnknownResult) == reply.GetErrorInfo()->first, "account write failure reports uncertain result");
+			++uncertainReplies;
+			return true;
+		}),
+			"accepted account request completes even when socket write fails");
+		Check(service.SendWireRequest(std::move(tradeWire), [&uncertainReplies](const CRequest& reply)
+		{
+			Check(static_cast<int>(trade::Error::UnknownResult) == reply.GetErrorInfo()->first, "trade write failure reports uncertain result");
+			++uncertainReplies;
+			return true;
+		}),
+			"accepted trade request completes even when socket write fails");
+		Check(accountWire.GetId() != tradeWire.GetId() && "42" == accountWire.GetExtraData("source_request_id") && "42" == tradeWire.GetExtraData("source_request_id"), "services allocate distinct upstream IDs for identical terminal IDs");
+		accounts.RefreshPending();
+		service.RefreshPending();
+		Check(2 == uncertainReplies && accounts.m_pending.empty() && service.m_pending.empty(), "write failures complete once and are never retried");
+		session.ClearHandlers();
+
 		trade::CReqParam invalid;
 		int rejectedReplies = 0;
-		Check(!client.SendRequest(invalid, [&rejectedReplies](const trade::CCounterReply&)
+		Check(!service.SendRequest(std::move(invalid), [&rejectedReplies](const trade::CCounterReply&)
 		{
 			++rejectedReplies;
 		}).Ok() && 0 == rejectedReplies,
-			  "invalid account rejected without callback");
+			"invalid account rejected without callback");
 	}
 };
 int main()
 {
 	try
 	{
-		CBrokerClientTests::Run();
-		std::cout << "broker client tests passed\n";
+		CBrokerServiceTests::Run();
+		std::cout << "broker service tests passed\n";
 		return 0;
 	}
 	catch (const std::exception& error)
