@@ -2,6 +2,7 @@
 #define XENGINE_STRATEGY_CSTRATEGYSERVICE_H
 
 #include "IStrategy.h"
+#include "../trade/TradeTypes.h"
 
 #include <atomic>
 #include <condition_variable>
@@ -108,6 +109,7 @@ enum class SignalState
 class CStrategyService final
 {
 	friend class CStrategyContext;
+	friend class CServiceRoutingTests;
 	using _TyStateHandler = std::function<void(const CStrategySnapshot&)>;
 
 public:
@@ -140,6 +142,10 @@ public:
 private:
 	void OnHQMarketResponse(const CRequest& req);
 	void OnHQMarketState(SessionState state, const std::string& strReason);
+	bool BeginAccountUse(const _TyAccount& accountIndex, _TyStrategyId strategyId);
+	void EndAccountUse(const _TyAccount& accountIndex, _TyStrategyId strategyId);
+	void OnTradingEvent(const trade::CCountEvent& event);
+	COrderSubmitResult SubmitTradingOrder(const COrderIntent& intent);
 	void OnOrderEvent(const COrderEvent& ev);
 	void OnTradeEvent(const CTradeEvent& ev);
 	void OnAccountReady(const _TyAccount& accountIndex);
@@ -173,6 +179,8 @@ private:
 	bool ControlStrategy(const CRequest& req);
 
 private:
+	std::mutex m_mtx_accountUsers;
+	std::map<_TyAccount, std::unordered_set<_TyStrategyId>> m_runningStrategies;
 	std::mutex m_mtx_operations;
 	CSession* m_pSession{ nullptr };
 	// Borrowed from CBootLoader; trading callbacks are stopped before destruction.

@@ -1,11 +1,5 @@
 #pragma once
 #include "../request/AccountIdentity.h"
-#include <memory>
-
-namespace trade
-{
-	class ITradeSession;
-}
 
 enum class TradeAccountState
 {
@@ -40,10 +34,3 @@ inline CTradeAccountInfo AccountInfo(const _TyAccount& index)
 	info.m_strAccount = index.second;
 	return info;
 }
-
-struct CTradeAccount
-{
-	CTradeAccountInfo m_info;
-	// Pending operations may retain the account session until their response completes.
-	std::shared_ptr<trade::ITradeSession> m_session;
-};

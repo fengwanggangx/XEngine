@@ -1,16 +1,16 @@
 #pragma once
-#include "ITradeSession.h"
+#include "TradeTypes.h"
+#include <functional>
 #include "../system/CSession.h"
 #include <atomic>
 #include <array>
 #include <unordered_map>
 #include <map>
-class CBrokerClient final : public std::enable_shared_from_this<CBrokerClient>
+class CBrokerClient final
 {
 public:
-	using _TyReplyHandler = trade::ITradeSession::_TyReplyHandler;
-	using _TyEventHandler = trade::ITradeSession::_TyEventHandler;
-	std::shared_ptr<trade::ITradeSession> CreateSession(const _TyAccount& account);
+	using _TyReplyHandler = std::function<void(const trade::CCounterReply&)>;
+	using _TyEventHandler = std::function<void(const trade::CCountEvent&)>;
 	using _TyWireHandler = std::function<void(const CRequest&)>;
 	explicit CBrokerClient(const CLoginInfo& info);
 	~CBrokerClient();
@@ -23,9 +23,8 @@ public:
 	void Stop();
 
 private:
-	std::map<_TyAccount, std::weak_ptr<class CBrokerSession>> m_sessions;
 	friend class CBrokerClientTests;
-	void PublishSession(const trade::CCountEvent& event);
+	friend class CServiceRoutingTests;
 	void CompleteRequest(const CRequest& response, const _TyAccount& accountIndex, std::uint64_t nRequestId, trade::Operation operation, std::uint64_t nGeneration, const _TyReplyHandler& handler);
 	struct CPending
 	{

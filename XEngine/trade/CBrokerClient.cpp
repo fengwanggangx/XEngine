@@ -1,5 +1,4 @@
 #include "CBrokerClient.h"
-#include "CBrokerSession.h"
 #include "TradeProtocol.h"
 #include "../request/request.pb.h"
 #include <algorithm>
@@ -362,10 +361,6 @@ void CBrokerClient::CompleteQuery(const trade::CCounterReply& reply, std::uint64
 			eventHandler(event);
 		}
 	}
-	for (const auto& event : notifications)
-	{
-		PublishSession(event);
-	}
 }
 
 trade::CAccountData CBrokerClient::Snapshot(const _TyAccount& accountIndex) const
@@ -461,7 +456,6 @@ void CBrokerClient::OnResponse(const CRequest& response)
 		{
 			eventHandler(event);
 		}
-		PublishSession(event);
 		return;
 	}
 	{
@@ -509,10 +503,6 @@ void CBrokerClient::OnState(SessionState state)
 		{
 			handler(event);
 		}
-	}
-	for (const auto& event : events)
-	{
-		PublishSession(event);
 	}
 	FailPending();
 }
@@ -584,38 +574,4 @@ void CBrokerClient::Refresh()
 			QueryAccount(AccountIndex(account));
 		}
 	});
-}
-
-std::shared_ptr<trade::ITradeSession> CBrokerClient::CreateSession(const _TyAccount& account)
-{
-	std::lock_guard<std::mutex> lock(m_mtx_state);
-	const auto mIter = m_sessions.find(account);
-	if (m_sessions.end() != mIter)
-	{
-		std::shared_ptr<CBrokerSession> existing = mIter->second.lock();
-		if (nullptr != existing && !existing->IsClosed())
-		{
-			return existing;
-		}
-	}
-	std::shared_ptr<CBrokerSession> session = std::make_shared<CBrokerSession>(shared_from_this(), account);
-	m_sessions[account] = session;
-	return session;
-}
-
-void CBrokerClient::PublishSession(const trade::CCountEvent& event)
-{
-	std::shared_ptr<CBrokerSession> session;
-	{
-		std::lock_guard<std::mutex> lock(m_mtx_state);
-		const auto mIter = m_sessions.find(event.m_accountIndex);
-		if (m_sessions.end() != mIter)
-		{
-			session = mIter->second.lock();
-		}
-	}
-	if (nullptr != session)
-	{
-		session->Publish(event);
-	}
 }

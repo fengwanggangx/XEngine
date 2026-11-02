@@ -11,6 +11,8 @@
 #include "../system/CSession.h"
 #include "CStrategyContext.h"
 #include "CTradeService.h"
+#include "../trade/TradeProtocol.h"
+#include "../common/container.h"
 #include "strategies/CMovingAverageStrategy.h"
 
 #include <algorithm>
@@ -271,8 +273,7 @@ CStrategyService::~CStrategyService()
 	StopAll();
 	if (nullptr != m_pTradeService)
 	{
-		m_pTradeService->SetOrderEventHandler({});
-		m_pTradeService->SetTradeEventHandler({});
+		m_pTradeService->SetEventHandler({});
 		m_pTradeService->SetAccountReadyHandler({});
 	}
 }
@@ -285,12 +286,48 @@ bool CStrategyService::Initialize()
 		m_strLastError = "Strategy session or trade service is unavailable";
 		return false;
 	}
-	m_pTradeService->SetOrderEventHandler(std::bind_front(&CStrategyService::OnOrderEvent, this));
-	m_pTradeService->SetTradeEventHandler(std::bind_front(&CStrategyService::OnTradeEvent, this));
+	m_pTradeService->SetEventHandler(std::bind_front(&CStrategyService::OnTradingEvent, this));
 	m_pTradeService->SetAccountReadyHandler(std::bind_front(&CStrategyService::OnAccountReady, this));
 	m_pSession->RegisterHandler(std::bind_front(&CStrategyService::OnHQMarketResponse, this));
 	m_pSession->RegisterStateHandler(std::bind_front(&CStrategyService::OnHQMarketState, this));
 	return LoadStrategies();
+}
+
+bool CStrategyService::BeginAccountUse(const _TyAccount& accountIndex, _TyStrategyId strategyId)
+{
+	std::lock_guard<std::mutex> lock(m_mtx_accountUsers);
+	if (container::with(m_runningStrategies[accountIndex], strategyId) || !m_pTradeService->AcquireAccount(accountIndex))
+	{
+		return false;
+	}
+	m_runningStrategies[accountIndex].emplace(strategyId);
+	return true;
+}
+
+void CStrategyService::EndAccountUse(const _TyAccount& accountIndex, _TyStrategyId strategyId)
+{
+	std::lock_guard<std::mutex> lock(m_mtx_accountUsers);
+	const auto mIter = m_runningStrategies.find(accountIndex);
+	if (m_runningStrategies.end() != mIter && 0 != mIter->second.erase(strategyId))
+	{
+		m_pTradeService->ReleaseAccount(accountIndex);
+		if (mIter->second.empty())
+		{
+			m_runningStrategies.erase(mIter);
+		}
+	}
+}
+
+void CStrategyService::OnTradingEvent(const trade::CCountEvent& event)
+{
+	if (trade::EventTy::Order == event.m_kind)
+	{
+		OnOrderEvent(trade::protocol::OrderEvent(event));
+	}
+	else if (trade::EventTy::Deal == event.m_kind)
+	{
+		OnTradeEvent(trade::protocol::TradeEvent(event));
+	}
 }
 
 void CStrategyService::OnAccountReady(const _TyAccount& accountIndex)
@@ -846,7 +883,7 @@ bool CStrategyService::StartStrategy(_TyStrategyId id)
 		return false;
 	}
 	StrategyState state = runtime->m_state.load();
-	if (((StrategyState::Initialized != state) && (StrategyState::Paused != state) && (StrategyState::Stopped != state)) || !m_pTradeService->BeginStrategy(runtime->m_config.m_accountIndex, id))
+	if (((StrategyState::Initialized != state) && (StrategyState::Paused != state) && (StrategyState::Stopped != state)) || !BeginAccountUse(runtime->m_config.m_accountIndex, id))
 	{
 		return false;
 	}
@@ -861,7 +898,7 @@ bool CStrategyService::StartStrategy(_TyStrategyId id)
 	}
 	if (!bStateChanged)
 	{
-		m_pTradeService->EndStrategy(runtime->m_config.m_accountIndex, id);
+		EndAccountUse(runtime->m_config.m_accountIndex, id);
 		return false;
 	}
 	if ((StrategyState::Initialized == state) || (StrategyState::Stopped == state))
@@ -872,7 +909,7 @@ bool CStrategyService::StartStrategy(_TyStrategyId id)
 	if (!ExecuteControl(id, StrategyEventType::Start))
 	{
 		runtime->m_state.store(state);
-		m_pTradeService->EndStrategy(runtime->m_config.m_accountIndex, id);
+		EndAccountUse(runtime->m_config.m_accountIndex, id);
 		RemoveRoutes(runtime->m_config);
 		UnsubscribeUnusedQuotes(runtime->m_config);
 		return false;
@@ -899,7 +936,7 @@ bool CStrategyService::PauseStrategy(_TyStrategyId id)
 		runtime->m_bAcceptMarketEvents.store(true);
 		return false;
 	}
-	m_pTradeService->EndStrategy(runtime->m_config.m_accountIndex, id);
+	EndAccountUse(runtime->m_config.m_accountIndex, id);
 	return true;
 }
 
@@ -932,7 +969,7 @@ bool CStrategyService::StopStrategy(_TyStrategyId id)
 	UnsubscribeUnusedQuotes(runtime->m_config);
 	if (bStopped)
 	{
-		m_pTradeService->EndStrategy(runtime->m_config.m_accountIndex, id);
+		EndAccountUse(runtime->m_config.m_accountIndex, id);
 	}
 	return bStopped;
 }
@@ -967,6 +1004,7 @@ void CStrategyService::StopAll()
 	{
 		WaitUntilIdle(runtime);
 		runtime->m_context->Disable();
+		EndAccountUse(runtime->m_config.m_accountIndex, runtime->m_config.m_strategyId);
 	}
 }
 
@@ -1343,7 +1381,7 @@ void CStrategyService::HandleStrategyException(CStrategyRuntime& runtime, const 
 {
 	runtime.m_bAcceptMarketEvents.store(false);
 	runtime.m_state.store(StrategyState::Faulted);
-	m_pTradeService->EndStrategy(runtime.m_config.m_accountIndex, runtime.m_config.m_strategyId);
+	EndAccountUse(runtime.m_config.m_accountIndex, runtime.m_config.m_strategyId);
 	std::lock_guard<std::mutex> lock(runtime.m_mtx_metrics);
 	runtime.m_strLastError = strError;
 }
@@ -1504,6 +1542,34 @@ void CStrategyService::RestoreRequiredSubscriptions()
 	}
 }
 
+COrderSubmitResult CStrategyService::SubmitTradingOrder(const COrderIntent& intent)
+{
+	if (!m_pTradeService->IsConnected(intent.m_accountIndex))
+	{
+		return { false, true, 0, 0, "Account not synchronized" };
+	}
+	if (OrderType::Limit != intent.m_orderType)
+	{
+		return { false, false, 0, 0, "UNSUPPORTED: only limit orders" };
+	}
+	static std::atomic_uint64_t nextId{ static_cast<std::uint64_t>(std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now().time_since_epoch()).count()) };
+	trade::CReqParam request;
+	trade::CSubmitParam& params = request.m_param.emplace<trade::CSubmitParam>();
+	request.m_accountIndex = intent.m_accountIndex;
+	params.m_order.m_clientId = 0 == intent.m_clientOrderId ? nextId.fetch_add(1) : intent.m_clientOrderId;
+	request.m_requestId = params.m_order.m_clientId;
+	params.m_order.m_strategyId = intent.m_strategyId;
+	params.m_order.m_signalId = intent.m_signalId;
+	params.m_order.m_strSecurity = intent.m_security.String();
+	params.m_order.m_side = OrderSide::Buy == intent.m_side ? trade::Side::Buy : trade::Side::Sell;
+	params.m_order.m_nPrice = intent.m_price;
+	params.m_order.m_nQuantity = intent.m_quantity;
+	params.m_order.m_nPriceScale = intent.m_nPriceScale;
+	std::uint64_t nClientId = params.m_order.m_clientId;
+	trade::CResult result = m_pTradeService->SendRequest(std::move(request), {});
+	return { result.Ok(), !result.Ok(), nClientId, 0, result.Ok() ? "Request queued; await order event" : result.m_strMessage };
+}
+
 COrderSubmitResult CStrategyService::SubmitOrder(_TyStrategyId id, const COrderIntent& intent)
 {
 	std::shared_ptr<CStrategyRuntime> runtime = FindRuntime(id);
@@ -1524,8 +1590,9 @@ COrderSubmitResult CStrategyService::SubmitOrder(_TyStrategyId id, const COrderI
 		}
 	}
 	COrderIntent routedIntent = intent;
+	routedIntent.m_strategyId = id;
 	routedIntent.m_accountIndex = runtime->m_config.m_accountIndex;
-	COrderSubmitResult result = m_pTradeService->Submit(routedIntent);
+	COrderSubmitResult result = SubmitTradingOrder(routedIntent);
 	{
 		std::lock_guard<std::mutex> lock(m_mtx_signals);
 		if (!result.m_bAccepted && result.m_bRetryable)
@@ -1564,7 +1631,18 @@ bool CStrategyService::CancelOrder(_TyStrategyId id, _TyOrderId orderId)
 			return false;
 		}
 	}
-	return m_pTradeService->Cancel(id, orderId);
+	std::vector<trade::COrder> orders = m_pTradeService->GetOrders(runtime->m_config.m_accountIndex);
+	if (!std::any_of(orders.begin(), orders.end(), [id, orderId](const trade::COrder& order)
+	{
+		return orderId == order.m_orderId && id == order.m_strategyId && trade::IsActive(order.m_status);
+	}))
+	{
+		return false;
+	}
+	trade::CReqParam request;
+	request.m_accountIndex = runtime->m_config.m_accountIndex;
+	request.m_param = trade::CCancelParam{ orderId };
+	return m_pTradeService->SendRequest(std::move(request), {}).Ok();
 }
 
 CStrategySnapshot CStrategyService::MakeSnapshot(const std::shared_ptr<CStrategyRuntime>& runtime) const

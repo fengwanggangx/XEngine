@@ -285,15 +285,6 @@
     <ClInclude Include="strategy\IStrategyContext.h">
       <Filter>strategy</Filter>
     </ClInclude>
-    <ClInclude Include="strategy\IStrategyOrderSink.h">
-      <Filter>strategy</Filter>
-    </ClInclude>
-    <ClInclude Include="strategy\ITradeService.h">
-      <Filter>strategy</Filter>
-    </ClInclude>
-    <ClInclude Include="strategy\ITradingSnapshotProvider.h">
-      <Filter>strategy</Filter>
-    </ClInclude>
     <ClInclude Include="strategy\StrategyTypes.h">
       <Filter>strategy</Filter>
     </ClInclude>
@@ -315,16 +306,7 @@
     <ClCompile Include="trade\CBrokerClient.cpp">
       <Filter>trade</Filter>
     </ClCompile>
-    <ClCompile Include="trade\CBrokerSession.cpp">
-      <Filter>trade</Filter>
-    </ClCompile>
     <ClInclude Include="trade\CBrokerClient.h">
-      <Filter>trade</Filter>
-    </ClInclude>
-    <ClInclude Include="trade\CBrokerSession.h">
-      <Filter>trade</Filter>
-    </ClInclude>
-    <ClInclude Include="trade\ITradeSession.h">
       <Filter>trade</Filter>
     </ClInclude>
     <ClCompile Include="trade\TradeProtocol.cpp">

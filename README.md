@@ -68,6 +68,9 @@ XEngine 通过 `[Broker] host/port/token` 连接 XBroker。账户不再使用数
 
 ## 交易会话分层
 
-`CBrokerClient` 管理共享 Broker 连接、多账户缓存和查询同步，不再实现账户接口。账户目录为每个账户建立 `CBrokerSession`，通过 `ITradeSession::SendRequest()` 和无参数 `Snapshot()` 访问本账户；关闭账户会话不会停止共享连接。网络协议与数据库结构保持不变。
+`CBrokerClient` 管理到 XBroker 的共享连接、多账户缓存和查询同步。`CTradeService` 的账户目录仅保存账户信息及状态，按账户身份通过 `CBrokerClient::SendRequest()` 转发交易请求、通过 `Snapshot(accountIndex)` 读取缓存。账户登录、退出及柜台连接生命周期由 XBroker 管理；XEngine 不创建本地账户会话。
 
 `CBootLoader` 统一创建、初始化和停止 `CEngineService`、`CTradeService`、`CStrategyService`。终端的交易账户登录、目录、资金及交易请求由 `CEngineService` 直接交给 `CTradeService → CBrokerClient`；策略请求交给 `CStrategyService`，策略执行复用同一个 `CTradeService`。交易账户退出与策略启动通过交易服务中的账户状态协调，退出处理中不允许启动新策略。
+
+
+`CTradeService` 提供通用交易请求、账户快照和原始交易事件，不保存策略编号、运行策略集合或策略订单索引。`CStrategyService` 负责策略报单转换、撤单归属校验、策略事件转换和运行策略登记；通过通用的 `AcquireAccount()` / `ReleaseAccount()` 占用计数协调账户退出，账户仍被使用时拒绝退出。

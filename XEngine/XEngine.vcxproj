@@ -173,11 +173,8 @@
     <ClInclude Include="strategy\CStrategyService.h" />
     <ClInclude Include="strategy\AccountInfo.h" />
     <ClInclude Include="strategy\CTradeService.h" />
-    <ClInclude Include="strategy\ITradeService.h" />
     <ClInclude Include="strategy\IStrategy.h" />
     <ClInclude Include="strategy\IStrategyContext.h" />
-    <ClInclude Include="strategy\IStrategyOrderSink.h" />
-    <ClInclude Include="strategy\ITradingSnapshotProvider.h" />
     <ClInclude Include="strategy\StrategyTypes.h" />
     <ClInclude Include="strategy\strategies\CMovingAverageStrategy.h" />
     <ClInclude Include="system\CHostMgr.h" />
@@ -226,10 +223,7 @@
   <ImportGroup Label="ExtensionTargets" />
   <ItemGroup>
     <ClCompile Include="trade\CBrokerClient.cpp" />
-    <ClCompile Include="trade\CBrokerSession.cpp" />
     <ClInclude Include="trade\CBrokerClient.h" />
-    <ClInclude Include="trade\CBrokerSession.h" />
-    <ClInclude Include="trade\ITradeSession.h" />
     <ClCompile Include="trade\TradeProtocol.cpp" />
     <ClInclude Include="trade\TradeProtocol.h" />
     <ClCompile Include="trade\TradeTypes.cpp" />

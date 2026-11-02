@@ -11,40 +11,6 @@
 
 class CServiceRoutingTests
 {
-	class CSession final : public trade::ITradeSession
-	{
-	public:
-		explicit CSession(const _TyAccount& account) : m_account(account)
-		{
-		}
-
-		trade::CResult SendRequest(trade::CReqParam, _TyReplyHandler) override
-		{
-			return {};
-		}
-
-		void SetEventHandler(_TyEventHandler) override
-		{
-		}
-
-		void Close() override
-		{
-		}
-
-		trade::CAccountData Snapshot() const override
-		{
-			trade::CAccountData data;
-			data.m_bReady = true;
-			data.m_account.m_accountIndex = m_account;
-			data.m_account.m_bConnected = true;
-			data.m_account.m_bFundsValid = true;
-			return data;
-		}
-
-	private:
-		_TyAccount m_account;
-	};
-
 	static void Check(bool condition, const char* message)
 	{
 		if (!condition)
@@ -93,27 +59,40 @@ public:
 			Check("XBroker is unavailable" == response.GetErrorInfo()->second, "account route reaches trade service without a strategy service");
 		}
 		_TyAccount account{ 1, "000123" };
-		CTradeAccount entry;
-		entry.m_info = AccountInfo(account);
-		entry.m_info.m_state = TradeAccountState::Connected;
-		// The map and active operations share the account session lifetime.
-		entry.m_session = std::make_shared<CSession>(account);
+		CTradeAccountInfo entry;
+		entry = AccountInfo(account);
+		entry.m_state = TradeAccountState::Connected;
+		trade::CAccountData& cached = trader.m_broker->m_snapshots[account];
+		cached.m_bReady = true;
+		cached.m_account.m_accountIndex = account;
+		cached.m_account.m_bConnected = true;
+		cached.m_account.m_bFundsValid = true;
 		trader.m_accounts.emplace(account, std::move(entry));
-		Check(trader.BeginStrategy(account, 7), "ready account permits strategy use");
+		Check(trader.AcquireAccount(account), "ready account permits strategy use");
+		Check(trader.AcquireAccount(account), "multiple consumers can use one account");
 		request.SetType(_TyRequest::TRADE_ACCOUNT_DISCONNECT);
 		WriteAccountIdentity(account, request);
 		engine.OnClientRequest(7070, request);
-		Check("Account is disconnecting or has running strategies" == LastResponse(event).GetErrorInfo()->second, "direct account route preserves strategy disconnect guard");
-		trader.EndStrategy(account, 7);
+		Check("Account is disconnecting or in use" == LastResponse(event).GetErrorInfo()->second, "direct account route preserves strategy disconnect guard");
+		trader.ReleaseAccount(account);
+		engine.OnClientRequest(7070, request);
+		Check("Account is disconnecting or in use" == LastResponse(event).GetErrorInfo()->second, "remaining consumer still blocks disconnect");
+		trader.ReleaseAccount(account);
+		trader.ReleaseAccount(account);
 		engine.OnClientRequest(7070, request);
 		Check("XBroker is unavailable" == LastResponse(event).GetErrorInfo()->second, "disconnect forwards after strategies stop");
-		Check(trader.BeginStrategy(account, 8), "failed forwarding releases the disconnect guard");
-		trader.EndStrategy(account, 8);
+		Check(trader.AcquireAccount(account), "failed forwarding releases the disconnect guard");
+		trader.ReleaseAccount(account);
 		{
 			CStrategyService strategies(nullptr, &trader);
+			Check(strategies.BeginAccountUse(account, 7), "strategy registers account use");
+			Check(!strategies.BeginAccountUse(account, 7), "duplicate strategy does not acquire twice");
+			strategies.EndAccountUse(account, 7);
+			strategies.EndAccountUse(account, 7);
+			Check(trader.m_accountUsers.empty(), "strategy releases account use exactly once");
 			strategies.StopAll();
-			Check(trader.BeginStrategy(account, 9), "stopping strategies does not stop the shared trade service");
-			trader.EndStrategy(account, 9);
+			Check(trader.AcquireAccount(account), "stopping strategies does not stop the shared trade service");
+			trader.ReleaseAccount(account);
 		}
 	}
 };
