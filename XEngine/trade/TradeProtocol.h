@@ -6,7 +6,7 @@
 #include "TradingTypes.h"
 namespace trade::protocol
 {
-	request::TradeAccountRecord AccountPayload(const CTradeAccountInfo& info);
+	request::TradeAccountRecord AccountPayload(const CAccountInfo& info);
 	void WriteOrder(const COrder& row, request::TradeOrderRecord& wire);
 	void WriteTrade(const CTrade& row, request::TradeRecord& wire);
 	void WritePosition(const CPosition& row, request::TradePositionRecord& wire);
@@ -18,5 +18,5 @@ namespace trade::protocol
 	::CRequest WriteRequest(const CReqParam& request);
 	bool ReadReply(const ::CRequest& response, CCounterReply& reply);
 	bool ReadPush(const ::CRequest& response, CCountEvent& event);
-	::CRequest Push(const CCountEvent& event, const CTradeAccountInfo& account);
+	::CRequest Push(const CCountEvent& event, const CAccountInfo& account);
 } // namespace trade::protocol

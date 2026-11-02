@@ -8,6 +8,7 @@
 #include "CSession.h"
 #include "CEngineService.h"
 #include "../strategy/CTradeService.h"
+#include "../strategy/CAccountService.h"
 #include "../strategy/CStrategyService.h"
 #include <cstdlib>
 #include <utility>
@@ -33,6 +34,11 @@ bool CBootLoader::Initialize()
 		return true;
 	}
 
+	if (nullptr != m_pTcpServer || nullptr != m_pHttpServer || nullptr != m_pHostMgr || nullptr != m_pSession || nullptr != m_pBroker || nullptr != m_pAccountService || nullptr != m_pTradeService || nullptr != m_pStrategyService || nullptr != m_pEngineService)
+	{
+		Finalize();
+	}
+
 	m_exec = std::filesystem::current_path();
 
 	m_nErrorCode = 0;
@@ -45,7 +51,7 @@ bool CBootLoader::Initialize()
 		return false;
 	}
 
-	m_pHostMgr = std::make_unique<CHostMgr>();
+	m_pHostMgr = new CHostMgr();
 	if (!m_pHostMgr->GetActiveHost().has_value())
 	{
 		m_nErrorCode = 2;
@@ -55,11 +61,11 @@ bool CBootLoader::Initialize()
 
 	ini::CINIHandler& hIni = ini::CINIHandler::InstanceRef();
 
-	m_strAccount = hIni.GetValue(ini::Config::System, "HQMarket", "account", std::string());
-	if (m_strAccount.empty())
+	m_strUser = hIni.GetValue(ini::Config::System, "HQMarket", "user", std::string());
+	if (m_strUser.empty())
 	{
 		m_nErrorCode = 3;
-		m_strLastError = "HQMarket account is required in ini/system.ini";
+		m_strLastError = "HQMarket user is required in ini/system.ini";
 		return false;
 	}
 
@@ -111,30 +117,60 @@ bool CBootLoader::Initialize()
 		return false;
 	}
 
-	m_pTcpServer = std::make_unique<net::CTcpServer>(nTcpPort);
-	m_pHttpServer = std::make_unique<net::CHttpServer>(nHttpPort);
+	m_pTcpServer = new net::CTcpServer(nTcpPort);
+	m_pHttpServer = new net::CHttpServer(nHttpPort);
 
 	std::optional<CHostInfo> host = m_pHostMgr->GetActiveHost();
-	m_pSession = std::make_unique<CSession>(CLoginInfo{ m_strAccount, m_strPassword, {}, host.value() });
-	m_pTradeService = std::make_unique<CTradeService>();
+	m_pSession = new CSession(CLoginInfo{ m_strUser, m_strPassword, {}, host.value() });
+	CLoginInfo brokerInfo;
+	brokerInfo.m_host.m_strName = "Broker";
+	brokerInfo.m_host.m_strHost = hIni.GetValue(ini::Config::System, "Broker", "host", std::string("127.0.0.1"));
+	brokerInfo.m_host.m_nPort = hIni.GetValue(ini::Config::System, "Broker", "port", 9803);
+	brokerInfo.m_strToken = hIni.GetValue(ini::Config::System, "Broker", "token", std::string());
+	m_pBroker = new CBrokerClient(brokerInfo);
+	m_pAccountService = new CAccountService(m_pBroker);
+	if (!m_pAccountService->Initialize())
+	{
+		m_nErrorCode = 13;
+		m_strLastError = m_pAccountService->GetLastError();
+		return false;
+	}
+	m_pTradeService = new CTradeService(m_pAccountService, m_pBroker);
 	if (!m_pTradeService->Initialize())
 	{
 		m_nErrorCode = 9;
 		m_strLastError = m_pTradeService->GetLastError();
 		return false;
 	}
-	m_pStrategyService = std::make_unique<CStrategyService>(m_pSession.get(), m_pTradeService.get());
+	m_pStrategyService = new CStrategyService(m_pSession, m_pTradeService, m_pAccountService);
 	if (!m_pStrategyService->Initialize())
 	{
 		m_nErrorCode = 10;
 		m_strLastError = m_pStrategyService->GetLastError();
 		return false;
 	}
-	m_pEngineService = std::make_unique<CEngineService>(m_pTcpServer.get(), m_pSession.get(), m_pStrategyService.get(), m_pTradeService.get());
+	m_pEngineService = new CEngineService(m_pTcpServer, m_pSession, m_pStrategyService, m_pTradeService, m_pAccountService);
 	if (!m_pEngineService->Initialize())
 	{
 		m_nErrorCode = 11;
 		m_strLastError = "Engine service initialization failed";
+		return false;
+	}
+	m_pAccountService->SetAccountStateHandler(std::bind_front(&CTradeService::OnAccountState, m_pTradeService));
+	m_pBroker->SetEventHandler([this](const trade::CCountEvent& event)
+	{
+		m_pAccountService->OnBrokerEvent(event);
+		m_pTradeService->OnBrokerEvent(event);
+	});
+	m_pBroker->SetStateHandler([this](SessionState state)
+	{
+		m_pAccountService->OnBrokerState(state);
+		m_pTradeService->OnBrokerState(state);
+	});
+	if (brokerInfo.Valid() && !m_pBroker->Start())
+	{
+		m_nErrorCode = 14;
+		m_strLastError = "Broker client initialization failed";
 		return false;
 	}
 	m_bInitialized = true;
@@ -167,7 +203,7 @@ bool CBootLoader::Run()
 		m_strLastError = "HQMarket session configuration is invalid";
 		return false;
 	}
-	std::jthread tcpServerThread(std::bind_front(&net::CTcpServer::Start, m_pTcpServer.get(), true));
+	std::jthread tcpServerThread(std::bind_front(&net::CTcpServer::Start, m_pTcpServer, true));
 	m_pHttpServer->Start(true);
 	m_pTcpServer->ShutDown();
 	return true;
@@ -201,13 +237,33 @@ void CBootLoader::Finalize()
 	{
 		m_pTradeService->Stop();
 	}
+	if (nullptr != m_pAccountService)
+	{
+		m_pAccountService->Stop();
+	}
+	if (nullptr != m_pBroker)
+	{
+		m_pBroker->Stop();
+	}
 	// All callback producers have stopped; borrowers can now be destroyed.
-	m_pEngineService.reset();
-	m_pStrategyService.reset();
-	m_pTradeService.reset();
-	m_pSession.reset();
-	m_pHttpServer.reset();
-	m_pTcpServer.reset();
+	delete m_pEngineService;
+	m_pEngineService = nullptr;
+	delete m_pStrategyService;
+	m_pStrategyService = nullptr;
+	delete m_pTradeService;
+	m_pTradeService = nullptr;
+	delete m_pAccountService;
+	m_pAccountService = nullptr;
+	delete m_pBroker;
+	m_pBroker = nullptr;
+	delete m_pSession;
+	m_pSession = nullptr;
+	delete m_pHttpServer;
+	m_pHttpServer = nullptr;
+	delete m_pTcpServer;
+	m_pTcpServer = nullptr;
+	delete m_pHostMgr;
+	m_pHostMgr = nullptr;
 	CDBEngine::InstanceRef().Close();
 	m_bInitialized = false;
 }
@@ -222,9 +278,9 @@ net::CHttpServer& CBootLoader::GetHttpServer()
 	return *m_pHttpServer;
 }
 
-const std::string& CBootLoader::GetAccount() const
+const std::string& CBootLoader::GetUser() const
 {
-	return m_strAccount;
+	return m_strUser;
 }
 
 const std::string& CBootLoader::GetPassword() const

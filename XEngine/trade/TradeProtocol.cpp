@@ -234,7 +234,7 @@ namespace trade::protocol
 		trade.m_tradeTimeMs = event.m_trade.m_nTime;
 		return trade;
 	}
-	request::TradeAccountRecord AccountPayload(const CTradeAccountInfo& info)
+	request::TradeAccountRecord AccountPayload(const CAccountInfo& info)
 	{
 		request::TradeAccountRecord payload;
 		SetAccountIdentity(AccountIndex(info), payload);
@@ -246,7 +246,7 @@ namespace trade::protocol
 		return payload;
 	}
 
-	::CRequest Push(const CCountEvent& event, const CTradeAccountInfo& account)
+	::CRequest Push(const CCountEvent& event, const CAccountInfo& account)
 	{
 		::CRequest push;
 		push.SetId(0);

@@ -125,6 +125,7 @@
     <ClCompile Include="request\request.pb.cc" />
     <ClCompile Include="strategy\CStrategyContext.cpp" />
     <ClCompile Include="strategy\CStrategyService.cpp" />
+    <ClCompile Include="strategy\CAccountService.cpp" />
     <ClCompile Include="strategy\CTradeService.cpp" />
     <ClCompile Include="strategy\StrategyTypes.cpp" />
     <ClCompile Include="strategy\strategies\CMovingAverageStrategy.cpp" />
@@ -172,6 +173,7 @@
     <ClInclude Include="strategy\CStrategyContext.h" />
     <ClInclude Include="strategy\CStrategyService.h" />
     <ClInclude Include="strategy\AccountInfo.h" />
+    <ClInclude Include="strategy\CAccountService.h" />
     <ClInclude Include="strategy\CTradeService.h" />
     <ClInclude Include="strategy\IStrategy.h" />
     <ClInclude Include="strategy\IStrategyContext.h" />

@@ -263,7 +263,7 @@ std::size_t CSignalKeyHash::operator()(const CSignalKey& key) const
 	return strategyHash ^ (signalHash + 0x9e3779b9U + (strategyHash << 6) + (strategyHash >> 2));
 }
 
-CStrategyService::CStrategyService(CSession* pSession, CTradeService* pTradeService) : m_pSession(pSession), m_pTradeService(pTradeService)
+CStrategyService::CStrategyService(CSession* pSession, CTradeService* pTradeService, CAccountService* pAccountService) : m_pSession(pSession), m_pTradeService(pTradeService), m_pAccountService(pAccountService)
 {
 	m_bMarketAvailable.store((nullptr != m_pSession) && m_pSession->IsAuthenticated());
 }
@@ -281,7 +281,7 @@ CStrategyService::~CStrategyService()
 bool CStrategyService::Initialize()
 {
 	m_strLastError.clear();
-	if (nullptr == m_pSession || nullptr == m_pTradeService)
+	if (nullptr == m_pSession || nullptr == m_pTradeService || nullptr == m_pAccountService)
 	{
 		m_strLastError = "Strategy session or trade service is unavailable";
 		return false;
@@ -296,7 +296,7 @@ bool CStrategyService::Initialize()
 bool CStrategyService::BeginAccountUse(const _TyAccount& accountIndex, _TyStrategyId strategyId)
 {
 	std::lock_guard<std::mutex> lock(m_mtx_accountUsers);
-	if (container::with(m_runningStrategies[accountIndex], strategyId) || !m_pTradeService->AcquireAccount(accountIndex))
+	if (container::with(m_runningStrategies[accountIndex], strategyId) || !m_pTradeService->IsReady(accountIndex) || !m_pAccountService->AcquireAccount(accountIndex))
 	{
 		return false;
 	}
@@ -310,7 +310,7 @@ void CStrategyService::EndAccountUse(const _TyAccount& accountIndex, _TyStrategy
 	const auto mIter = m_runningStrategies.find(accountIndex);
 	if (m_runningStrategies.end() != mIter && 0 != mIter->second.erase(strategyId))
 	{
-		m_pTradeService->ReleaseAccount(accountIndex);
+		m_pAccountService->ReleaseAccount(accountIndex);
 		if (mIter->second.empty())
 		{
 			m_runningStrategies.erase(mIter);
@@ -403,7 +403,7 @@ bool CStrategyService::AddStrategy(const CRequest& req)
 		net::SendError(req.GetConnectionId(), req, 1202, "Account identity required");
 		return false;
 	}
-	if (!m_pTradeService->HasAccount(AccountIndex(info)))
+	if (!m_pAccountService->HasAccount(AccountIndex(info)))
 	{
 		net::SendError(req.GetConnectionId(), req, 1114, "Trading account does not exist");
 		return false;
@@ -479,7 +479,7 @@ bool CStrategyService::ModifyStrategy(const CRequest& req)
 		}
 		SetAccountIdentity(accountIndex, info);
 	}
-	if (!m_pTradeService->HasAccount(AccountIndex(info)))
+	if (!m_pAccountService->HasAccount(AccountIndex(info)))
 	{
 		net::SendError(req.GetConnectionId(), req, 1114, "Trading account does not exist");
 		return false;
@@ -676,7 +676,7 @@ bool CStrategyService::ControlStrategy(const CRequest& req)
 	}
 	_TyRequest type = req.GetType();
 	std::shared_ptr<CStrategyRuntime> runtime = FindRuntime(id);
-	if ((_TyRequest::STRATEGY_START == type) && (nullptr != runtime) && !m_pTradeService->IsConnected(runtime->m_config.m_accountIndex))
+	if ((_TyRequest::STRATEGY_START == type) && (nullptr != runtime) && !m_pTradeService->IsReady(runtime->m_config.m_accountIndex))
 	{
 		net::SendError(req.GetConnectionId(), req, 1116, "交易账户未连接，请先连接账户");
 		return false;
@@ -813,7 +813,7 @@ bool CStrategyService::CreateStrategy(const CStrategyConfig& cfg)
 		}
 	}
 	NotifySnapshot(runtime);
-	if (cfg.m_bAutoStart && m_pTradeService->IsConnected(cfg.m_accountIndex) && !StartStrategy(cfg.m_strategyId))
+	if (cfg.m_bAutoStart && m_pTradeService->IsReady(cfg.m_accountIndex) && !StartStrategy(cfg.m_strategyId))
 	{
 		RemoveStrategy(cfg.m_strategyId);
 		return false;
@@ -873,7 +873,7 @@ bool CStrategyService::RemoveStrategy(_TyStrategyId id)
 
 bool CStrategyService::StartStrategy(_TyStrategyId id)
 {
-	if (m_bStopping.load() || nullptr == m_pTradeService)
+	if (m_bStopping.load() || nullptr == m_pTradeService || nullptr == m_pAccountService)
 	{
 		return false;
 	}
@@ -1544,7 +1544,7 @@ void CStrategyService::RestoreRequiredSubscriptions()
 
 COrderSubmitResult CStrategyService::SubmitTradingOrder(const COrderIntent& intent)
 {
-	if (!m_pTradeService->IsConnected(intent.m_accountIndex))
+	if (!m_pTradeService->IsReady(intent.m_accountIndex))
 	{
 		return { false, true, 0, 0, "Account not synchronized" };
 	}
@@ -1573,7 +1573,7 @@ COrderSubmitResult CStrategyService::SubmitTradingOrder(const COrderIntent& inte
 COrderSubmitResult CStrategyService::SubmitOrder(_TyStrategyId id, const COrderIntent& intent)
 {
 	std::shared_ptr<CStrategyRuntime> runtime = FindRuntime(id);
-	if ((nullptr == runtime) || (nullptr == m_pTradeService) || (StrategyState::Running != runtime->m_state.load()) || !intent.IsValid())
+	if ((nullptr == runtime) || (nullptr == m_pTradeService) || (nullptr == m_pAccountService) || (StrategyState::Running != runtime->m_state.load()) || !intent.IsValid())
 	{
 		return { false, false, 0, 0, "Strategy cannot submit this order" };
 	}
@@ -1613,7 +1613,7 @@ COrderSubmitResult CStrategyService::SubmitOrder(_TyStrategyId id, const COrderI
 
 bool CStrategyService::CancelOrder(_TyStrategyId id, _TyOrderId orderId)
 {
-	if ((nullptr == m_pTradeService) || (0 == orderId))
+	if ((nullptr == m_pTradeService) || (nullptr == m_pAccountService) || (0 == orderId))
 	{
 		return false;
 	}

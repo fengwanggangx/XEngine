@@ -39,9 +39,16 @@ class CServiceRoutingTests
 public:
 	static void Run(bufferevent* event)
 	{
-		CTradeService trader;
+		CBrokerClient broker(CLoginInfo{});
+		CAccountService accounts(&broker);
+		Check(accounts.Initialize(), "account service initializes independently");
+		CTradeService trader(&accounts, &broker);
 		Check(trader.Initialize(), "trade service initializes without strategy service");
-		CEngineService engine(nullptr, nullptr, nullptr, &trader);
+		trader.m_refresh.request_stop();
+		trader.m_wake.notify_all();
+		trader.m_refresh.join();
+		accounts.SetAccountStateHandler(std::bind_front(&CTradeService::OnAccountState, &trader));
+		CEngineService engine(nullptr, nullptr, nullptr, &trader, &accounts);
 		CRequest request;
 		request.SetId(123);
 		request.SetConnectionId(7070);
@@ -59,41 +66,47 @@ public:
 			Check("XBroker is unavailable" == response.GetErrorInfo()->second, "account route reaches trade service without a strategy service");
 		}
 		_TyAccount account{ 1, "000123" };
-		CTradeAccountInfo entry;
+		CAccountInfo entry;
 		entry = AccountInfo(account);
 		entry.m_state = TradeAccountState::Connected;
-		trade::CAccountData& cached = trader.m_broker->m_snapshots[account];
+		trade::CAccountData& cached = trader.m_snapshots[account];
 		cached.m_bReady = true;
 		cached.m_account.m_accountIndex = account;
 		cached.m_account.m_bConnected = true;
 		cached.m_account.m_bFundsValid = true;
-		trader.m_accounts.emplace(account, std::move(entry));
-		Check(trader.AcquireAccount(account), "ready account permits strategy use");
-		Check(trader.AcquireAccount(account), "multiple consumers can use one account");
+		accounts.m_accounts.emplace(account, std::move(entry));
+		Check(accounts.AcquireAccount(account), "ready account permits strategy use");
+		Check(accounts.AcquireAccount(account), "multiple consumers can use one account");
 		request.SetType(_TyRequest::TRADE_ACCOUNT_DISCONNECT);
 		WriteAccountIdentity(account, request);
 		engine.OnClientRequest(7070, request);
 		Check("Account is disconnecting or in use" == LastResponse(event).GetErrorInfo()->second, "direct account route preserves strategy disconnect guard");
-		trader.ReleaseAccount(account);
+		accounts.ReleaseAccount(account);
 		engine.OnClientRequest(7070, request);
 		Check("Account is disconnecting or in use" == LastResponse(event).GetErrorInfo()->second, "remaining consumer still blocks disconnect");
-		trader.ReleaseAccount(account);
-		trader.ReleaseAccount(account);
+		accounts.ReleaseAccount(account);
+		accounts.ReleaseAccount(account);
 		engine.OnClientRequest(7070, request);
 		Check("XBroker is unavailable" == LastResponse(event).GetErrorInfo()->second, "disconnect forwards after strategies stop");
-		Check(trader.AcquireAccount(account), "failed forwarding releases the disconnect guard");
-		trader.ReleaseAccount(account);
+		Check(accounts.AcquireAccount(account), "failed forwarding releases the disconnect guard");
+		accounts.ReleaseAccount(account);
 		{
-			CStrategyService strategies(nullptr, &trader);
+			CStrategyService strategies(nullptr, &trader, &accounts);
 			Check(strategies.BeginAccountUse(account, 7), "strategy registers account use");
 			Check(!strategies.BeginAccountUse(account, 7), "duplicate strategy does not acquire twice");
 			strategies.EndAccountUse(account, 7);
 			strategies.EndAccountUse(account, 7);
-			Check(trader.m_accountUsers.empty(), "strategy releases account use exactly once");
+			Check(accounts.m_accountUsers.empty(), "strategy releases account use exactly once");
 			strategies.StopAll();
-			Check(trader.AcquireAccount(account), "stopping strategies does not stop the shared trade service");
-			trader.ReleaseAccount(account);
+			Check(accounts.AcquireAccount(account), "stopping strategies does not stop the shared trade service");
+			accounts.ReleaseAccount(account);
 		}
+		trader.Stop();
+		Check(accounts.IsConnected(account), "stopping trade service leaves account state available");
+		Check(accounts.AcquireAccount(account), "account service remains usable after trade service stops");
+		accounts.ReleaseAccount(account);
+		CTradeService unavailable(nullptr, nullptr);
+		Check(!unavailable.Initialize(), "trade service requires an injected account service");
 	}
 };
 

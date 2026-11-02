@@ -15,7 +15,7 @@ namespace request
 	bool IsSubscriptionRequest(const CRequest& req);
 	bool IsUnSubscriptionRequest(const CRequest& req);
 
-	CRequest Auth(const std::string& strAccount, const std::string& strPassword);
+	CRequest Auth(const std::string& strUser, const std::string& strPassword);
 	CRequest Auth(const std::string& strToken);
 	CRequest Subscription(const CQuoteInfo& quote);
 	CRequest UnSubscription(const CQuoteInfo& quote);

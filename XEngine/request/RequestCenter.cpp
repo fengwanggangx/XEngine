@@ -30,11 +30,11 @@ namespace request
 		return (req.GetType() == _TyRequest::MARKET_UNSUBSCRIBE);
 	}
 
-	CRequest Auth(const std::string& strAccount, const std::string& strPassword)
+	CRequest Auth(const std::string& strUser, const std::string& strPassword)
 	{
 		CRequest req;
 		req.SetType(_TyRequest::AUTH_LOGIN);
-		req.SetExtraData("user", strAccount);
+		req.SetExtraData("user", strUser);
 		req.SetExtraData("password", strPassword);
 		return req;
 	}

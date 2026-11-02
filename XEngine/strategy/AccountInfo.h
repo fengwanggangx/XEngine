@@ -11,7 +11,7 @@ enum class TradeAccountState
 	Reconnecting
 };
 
-struct CTradeAccountInfo
+struct CAccountInfo
 {
 	std::uint64_t m_brokerId{ 0 };
 	std::string m_strSite;
@@ -22,14 +22,14 @@ struct CTradeAccountInfo
 	std::string m_strLastError;
 };
 
-inline _TyAccount AccountIndex(const CTradeAccountInfo& info)
+inline _TyAccount AccountIndex(const CAccountInfo& info)
 {
 	return { info.m_brokerId, info.m_strAccount };
 }
 
-inline CTradeAccountInfo AccountInfo(const _TyAccount& index)
+inline CAccountInfo AccountInfo(const _TyAccount& index)
 {
-	CTradeAccountInfo info;
+	CAccountInfo info;
 	info.m_brokerId = index.first;
 	info.m_strAccount = index.second;
 	return info;

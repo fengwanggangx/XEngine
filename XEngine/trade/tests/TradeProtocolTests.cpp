@@ -15,7 +15,7 @@ int main()
 	try
 	{
 		_TyAccount account{ 17, "000123" };
-		CTradeAccountInfo info = AccountInfo(account);
+		CAccountInfo info = AccountInfo(account);
 		info.m_strBrokerName = "测试券商";
 		info.m_strName = "账户别名";
 		Check(account == AccountIndex(trade::protocol::AccountPayload(info)), "display identity preserved");

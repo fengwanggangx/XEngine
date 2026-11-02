@@ -23,6 +23,7 @@ class CRequest;
 class CSession;
 class CStrategyContext;
 class CTradeService;
+class CAccountService;
 enum class SessionState;
 
 enum class StrategyEventType
@@ -113,7 +114,7 @@ class CStrategyService final
 	using _TyStateHandler = std::function<void(const CStrategySnapshot&)>;
 
 public:
-	CStrategyService(CSession* pSession, CTradeService* pTradeService);
+	CStrategyService(CSession* pSession, CTradeService* pTradeService, CAccountService* pAccountService);
 	~CStrategyService();
 	CStrategyService(const CStrategyService& arg) = delete;
 	CStrategyService& operator=(const CStrategyService& arg) = delete;
@@ -185,6 +186,7 @@ private:
 	CSession* m_pSession{ nullptr };
 	// Borrowed from CBootLoader; trading callbacks are stopped before destruction.
 	CTradeService* m_pTradeService{ nullptr };
+	CAccountService* m_pAccountService{ nullptr };
 
 	mutable std::shared_mutex m_mtx_strategies;
 	std::unordered_map<_TyStrategyId, std::shared_ptr<CStrategyRuntime>> m_runtimes;

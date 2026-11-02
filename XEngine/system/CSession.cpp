@@ -237,7 +237,7 @@ bool CSession::HandleAuthRequest(const CRequest& req)
 			if (m_login.has_value() && !m_login->m_strToken.empty())
 			{
 				m_login->m_strToken.clear();
-				bRetryWithCredentials = !m_login->m_strAccount.empty() && !m_login->m_strPassword.empty();
+				bRetryWithCredentials = !m_login->m_strUser.empty() && !m_login->m_strPassword.empty();
 			}
 		}
 		if (bRetryWithCredentials)
@@ -303,7 +303,7 @@ bool CSession::SendAuthentication()
 	{
 		return SendRequest(request::Auth(info->m_strToken));
 	}
-	return SendRequest(request::Auth(info->m_strAccount, info->m_strPassword));
+	return SendRequest(request::Auth(info->m_strUser, info->m_strPassword));
 }
 
 void CSession::NotifyState(SessionState state, const std::string& strMessage)

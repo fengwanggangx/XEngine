@@ -66,11 +66,16 @@ XEngine 通过 `[Broker] host/port/token` 连接 XBroker。账户不再使用数
 配置与集成测试参见同级 XBroker/README.md。三端必须配套升级；账号是字符串，前导零及券商/站点隔离必须保留。
 
 
-## 交易会话分层
+## 交易服务分层
 
-`CBrokerClient` 管理到 XBroker 的共享连接、多账户缓存和查询同步。`CTradeService` 的账户目录仅保存账户信息及状态，按账户身份通过 `CBrokerClient::SendRequest()` 转发交易请求、通过 `Snapshot(accountIndex)` 读取缓存。账户登录、退出及柜台连接生命周期由 XBroker 管理；XEngine 不创建本地账户会话。
+`CAccountService` 仅管理账户身份、目录、登录连接状态、占用计数及退出保护。`IsConnected(accountIndex)` 表示账户已经连接，不表示资金和持仓等数据已经同步。账户状态变化通过通知使交易服务立即取消旧同步并失效旧快照；实际柜台连接和会话由 XBroker 管理。
 
-`CBootLoader` 统一创建、初始化和停止 `CEngineService`、`CTradeService`、`CStrategyService`。终端的交易账户登录、目录、资金及交易请求由 `CEngineService` 直接交给 `CTradeService → CBrokerClient`；策略请求交给 `CStrategyService`，策略执行复用同一个 `CTradeService`。交易账户退出与策略启动通过交易服务中的账户状态协调，退出处理中不允许启动新策略。
+`CTradeService` 保存资金、持仓、委托、成交、同步水位和数据就绪标记，按资金、持仓、委托、成交顺序查询并衔接增量推送，提供 `Snapshot()`、`GetAccount()`、`GetPosition()` 和 `GetOrders()`。`IsReady(accountIndex)` 同时检查账户连接和交易数据同步状态；策略启动及报单要求交易数据就绪。交易请求和委托成交通知也由交易服务处理。
 
+`CBootLoader` 独立创建并初始化账户服务和交易服务，两者借用同一个 `CBrokerClient`。共享客户端仅管理通信连接、请求响应和超时；启动器将状态事件交给账户服务，将交易推送交给交易服务。账户服务通知终端账户状态，交易服务通知终端资金、持仓、委托和成交变化。
 
-`CTradeService` 提供通用交易请求、账户快照和原始交易事件，不保存策略编号、运行策略集合或策略订单索引。`CStrategyService` 负责策略报单转换、撤单归属校验、策略事件转换和运行策略登记；通过通用的 `AcquireAccount()` / `ReleaseAccount()` 占用计数协调账户退出，账户仍被使用时拒绝退出。
+`CStrategyService` 管理运行策略和订单归属，从账户服务申请或释放占用，从交易服务读取快照并报撤单。策略上下文直接借用交易服务查询资金持仓。资金查询等交易数据请求直接路由至交易服务。
+
+退出先停止接收请求和策略，再停止两个服务的刷新任务，停止共享 Broker 连接并排空回调，随后销毁调用方、账户与交易服务，最后释放 Broker 客户端。`CBootLoader` 的成员保持裸指针并显式释放和置空。
+
+系统登录统一使用 `user`：认证请求和成功响应的身份字段为 `user`，`table_user` 的用户名列为 `user`，上游行情登录配置为 `[HQMarket] user`。交易账户身份字段仍为 `account`。不兼容旧用户名字段或数据库列，不迁移旧数据。

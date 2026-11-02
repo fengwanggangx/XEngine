@@ -18,6 +18,7 @@
 class CSession;
 class CStrategyService;
 class CTradeService;
+class CAccountService;
 enum class SessionState;
 
 namespace net
@@ -62,7 +63,7 @@ private:
 	};
 
 public:
-	CEngineService(net::CTcpServer* pTcpServer, CSession* pSession, CStrategyService* pStrategyService, CTradeService* pTradeService);
+	CEngineService(net::CTcpServer* pTcpServer, CSession* pSession, CStrategyService* pStrategyService, CTradeService* pTradeService, CAccountService* pAccountService);
 	~CEngineService();
 	CEngineService(const CEngineService& arg) = delete;
 	CEngineService& operator=(const CEngineService& arg) = delete;
@@ -123,6 +124,7 @@ private:
 	CSession* m_pSession{ nullptr };
 	CStrategyService* m_pStrategyService{ nullptr };
 	CTradeService* m_pTradeService{ nullptr };
+	CAccountService* m_pAccountService{ nullptr };
 };
 
 #endif

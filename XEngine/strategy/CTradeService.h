@@ -1,60 +1,69 @@
-#ifndef XENGINE_STRATEGY_CTRADESERVICE_H
-#define XENGINE_STRATEGY_CTRADESERVICE_H
-#include "../trade/CBrokerClient.h"
-#include "AccountInfo.h"
+#pragma once
+#include "CAccountService.h"
 #include "../trade/TradingTypes.h"
-#include <functional>
-#include <memory>
-#include <mutex>
-#include <unordered_map>
-#include <map>
-#include <set>
-class CRequest;
+#include <array>
 
 class CTradeService final
 {
 	friend class CServiceRoutingTests;
+	friend class CBrokerClientTests;
 
 public:
 	using _TyEventHandler = std::function<void(const trade::CCountEvent&)>;
 	using _TyPushHandler = std::function<void(const CRequest&)>;
 	using _TyAccountReadyHandler = std::function<void(const _TyAccount&)>;
-	CTradeService() = default;
+	CTradeService(CAccountService* pAccountService, CBrokerClient* pBroker);
 	~CTradeService();
 	bool Initialize();
 	void Stop();
-	void SetEventHandler(_TyEventHandler&& handler);
-	bool HandleTradingRequest(const CRequest& req);
-	bool HandleAccountRequest(const CRequest& req, const std::string& actor);
-	bool HasAccount(const _TyAccount& accountIndex) const;
-	bool IsConnected(const _TyAccount& accountIndex) const;
-	bool AcquireAccount(const _TyAccount& accountIndex);
-	void ReleaseAccount(const _TyAccount& accountIndex);
-	bool HasActiveOrders(const _TyAccount& accountIndex) const;
-	trade::CResult SendRequest(trade::CReqParam request, CBrokerClient::_TyReplyHandler handler);
-	CPositionSnapshot GetPosition(const _TyAccount& accountIndex, const CSecurity& security) const;
+	bool IsReady(const _TyAccount& accountIndex) const;
+	trade::CAccountData Snapshot(const _TyAccount& accountIndex) const;
 	CAccountSnapshot GetAccount(const _TyAccount& accountIndex) const;
-	const std::string& GetLastError() const;
-
-private:
-	bool CanUseAccount(const _TyAccount& accountIndex) const;
-	mutable std::mutex m_mtx_accounts;
-	std::set<_TyAccount> m_disconnectingAccounts;
-	std::map<_TyAccount, CTradeAccountInfo> m_accounts;
-	std::map<_TyAccount, std::size_t> m_accountUsers;
-	_TyEventHandler m_eventHandler;
-	std::string m_strLastError;
-	std::unique_ptr<CBrokerClient> m_broker;
-	void OnEvent(const trade::CCountEvent& event);
-
-public:
+	CPositionSnapshot GetPosition(const _TyAccount& accountIndex, const CSecurity& security) const;
 	std::vector<trade::COrder> GetOrders(const _TyAccount& accountIndex) const;
+	bool HasActiveOrders(const _TyAccount& accountIndex) const;
+	void SetEventHandler(_TyEventHandler&& handler);
 	void SetPushHandler(_TyPushHandler&& handler);
 	void SetAccountReadyHandler(_TyAccountReadyHandler&& handler);
+	void OnAccountState(const _TyAccount& accountIndex);
+	void OnBrokerEvent(trade::CCountEvent event);
+	void OnBrokerState(SessionState state);
+	const std::string& GetLastError() const;
+	bool HandleTradingRequest(const CRequest& req);
+	trade::CResult SendRequest(trade::CReqParam request, CBrokerClient::_TyReplyHandler handler);
 
 private:
+	void RefreshTrades();
+	void PublishEvent(const trade::CCountEvent& event);
+	void ApplyEvent(trade::CAccountData& data, trade::CCountEvent& event);
+	void QueryAccount(const _TyAccount& accountIndex);
+	void QueryNext(const _TyAccount& accountIndex, std::uint64_t nGeneration, std::uint64_t nCycle, trade::Operation operation);
+	void CompleteQuery(const trade::CCounterReply& reply, std::uint64_t nGeneration, std::uint64_t nCycle);
+	CAccountService* m_pAccountService{ nullptr };
+	CBrokerClient* m_pBroker{ nullptr };
+	std::atomic_bool m_bRunning{ false };
+	std::string m_strLastError;
+	mutable std::mutex m_mtx_state;
+	std::map<_TyAccount, trade::CAccountData> m_snapshots;
+	struct CSync
+	{
+		std::vector<trade::CCountEvent> m_events;
+		trade::CAccountData m_data;
+		std::array<std::uint64_t, 5> m_versions{};
+		std::uint64_t m_cycle{ 0 };
+		std::size_t m_completed{ 0 };
+		bool m_bOverflow{ false };
+	};
+	std::map<_TyAccount, CSync> m_syncing;
+	std::uint64_t m_generation{ 0 };
+	std::atomic_uint64_t m_nNextSyncId{ 1 };
+	std::jthread m_refresh;
+	std::mutex m_mtx_wait;
+	std::condition_variable m_wake;
+
+	std::mutex m_mtx_handlers;
+	_TyEventHandler m_eventHandler;
 	_TyPushHandler m_pushHandler;
 	_TyAccountReadyHandler m_accountReadyHandler;
 	std::map<_TyAccount, std::uint64_t> m_lastEventSequence;
 };
-#endif

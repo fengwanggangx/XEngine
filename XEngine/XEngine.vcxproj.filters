@@ -107,6 +107,9 @@
     <ClCompile Include="strategy\CStrategyService.cpp">
       <Filter>strategy</Filter>
     </ClCompile>
+    <ClCompile Include="strategy\CAccountService.cpp">
+      <Filter>strategy</Filter>
+    </ClCompile>
     <ClCompile Include="strategy\CTradeService.cpp">
       <Filter>strategy</Filter>
     </ClCompile>
@@ -274,6 +277,9 @@
       <Filter>strategy</Filter>
     </ClInclude>
     <ClInclude Include="strategy\AccountInfo.h">
+      <Filter>strategy</Filter>
+    </ClInclude>
+    <ClInclude Include="strategy\CAccountService.h">
       <Filter>strategy</Filter>
     </ClInclude>
     <ClInclude Include="strategy\CTradeService.h">

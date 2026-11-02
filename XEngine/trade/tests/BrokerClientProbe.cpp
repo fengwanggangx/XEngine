@@ -1,4 +1,4 @@
-#include "../CBrokerClient.h"
+#include "../../strategy/CTradeService.h"
 #include <future>
 #include <iostream>
 static _TyAccount TestAccount(std::uint64_t number)
@@ -20,9 +20,33 @@ int main(int nArgs, char** pArgs)
 	info.m_host.m_strHost = "127.0.0.1";
 	info.m_host.m_nPort = static_cast<unsigned int>(std::stoul(pArgs[1]));
 	_TyAccount accountIndex = { 1, pArgs[3] };
-	CBrokerClient client(info);
 	std::atomic_int nEvents{ 0 };
 	std::atomic_bool bTradeCorrelated{ false };
+	std::promise<trade::CCounterReply> completion;
+	std::future<trade::CCounterReply> future = completion.get_future();
+	CBrokerClient broker(info);
+	CAccountService accounts(&broker);
+	CTradeService client(&accounts, &broker);
+	struct CBrokerGuard
+	{
+		CBrokerClient* m_pBroker;
+		~CBrokerGuard()
+		{
+			m_pBroker->Stop();
+		}
+	};
+	CBrokerGuard guard{ &broker };
+	accounts.SetAccountStateHandler(std::bind_front(&CTradeService::OnAccountState, &client));
+	broker.SetEventHandler([&accounts, &client](const trade::CCountEvent& event)
+	{
+		accounts.OnBrokerEvent(event);
+		client.OnBrokerEvent(event);
+	});
+	broker.SetStateHandler([&accounts, &client](SessionState state)
+	{
+		accounts.OnBrokerState(state);
+		client.OnBrokerState(state);
+	});
 	client.SetEventHandler([&nEvents, &bTradeCorrelated](const trade::CCountEvent& event)
 	{
 		if (trade::EventTy::Deal == event.m_kind && 700 == event.m_order.m_clientId && 77 == event.m_order.m_strategyId)
@@ -34,7 +58,7 @@ int main(int nArgs, char** pArgs)
 			++nEvents;
 		}
 	});
-	if (!client.Start())
+	if (!accounts.Initialize() || !client.Initialize() || !broker.Start())
 	{
 		return 2;
 	}
@@ -58,8 +82,6 @@ int main(int nArgs, char** pArgs)
 	std::get<trade::CSubmitParam>(request.m_param).m_order.m_nPrice = 1000;
 	std::get<trade::CSubmitParam>(request.m_param).m_order.m_nPriceScale = 2;
 	std::get<trade::CSubmitParam>(request.m_param).m_order.m_nQuantity = 100;
-	std::promise<trade::CCounterReply> completion;
-	std::future<trade::CCounterReply> future = completion.get_future();
 	if (!client.SendRequest(std::move(request), [&completion](const trade::CCounterReply& reply)
 	{
 		completion.set_value(reply);
@@ -75,6 +97,8 @@ int main(int nArgs, char** pArgs)
 	if (bFault)
 	{
 		client.Stop();
+		accounts.Stop();
+		broker.Stop();
 		if (trade::Error::UnknownResult != reply.m_result.m_error || client.Snapshot(accountIndex).m_bReady)
 		{
 			return 9;
@@ -93,6 +117,8 @@ int main(int nArgs, char** pArgs)
 		return 7;
 	}
 	client.Stop();
+	accounts.Stop();
+	broker.Stop();
 	if (client.Snapshot(accountIndex).m_bReady)
 	{
 		return 8;

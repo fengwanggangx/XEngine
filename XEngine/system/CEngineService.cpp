@@ -28,10 +28,10 @@ namespace
 {
 	constexpr int InvalidRequest = 1001;
 	constexpr int InvalidCredentials = 1002;
-	constexpr int AccountExists = 1003;
+	constexpr int UserExists = 1003;
 	constexpr int StorageUnavailable = 1004;
-	constexpr std::size_t MinAccountLength = 3;
-	constexpr std::size_t MaxAccountLength = 64;
+	constexpr std::size_t MinUserLength = 3;
+	constexpr std::size_t MaxUserLength = 64;
 	constexpr std::size_t MinPasswordLength = 8;
 	constexpr std::size_t MaxPasswordLength = 128;
 	constexpr int AuthenticationRequired = 1005;
@@ -44,13 +44,13 @@ namespace
 	constexpr std::chrono::seconds UpstreamRequestTimeout{ 10 };
 } // namespace
 
-bool IsAccountValid(const std::string& strAccount)
+bool IsUserValid(const std::string& strUser)
 {
-	if ((MinAccountLength > strAccount.size()) || (MaxAccountLength < strAccount.size()))
+	if ((MinUserLength > strUser.size()) || (MaxUserLength < strUser.size()))
 	{
 		return false;
 	}
-	for (unsigned char c : strAccount)
+	for (unsigned char c : strUser)
 	{
 		if ((0 == std::isalnum(c)) && ('_' != c) && ('-' != c) && ('.' != c) && ('@' != c))
 		{
@@ -65,7 +65,7 @@ bool IsPasswordValid(const std::string& strPassword)
 	return (MinPasswordLength <= strPassword.size()) && (MaxPasswordLength >= strPassword.size());
 }
 
-CEngineService::CEngineService(net::CTcpServer* pTcpServer, CSession* pSession, CStrategyService* pStrategyService, CTradeService* pTradeService) : m_pTcpServer(pTcpServer), m_pSession(pSession), m_pStrategyService(pStrategyService), m_pTradeService(pTradeService)
+CEngineService::CEngineService(net::CTcpServer* pTcpServer, CSession* pSession, CStrategyService* pStrategyService, CTradeService* pTradeService, CAccountService* pAccountService) : m_pTcpServer(pTcpServer), m_pSession(pSession), m_pStrategyService(pStrategyService), m_pTradeService(pTradeService), m_pAccountService(pAccountService)
 {
 	m_handler = {
 		{ _TyRequest::TRADE_ORDER_SUBMIT, std::bind_front(&CEngineService::HandleTradeRequest, this) },
@@ -88,7 +88,7 @@ CEngineService::CEngineService(net::CTcpServer* pTcpServer, CSession* pSession, 
 		{ _TyRequest::TRADE_ACCOUNT_LOGIN, std::bind_front(&CEngineService::HandleTradeAccountRequest, this) },
 		{ _TyRequest::TRADE_ACCOUNT_LIST_QUERY, std::bind_front(&CEngineService::HandleTradeAccountRequest, this) },
 		{ _TyRequest::TRADE_ACCOUNT_DISCONNECT, std::bind_front(&CEngineService::HandleTradeAccountRequest, this) },
-		{ _TyRequest::TRADE_FUNDS_QUERY, std::bind_front(&CEngineService::HandleTradeAccountRequest, this) },
+		{ _TyRequest::TRADE_FUNDS_QUERY, std::bind_front(&CEngineService::HandleTradeRequest, this) },
 		{ _TyRequest::STRATEGY_ADD, std::bind_front(&CEngineService::HandleStrategyRequest, this) },
 		{ _TyRequest::STRATEGY_MODIFY, std::bind_front(&CEngineService::HandleStrategyRequest, this) },
 		{ _TyRequest::STRATEGY_QUERY, std::bind_front(&CEngineService::HandleStrategyRequest, this) },
@@ -102,10 +102,11 @@ CEngineService::CEngineService(net::CTcpServer* pTcpServer, CSession* pSession, 
 
 bool CEngineService::Initialize()
 {
-	if ((nullptr == m_pTcpServer) || (nullptr == m_pSession) || (nullptr == m_pStrategyService) || (nullptr == m_pTradeService))
+	if ((nullptr == m_pTcpServer) || (nullptr == m_pSession) || (nullptr == m_pStrategyService) || (nullptr == m_pTradeService) || (nullptr == m_pAccountService))
 	{
 		return false;
 	}
+	m_pAccountService->SetPushHandler(std::bind_front(&CEngineService::BroadcastTrading, this));
 	m_pTradeService->SetPushHandler(std::bind_front(&CEngineService::BroadcastTrading, this));
 	m_pTcpServer->RegisterHandler(std::bind_front(&CEngineService::OnNetEvent, this));
 	m_pSession->RegisterHandler(std::bind_front(&CEngineService::OnHQMarketResponse, this));
@@ -590,9 +591,9 @@ void CEngineService::SendResponse(const CRequest& req, int nErrorCode, const std
 
 bool CEngineService::Login(const CRequest& req, std::string& strToken)
 {
-	std::string strAccount = req.GetExtraData("user");
+	std::string strUser = req.GetExtraData("user");
 	std::string strPassword = req.GetExtraData("password");
-	if (!IsAccountValid(strAccount) || !IsPasswordValid(strPassword))
+	if (!IsUserValid(strUser) || !IsPasswordValid(strPassword))
 	{
 		SendResponse(req, InvalidCredentials, "账号或密码错误");
 		return false;
@@ -605,7 +606,7 @@ bool CEngineService::Login(const CRequest& req, std::string& strToken)
 		return false;
 	}
 
-	std::string strSql = "SELECT user_id, account FROM table_user WHERE account=" + utility::Utf8Literal(strAccount) + " AND password_hash=UNHEX(SHA2(CONCAT(password_salt,UNHEX('" + utility::ToHex(strPassword) + "')),256)) AND status=1 LIMIT 1";
+	std::string strSql = "SELECT user_id, user FROM table_user WHERE user=" + utility::Utf8Literal(strUser) + " AND password_hash=UNHEX(SHA2(CONCAT(password_salt,UNHEX('" + utility::ToHex(strPassword) + "')),256)) AND status=1 LIMIT 1";
 	const db::CTable& table = db->ExecQuery(strSql);
 	if (table.m_rows.empty())
 	{
@@ -620,9 +621,9 @@ bool CEngineService::Login(const CRequest& req, std::string& strToken)
 	response.SetExtraData("user_id", db::to_string(table.m_rows.front().at(0)));
 	{
 		std::lock_guard<std::mutex> lock(m_mtx_state);
-		m_clientUsers.insert_or_assign(req.GetConnectionId(), strAccount);
+		m_clientUsers.insert_or_assign(req.GetConnectionId(), strUser);
 	}
-	response.SetExtraData("account", db::to_string(table.m_rows.front().at(1)));
+	response.SetExtraData("user", db::to_string(table.m_rows.front().at(1)));
 	strToken = utility::MakeSaltHex();
 	response.SetExtraData("token", strToken);
 	net::SendRequest(req.GetConnectionId(), response);
@@ -631,9 +632,9 @@ bool CEngineService::Login(const CRequest& req, std::string& strToken)
 
 bool CEngineService::HandleRegisterAuth(net::_TyConnectionId, const CRequest& req)
 {
-	std::string strAccount = req.GetExtraData("user");
+	std::string strUser = req.GetExtraData("user");
 	std::string strPassword = req.GetExtraData("password");
-	if (!IsAccountValid(strAccount))
+	if (!IsUserValid(strUser))
 	{
 		SendResponse(req, InvalidRequest, "账号需为 3-64 位字母、数字或 _-.@");
 		return false;
@@ -651,19 +652,19 @@ bool CEngineService::HandleRegisterAuth(net::_TyConnectionId, const CRequest& re
 		return false;
 	}
 
-	std::string strAccountLiteral = utility::Utf8Literal(strAccount);
-	const db::CTable& table = db->ExecQuery("SELECT user_id FROM table_user WHERE account=" + strAccountLiteral + " LIMIT 1");
+	std::string strUserLiteral = utility::Utf8Literal(strUser);
+	const db::CTable& table = db->ExecQuery("SELECT user_id FROM table_user WHERE user=" + strUserLiteral + " LIMIT 1");
 	if (!table.m_rows.empty())
 	{
-		SendResponse(req, AccountExists, "账号已存在");
+		SendResponse(req, UserExists, "账号已存在");
 		return false;
 	}
 
 	std::string saltHex = utility::MakeSaltHex();
-	std::string strSQL = "INSERT INTO table_user(account,password_hash,password_salt,status) VALUES(" + strAccountLiteral + ",UNHEX(SHA2(CONCAT(UNHEX('" + saltHex + "'),UNHEX('" + utility::ToHex(strPassword) + "')),256)),UNHEX('" + saltHex + "'),1)";
+	std::string strSQL = "INSERT INTO table_user(user,password_hash,password_salt,status) VALUES(" + strUserLiteral + ",UNHEX(SHA2(CONCAT(UNHEX('" + saltHex + "'),UNHEX('" + utility::ToHex(strPassword) + "')),256)),UNHEX('" + saltHex + "'),1)";
 	if (0 != db->ExecUpdate(strSQL))
 	{
-		SendResponse(req, AccountExists, "账号已存在或注册失败");
+		SendResponse(req, UserExists, "账号已存在或注册失败");
 		return false;
 	}
 
@@ -875,7 +876,7 @@ int CEngineService::HandleDisconnected(net::_TyConnectionId id)
 			{
 				return id == client.m_router_id;
 			}),
-				clients.end());
+						  clients.end());
 			if (clients.empty())
 			{
 				mIter = m_pending_queries.erase(mIter);
@@ -1016,7 +1017,7 @@ int CEngineService::OnNetEvent(const net::CNetEvent& ev)
 
 bool CEngineService::HandleTradeAccountRequest(net::_TyConnectionId id, const CRequest& req)
 {
-	if (!IsAuthenticated(id) || (nullptr == m_pTradeService))
+	if (!IsAuthenticated(id) || (nullptr == m_pAccountService))
 	{
 		net::SendError(id, req, AuthenticationRequired, "authentication required");
 		return false;
@@ -1030,7 +1031,7 @@ bool CEngineService::HandleTradeAccountRequest(net::_TyConnectionId id, const CR
 			actor = mIter->second;
 		}
 	}
-	return m_pTradeService->HandleAccountRequest(req, actor);
+	return m_pAccountService->HandleAccountRequest(req, actor);
 }
 
 bool CEngineService::HandleTradeRequest(net::_TyConnectionId id, const CRequest& req)
@@ -1045,6 +1046,10 @@ bool CEngineService::HandleTradeRequest(net::_TyConnectionId id, const CRequest&
 
 CEngineService::~CEngineService()
 {
+	if (nullptr != m_pAccountService)
+	{
+		m_pAccountService->SetPushHandler({});
+	}
 	if (nullptr != m_pTradeService)
 	{
 		m_pTradeService->SetPushHandler({});
