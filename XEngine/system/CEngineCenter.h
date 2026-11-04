@@ -13,11 +13,6 @@
 class CSession;
 class CHQService;
 
-enum class SessionSource
-{
-	HQMarket,
-	Broker
-};
 class CStrategyService;
 class CTradeService;
 class CAccountService;
@@ -40,12 +35,15 @@ public:
 
 	bool Initialize();
 	void OnRequest(const CRequest& req);
-	bool OnReply(SessionSource source, const CRequest& req);
-	void OnSessionState(SessionSource source, SessionState state, const std::string& strReason);
+
+	bool OnBrokerReply(const CRequest& req);
+	bool OnHQMarketReply(const CRequest& req);
+	void OnBrokerStateChanged(SessionState state, const std::string& strReason);
+	void OnHQMarketStateChanged(SessionState state, const std::string& strReason);
 
 private:
-	int OnNetEvent(const net::CNetEvent& ev);
-	bool BroadcastTrading(const CRequest& push);
+	int OnClientNetEvent(const net::CNetEvent& ev);
+	bool BroadcastTrade(const CRequest& push);
 
 	bool HandleAuth(net::_TyConnectionId id, const CRequest& req);
 	bool HandleHeartbeat(net::_TyConnectionId id, const CRequest& req);
@@ -55,7 +53,7 @@ private:
 	bool HandleTradeAccountRequest(net::_TyConnectionId id, const CRequest& req, const std::string& strUser);
 
 	bool HandleReAuth(const CRequest& req);
-	int HandleDisconnected(net::_TyConnectionId id);
+	int HandleClientDisconnected(net::_TyConnectionId id);
 
 private:
 	bool Login(const CRequest& req, std::string& strToken);

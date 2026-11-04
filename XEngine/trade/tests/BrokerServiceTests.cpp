@@ -208,8 +208,8 @@ public:
 		accounts.m_accounts[TestAccount(1)].m_info = info;
 		accounts.SetAccountStateHandler(std::bind_front(&CTradeService::OnAccountState, &service));
 		CEngineCenter center(nullptr, nullptr, &session, nullptr, nullptr, &service, &accounts);
-		session.RegisterHandler(std::bind_front(&CEngineCenter::OnReply, &center, SessionSource::Broker));
-		session.RegisterStateHandler(std::bind_front(&CEngineCenter::OnSessionState, &center, SessionSource::Broker));
+		session.RegisterHandler(std::bind_front(&CEngineCenter::OnBrokerReply, &center));
+		session.RegisterStateHandler(std::bind_front(&CEngineCenter::OnBrokerStateChanged, &center));
 		service.SetEventHandler([&nFunds](const trade::CCounterEvent& event)
 		{
 			if (trade::EventTy::Funds == event.m_kind)

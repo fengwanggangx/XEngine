@@ -196,7 +196,7 @@ bool CHQService::OnReply(const CRequest& req)
 	}
 	for (net::_TyConnectionId id : disconnected)
 	{
-		HandleDisconnected(id);
+		HandleClientDisconnected(id);
 	}
 	return true;
 }
@@ -660,7 +660,7 @@ bool CHQService::HandleSubscription(net::_TyConnectionId, const CRequest& req)
 	return true;
 }
 
-int CHQService::HandleDisconnected(net::_TyConnectionId id)
+int CHQService::HandleClientDisconnected(net::_TyConnectionId id)
 {
 	std::vector<CQuoteInfo> removed = m_subscriptions.RemoveClient(id);
 	{

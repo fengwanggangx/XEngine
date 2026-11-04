@@ -31,8 +31,8 @@ int main(int nArgs, char** pArgs)
 	CAccountService accounts(&broker);
 	CTradeService client(&accounts, &broker);
 	CEngineCenter center(nullptr, nullptr, &broker, nullptr, nullptr, &client, &accounts);
-	broker.RegisterHandler(std::bind_front(&CEngineCenter::OnReply, &center, SessionSource::Broker));
-	broker.RegisterStateHandler(std::bind_front(&CEngineCenter::OnSessionState, &center, SessionSource::Broker));
+	broker.RegisterHandler(std::bind_front(&CEngineCenter::OnBrokerReply, &center));
+	broker.RegisterStateHandler(std::bind_front(&CEngineCenter::OnBrokerStateChanged, &center));
 	struct CBrokerGuard
 	{
 		CSession* m_pBroker;

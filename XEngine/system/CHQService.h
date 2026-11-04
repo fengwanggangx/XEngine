@@ -55,7 +55,7 @@ public:
 
 	bool OnReply(const CRequest& req);
 	bool OnRequest(const CRequest& req);
-	int HandleDisconnected(net::_TyConnectionId id);
+	int HandleClientDisconnected(net::_TyConnectionId id);
 	void OnSessionState(SessionState state, const std::string& strMessage);
 
 private:

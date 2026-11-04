@@ -71,7 +71,7 @@ public:
 private:
 	void ConnectionLoop();
 	void MaintenanceLoop();
-	int OnNetEvent(const net::CNetEvent& ev);
+	int OnClientNetEvent(const net::CNetEvent& ev);
 	void HandleResponse(const CRequest& req);
 	bool HandleAuthRequest(const CRequest& req);
 	bool SendAuthentication();

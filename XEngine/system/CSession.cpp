@@ -145,7 +145,7 @@ void CSession::ConnectionLoop()
 			break;
 		}
 		decltype(m_client) pClient = std::make_unique<net::CTcpClient>(info->m_host.m_strHost, static_cast<int>(info->m_host.m_nPort), info->m_bOrdered);
-		pClient->RegisterHandler(std::bind_front(&CSession::OnNetEvent, this));
+		pClient->RegisterHandler(std::bind_front(&CSession::OnClientNetEvent, this));
 		int nRet = pClient->Initialize();
 		if (0 == nRet)
 		{
@@ -206,7 +206,7 @@ void CSession::MaintenanceLoop()
 		}
 	}
 }
-int CSession::OnNetEvent(const net::CNetEvent& ev)
+int CSession::OnClientNetEvent(const net::CNetEvent& ev)
 {
 	if (net::em_event::connected == ev.m_event)
 	{

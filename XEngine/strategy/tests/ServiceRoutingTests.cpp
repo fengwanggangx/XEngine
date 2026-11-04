@@ -53,10 +53,10 @@ class CServiceRoutingTests
 		response.SetId(9101);
 		response.SetType(origin.GetType());
 		response.SetErrorInfo(1007, "test rejection");
-		Check(!center.OnReply(SessionSource::HQMarket, response) && accounts.m_pending.contains(9101), "HQ response cannot consume Broker pending state");
-		Check(center.OnReply(SessionSource::Broker, response) && accounts.m_pending.empty(), "Broker login response reaches account service");
+		Check(!center.OnHQMarketReply(response) && accounts.m_pending.contains(9101), "HQ response cannot consume Broker pending state");
+		Check(center.OnBrokerReply(response) && accounts.m_pending.empty(), "Broker login response reaches account service");
 		Check(301 == LastResponse(event).GetId(), "account response restores original client request id");
-		Check(!center.OnReply(SessionSource::Broker, response), "duplicate account response is ignored");
+		Check(!center.OnBrokerReply(response), "duplicate account response is ignored");
 
 		origin.SetId(302);
 		origin.SetType(_TyRequest::TRADE_FUNDS_QUERY);
@@ -64,11 +64,11 @@ class CServiceRoutingTests
 		trader.m_pending.emplace(9102, CTradeService::CPending{ origin, deadline });
 		response.SetId(9102);
 		response.SetType(_TyRequest::TRADE_ORDER_QUERY);
-		Check(!center.OnReply(SessionSource::Broker, response) && trader.m_pending.contains(9102), "mismatched trade response preserves pending request");
+		Check(!center.OnBrokerReply(response) && trader.m_pending.contains(9102), "mismatched trade response preserves pending request");
 		response.SetType(origin.GetType());
-		Check(center.OnReply(SessionSource::Broker, response) && trader.m_pending.empty(), "Broker funds response reaches trade service");
+		Check(center.OnBrokerReply(response) && trader.m_pending.empty(), "Broker funds response reaches trade service");
 		Check(302 == LastResponse(event).GetId(), "trade response restores original client request id");
-		Check(!center.OnReply(SessionSource::Broker, response), "duplicate trade response is ignored");
+		Check(!center.OnBrokerReply(response), "duplicate trade response is ignored");
 	}
 
 	static void TestMarketRouting(bufferevent* event, CEngineCenter& center, CHQService& market, CStrategyService& strategies)
@@ -91,9 +91,9 @@ class CServiceRoutingTests
 		CRequest response;
 		response.SetId(9001);
 		response.SetType(query.GetType());
-		Check(center.OnReply(SessionSource::HQMarket, response), "HQ reply reaches the pending query owner");
+		Check(center.OnHQMarketReply(response), "HQ reply reaches the pending query owner");
 		Check(201 == LastResponse(event).GetId() && market.m_pendingQueries.empty(), "market response restores client request identity and consumes pending state");
-		Check(!center.OnReply(SessionSource::Broker, response), "wrong upstream cannot consume a market response");
+		Check(!center.OnBrokerReply(response), "wrong upstream cannot consume a market response");
 
 		CQuoteInfo quote("600519", Exchange::sse, Channel::quote);
 		market.m_subscriptions.Subscribe(7070, { quote });
@@ -101,7 +101,7 @@ class CServiceRoutingTests
 		response.SetId(9002);
 		response.SetType(_TyRequest::MARKET_SUBSCRIBE);
 		response.SetErrorInfo(1006, "rejected");
-		center.OnReply(SessionSource::HQMarket, response);
+		center.OnHQMarketReply(response);
 		Check(!market.m_subscriptions.IsSubscribed(7070, quote) && 202 == LastResponse(event).GetId(), "subscription failure rolls back client subscription");
 
 		market.m_subscriptions.Subscribe(7070, { quote });
@@ -109,7 +109,7 @@ class CServiceRoutingTests
 		CRequest accepted;
 		accepted.SetId(9003);
 		accepted.SetType(_TyRequest::MARKET_SUBSCRIBE);
-		center.OnReply(SessionSource::HQMarket, accepted);
+		center.OnHQMarketReply(accepted);
 		Check(market.m_subscriptions.IsSubscribed(7070, quote) && 203 == LastResponse(event).GetId(), "successful subscription ACK retains subscription and original id");
 		market.m_pendingBatchSubscriptions.emplace(9004, CHQService::CPendingSubscriptionBatch{ { 7070, 204 }, _TyRequest::MARKET_SUBSCRIBE, std::chrono::steady_clock::time_point::min(), { quote }, { quote } });
 		market.ExpirePendingSubscriptions();
@@ -131,7 +131,7 @@ class CServiceRoutingTests
 		push.SetId(0);
 		push.SetType(_TyRequest::MARKET_QUOTE_PUSH);
 		push.SetData(data);
-		bool bRouted = center.OnReply(SessionSource::HQMarket, push);
+		bool bRouted = center.OnHQMarketReply(push);
 		bool bDelivered = LastResponse(event).GetData().has_quote() && 1 == runtime->m_events.size();
 		strategies.m_runtimes.clear();
 		strategies.m_marketRoutes.clear();
@@ -143,13 +143,13 @@ class CServiceRoutingTests
 		Check(1008 == LastResponse(event).GetErrorInfo()->first && market.m_pendingQueries.empty(), "market timeout completes and removes pending query");
 		pending.m_deadline = std::chrono::steady_clock::now() + std::chrono::seconds(10);
 		market.m_pendingQueries.emplace(key, pending);
-		center.OnSessionState(SessionSource::HQMarket, SessionState::Disconnected, "test disconnect");
+		center.OnHQMarketStateChanged(SessionState::Disconnected, "test disconnect");
 		Check(!strategies.IsMarketAvailable() && market.m_pendingQueries.empty(), "HQ disconnect invalidates strategy market and completes client queries");
 		Check(1007 == LastResponse(event).GetErrorInfo()->first, "HQ disconnect retains unavailable error");
-		center.OnSessionState(SessionSource::HQMarket, SessionState::Ready, "");
+		center.OnHQMarketStateChanged(SessionState::Ready, "");
 		Check(strategies.IsMarketAvailable() && market.m_subscriptions.IsSubscribed(7070, quote), "HQ reconnect retains subscriptions and restores availability");
 		market.m_pendingQueries.emplace(key, pending);
-		center.HandleDisconnected(7070);
+		center.HandleClientDisconnected(7070);
 		Check(market.m_pendingQueries.empty() && !market.m_subscriptions.IsSubscribed(7070, quote), "client disconnect clears market requests and subscriptions");
 	}
 
@@ -186,7 +186,7 @@ public:
 		engine.OnRequest(authentication);
 		std::pair<bool, std::string> authenticatedClient = engine.IsAuthenticated(7070);
 		Check(authenticatedClient.first && "tester" == authenticatedClient.second, "token authentication restores the client user");
-		engine.HandleDisconnected(7070);
+		engine.HandleClientDisconnected(7070);
 		Check(!engine.IsAuthenticated(7070).first, "disconnect removes the authenticated client identity");
 		engine.OnRequest(authentication);
 		Check("tester" == engine.m_authClients.at(7070), "token reconnect binds the user again");

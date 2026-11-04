@@ -71,17 +71,21 @@ bool CEngineCenter::Initialize()
 	{
 		return false;
 	}
-	m_pAccountService->SetPushHandler(std::bind_front(&CEngineCenter::BroadcastTrading, this));
-	m_pTradeService->SetPushHandler(std::bind_front(&CEngineCenter::BroadcastTrading, this));
-	m_pTcpServer->RegisterHandler(std::bind_front(&CEngineCenter::OnNetEvent, this));
-	m_pHQSession->RegisterHandler(std::bind_front(&CEngineCenter::OnReply, this, SessionSource::HQMarket));
-	m_pBrokerSession->RegisterHandler(std::bind_front(&CEngineCenter::OnReply, this, SessionSource::Broker));
-	m_pHQSession->RegisterStateHandler(std::bind_front(&CEngineCenter::OnSessionState, this, SessionSource::HQMarket));
-	m_pBrokerSession->RegisterStateHandler(std::bind_front(&CEngineCenter::OnSessionState, this, SessionSource::Broker));
+
+	m_pTcpServer->RegisterHandler(std::bind_front(&CEngineCenter::OnClientNetEvent, this));
+
+	m_pHQSession->RegisterHandler(std::bind_front(&CEngineCenter::OnHQMarketReply, this));
+	m_pHQSession->RegisterStateHandler(std::bind_front(&CEngineCenter::OnHQMarketStateChanged, this));
+
+	m_pBrokerSession->RegisterHandler(std::bind_front(&CEngineCenter::OnBrokerReply, this));
+	m_pBrokerSession->RegisterStateHandler(std::bind_front(&CEngineCenter::OnBrokerStateChanged, this));
+
+	m_pAccountService->SetPushHandler(std::bind_front(&CEngineCenter::BroadcastTrade, this));
+	m_pTradeService->SetPushHandler(std::bind_front(&CEngineCenter::BroadcastTrade, this));
 	return true;
 }
 
-bool CEngineCenter::BroadcastTrading(const CRequest& push)
+bool CEngineCenter::BroadcastTrade(const CRequest& req)
 {
 	std::vector<net::_TyConnectionId> clients;
 	{
@@ -95,7 +99,7 @@ bool CEngineCenter::BroadcastTrading(const CRequest& push)
 	bool bSent = true;
 	for (net::_TyConnectionId id : clients)
 	{
-		bSent = net::SendRequest(id, push) && bSent;
+		bSent = net::SendRequest(id, req) && bSent;
 	}
 	return bSent;
 }
@@ -354,7 +358,7 @@ bool CEngineCenter::HandleStrategyRequest(net::_TyConnectionId id, const CReques
 	return m_pStrategyService->OnRequest(req);
 }
 
-int CEngineCenter::OnNetEvent(const net::CNetEvent& ev)
+int CEngineCenter::OnClientNetEvent(const net::CNetEvent& ev)
 {
 	if (net::em_event::request == ev.m_event)
 	{
@@ -362,7 +366,7 @@ int CEngineCenter::OnNetEvent(const net::CNetEvent& ev)
 	}
 	else if ((net::em_event::disconnected == ev.m_event) || (net::em_event::error == ev.m_event) || (net::em_event::timeout == ev.m_event))
 	{
-		HandleDisconnected(ev.m_connection_id);
+		HandleClientDisconnected(ev.m_connection_id);
 	}
 	return 1;
 }
@@ -399,7 +403,7 @@ CEngineCenter::~CEngineCenter()
 	}
 }
 
-int CEngineCenter::HandleDisconnected(net::_TyConnectionId id)
+int CEngineCenter::HandleClientDisconnected(net::_TyConnectionId id)
 {
 	{
 		std::lock_guard<std::mutex> lock(m_mtx_state);
@@ -407,19 +411,20 @@ int CEngineCenter::HandleDisconnected(net::_TyConnectionId id)
 	}
 	if (nullptr != m_pHQService)
 	{
-		m_pHQService->HandleDisconnected(id);
+		m_pHQService->HandleClientDisconnected(id);
 	}
 	return 1;
 }
 
-bool CEngineCenter::OnReply(SessionSource source, const CRequest& req)
+bool CEngineCenter::OnHQMarketReply(const CRequest& req)
 {
-	if (SessionSource::HQMarket == source)
-	{
-		bool bHQHandled = m_pHQService->OnReply(req);
-		bool bStrategyHandled = m_pStrategyService->OnReply(req);
-		return bHQHandled || bStrategyHandled;
-	}
+	bool bHQHandled = m_pHQService->OnReply(req);
+	bool bStrategyHandled = m_pStrategyService->OnReply(req);
+	return bHQHandled || bStrategyHandled;
+}
+
+bool CEngineCenter::OnBrokerReply(const CRequest& req)
+{
 	if (0 == req.GetId())
 	{
 		bool bAccountHandled = false;
@@ -441,14 +446,14 @@ bool CEngineCenter::OnReply(SessionSource source, const CRequest& req)
 	}
 }
 
-void CEngineCenter::OnSessionState(SessionSource source, SessionState state, const std::string& strReason)
+void CEngineCenter::OnHQMarketStateChanged(SessionState state, const std::string& strReason)
 {
-	if (SessionSource::HQMarket == source)
-	{
-		m_pHQService->OnSessionState(state, strReason);
-		m_pStrategyService->OnHQMarketState(state, strReason);
-		return;
-	}
+	m_pHQService->OnSessionState(state, strReason);
+	m_pStrategyService->OnHQMarketState(state, strReason);
+}
+
+void CEngineCenter::OnBrokerStateChanged(SessionState state, const std::string& strReason)
+{
 	m_pAccountService->OnBrokerState(state, strReason);
 	m_pTradeService->OnBrokerState(state, strReason);
 }
