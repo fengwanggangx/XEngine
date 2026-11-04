@@ -122,12 +122,12 @@ public:
 		record->set_state(static_cast<request::TradingAccountState>(TradeAccountState::Connected));
 		CRequest catalogueResponse;
 		catalogueResponse.SetData(catalogue);
-		accounts.OnCatalogue(catalogueResponse, accounts.m_generation);
+		accounts.OnAccountListReply(catalogueResponse, accounts.m_broker_connect_id);
 		Check(1 == accounts.m_accounts.at(account).m_useCount && accounts.m_accounts.at(account).m_bDisconnecting, "catalogue refresh preserves local runtime guards");
 		Check(!accounts.AcquireAccount(account), "disconnecting account rejects new use");
 		catalogue.clear_accounts();
 		catalogueResponse.SetData(catalogue);
-		accounts.OnCatalogue(catalogueResponse, accounts.m_generation);
+		accounts.OnAccountListReply(catalogueResponse, accounts.m_broker_connect_id);
 		Check(!accounts.HasAccount(account) && accounts.GetAccounts().empty(), "removed runtime is hidden from the account directory");
 		Check(1 == accounts.m_accounts.at(account).m_useCount && accounts.m_accounts.at(account).m_bDisconnecting, "missing account retains outstanding use and disconnect guards");
 		accounts.ReleaseAccount(account);

@@ -55,6 +55,7 @@ struct CStrategyEvent
 
 struct CStrategyRuntime
 {
+	std::uint64_t m_instanceId{ 0 };
 	CStrategyConfig m_config;
 	std::unique_ptr<IStrategy> m_strategy;
 	std::unique_ptr<CStrategyContext> m_context;
@@ -111,6 +112,7 @@ class CStrategyService final
 {
 	friend class CStrategyContext;
 	friend class CServiceRoutingTests;
+	friend class CBrokerServiceTests;
 	using _TyStateHandler = std::function<void(const CStrategySnapshot&)>;
 
 public:
@@ -146,7 +148,8 @@ private:
 	bool BeginAccountUse(const _TyAccount& account, _TyStrategyId strategyId);
 	void EndAccountUse(const _TyAccount& account, _TyStrategyId strategyId);
 	void OnTradingEvent(const trade::CCounterEvent& event);
-	COrderSubmitResult SubmitTradingOrder(const COrderIntent& intent);
+	void OnTradeRequestReply(const CRequest& origin, const trade::CCounterReply& reply);
+	COrderSubmitResult SubmitTradingOrder(const COrderIntent& intent, const std::shared_ptr<CStrategyRuntime>& runtime);
 	void OnOrderEvent(const COrderEvent& ev);
 	void OnTradeEvent(const CTradeEvent& ev);
 	void OnAccountReady(const _TyAccount& account);
@@ -206,6 +209,7 @@ private:
 	std::mutex m_mtx_handlers;
 	std::vector<_TyStateHandler> m_stateHandlers;
 
+	std::atomic_uint64_t m_nextInstanceId{ 1 };
 	std::atomic_bool m_bMarketAvailable{ false };
 	std::atomic_bool m_bStopping{ false };
 	std::string m_strLastError;

@@ -1,3 +1,4 @@
+#include "TradeRequestRouting.h"
 #include "CStrategyService.h"
 
 #include "../common/defines.h"
@@ -19,6 +20,7 @@
 #include <charconv>
 #include <chrono>
 #include <exception>
+#include <limits>
 #include <rapidjson/document.h>
 #include <rapidjson/stringbuffer.h>
 #include <rapidjson/writer.h>
@@ -273,6 +275,7 @@ CStrategyService::~CStrategyService()
 	StopAll();
 	if (nullptr != m_pTradeService)
 	{
+		m_pTradeService->SetStrategyReplyHandler({});
 		m_pTradeService->SetEventHandler({});
 		m_pTradeService->SetAccountReadyHandler({});
 	}
@@ -286,6 +289,7 @@ bool CStrategyService::Initialize()
 		m_strLastError = "Strategy session or trade service is unavailable";
 		return false;
 	}
+	m_pTradeService->SetStrategyReplyHandler(std::bind_front(&CStrategyService::OnTradeRequestReply, this));
 	m_pTradeService->SetEventHandler(std::bind_front(&CStrategyService::OnTradingEvent, this));
 	m_pTradeService->SetAccountReadyHandler(std::bind_front(&CStrategyService::OnAccountReady, this));
 	m_pSession->RegisterHandler(std::bind_front(&CStrategyService::OnHQMarketResponse, this));
@@ -316,6 +320,70 @@ void CStrategyService::EndAccountUse(const _TyAccount& account, _TyStrategyId st
 			m_runningStrategies.erase(mIter);
 		}
 	}
+}
+
+void CStrategyService::OnTradeRequestReply(const CRequest& origin, const trade::CCounterReply& reply)
+{
+	std::uint64_t strategyId = 0;
+	std::uint64_t instanceId = 0;
+	if (!tradingroute::ReadNumber(origin, "strategy_id", strategyId) || !tradingroute::ReadNumber(origin, "strategy_instance_id", instanceId))
+	{
+		std::cerr << "Invalid strategy reply routing metadata\n";
+		return;
+	}
+	std::shared_ptr<CStrategyRuntime> runtime = FindRuntime(strategyId);
+	if (nullptr == runtime || runtime->m_bRemoving.load() || instanceId != runtime->m_instanceId || reply.m_account != runtime->m_config.m_account)
+	{
+		return;
+	}
+	if (reply.m_result.Ok())
+	{
+		return;
+	}
+	{
+		std::lock_guard<std::mutex> lock(runtime->m_mtx_metrics);
+		runtime->m_strLastError = reply.m_result.m_strMessage;
+	}
+	NotifySnapshot(runtime);
+	if (trade::Operation::Submit != reply.m_operation || (trade::Error::Rejected != reply.m_result.m_error && trade::Error::Unsupported != reply.m_result.m_error && trade::Error::Conflict != reply.m_result.m_error && trade::Error::NotFound != reply.m_result.m_error))
+	{
+		return;
+	}
+	COrderEvent event;
+	event.m_account = reply.m_account;
+	event.m_strategyId = strategyId;
+	event.m_status = OrderStatus::Rejected;
+	event.m_strReason = reply.m_result.m_strMessage;
+	std::uint64_t quantity = 0;
+	if (!tradingroute::ReadNumber(origin, "signal_id", event.m_signalId) || !tradingroute::ReadNumber(origin, "client_order_id", event.m_clientOrderId) || !tradingroute::ReadNumber(origin, "quantity", quantity) || static_cast<std::uint64_t>((std::numeric_limits<std::int64_t>::max)()) < quantity)
+	{
+		std::cerr << "Invalid rejected strategy order metadata\n";
+		return;
+	}
+	event.m_quantity = static_cast<std::int64_t>(quantity);
+	std::string security = origin.GetExtraData("security");
+	std::size_t dot = security.find('.');
+	if (std::string::npos != dot)
+	{
+		event.m_security = CSecurity(security.substr(0, dot), ParseMarket(security.substr(dot + 1)));
+	}
+	{
+		std::shared_lock<std::shared_mutex> lock(m_mtx_strategies);
+		const auto mIter = m_runtimes.find(strategyId);
+		if (m_runtimes.end() == mIter || mIter->second != runtime || runtime->m_bRemoving.load())
+		{
+			return;
+		}
+		std::lock_guard<std::mutex> signalLock(m_mtx_signals);
+		if (0 != event.m_signalId)
+		{
+			m_signals[{ strategyId, event.m_signalId }] = SignalState::Rejected;
+		}
+	}
+	CStrategyEvent strategyEvent;
+	strategyEvent.m_type = StrategyEventType::Order;
+	strategyEvent.m_data = std::move(event);
+	EnqueueEvent(runtime, std::move(strategyEvent));
 }
 
 void CStrategyService::OnTradingEvent(const trade::CCounterEvent& event)
@@ -772,6 +840,7 @@ bool CStrategyService::CreateStrategy(const CStrategyConfig& cfg)
 		return false;
 	}
 	std::shared_ptr<CStrategyRuntime> runtime = std::make_shared<CStrategyRuntime>();
+	runtime->m_instanceId = m_nextInstanceId.fetch_add(1);
 	runtime->m_config = cfg;
 	runtime->m_strategy = std::move(strategy);
 	runtime->m_context = std::make_unique<CStrategyContext>(cfg.m_strategyId, cfg.m_account, this, m_pTradeService);
@@ -1543,7 +1612,7 @@ void CStrategyService::RestoreRequiredSubscriptions()
 	}
 }
 
-COrderSubmitResult CStrategyService::SubmitTradingOrder(const COrderIntent& intent)
+COrderSubmitResult CStrategyService::SubmitTradingOrder(const COrderIntent& intent, const std::shared_ptr<CStrategyRuntime>& runtime)
 {
 	if (!m_pTradeService->IsReady(intent.m_account))
 	{
@@ -1567,7 +1636,14 @@ COrderSubmitResult CStrategyService::SubmitTradingOrder(const COrderIntent& inte
 	params.m_order.m_nQuantity = intent.m_quantity;
 	params.m_order.m_nPriceScale = intent.m_nPriceScale;
 	std::uint64_t nClientId = params.m_order.m_clientId;
-	trade::CResult result = m_pTradeService->SendRequest(std::move(request), {});
+	if (nullptr == runtime || runtime->m_bRemoving.load())
+	{
+		return { false, false, nClientId, 0, "Strategy is unavailable" };
+	}
+	CRequest wire = trade::protocol::WriteRequest(request);
+	wire.SetExtraData("request_source", "Strategy");
+	wire.SetExtraData("strategy_instance_id", std::to_string(runtime->m_instanceId));
+	trade::CResult result = m_pTradeService->SendStrategyRequest(std::move(wire));
 	return { result.Ok(), !result.Ok(), nClientId, 0, result.Ok() ? "Request queued; await order event" : result.m_strMessage };
 }
 
@@ -1593,7 +1669,7 @@ COrderSubmitResult CStrategyService::SubmitOrder(_TyStrategyId id, const COrderI
 	COrderIntent routedIntent = intent;
 	routedIntent.m_strategyId = id;
 	routedIntent.m_account = runtime->m_config.m_account;
-	COrderSubmitResult result = SubmitTradingOrder(routedIntent);
+	COrderSubmitResult result = SubmitTradingOrder(routedIntent, runtime);
 	{
 		std::lock_guard<std::mutex> lock(m_mtx_signals);
 		if (!result.m_bAccepted && result.m_bRetryable)
@@ -1643,7 +1719,11 @@ bool CStrategyService::CancelOrder(_TyStrategyId id, _TyOrderId orderId)
 	trade::CReqParam request;
 	request.m_account = runtime->m_config.m_account;
 	request.m_param = trade::CCancelParam{ orderId };
-	return m_pTradeService->SendRequest(std::move(request), {}).Ok();
+	CRequest wire = trade::protocol::WriteRequest(request);
+	wire.SetExtraData("request_source", "Strategy");
+	wire.SetExtraData("strategy_id", std::to_string(id));
+	wire.SetExtraData("strategy_instance_id", std::to_string(runtime->m_instanceId));
+	return m_pTradeService->SendStrategyRequest(std::move(wire)).Ok();
 }
 
 CStrategySnapshot CStrategyService::MakeSnapshot(const std::shared_ptr<CStrategyRuntime>& runtime) const

@@ -282,6 +282,9 @@
     <ClInclude Include="strategy\CTradeService.h">
       <Filter>strategy</Filter>
     </ClInclude>
+    <ClInclude Include="strategy\TradeRequestRouting.h">
+      <Filter>strategy</Filter>
+    </ClInclude>
     <ClInclude Include="strategy\IStrategy.h">
       <Filter>strategy</Filter>
     </ClInclude>

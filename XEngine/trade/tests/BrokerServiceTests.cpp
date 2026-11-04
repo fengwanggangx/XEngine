@@ -1,5 +1,7 @@
 #include "../../strategy/CTradeService.h"
 #include "TradeProtocol.h"
+#include "../../strategy/CStrategyService.h"
+#include "../../strategy/CStrategyContext.h"
 #include <iostream>
 #include <stdexcept>
 static _TyAccount TestAccount(std::uint64_t number)
@@ -47,6 +49,151 @@ class CBrokerServiceTests
 		return trade::protocol::Push(event, {});
 	}
 
+	static CRequest StrategyRequest(CTradeService& service, _TyRequest type)
+	{
+		CRequest request;
+		request.SetId(42);
+		request.SetType(type);
+		WriteAccountIdentity(TestAccount(1), request);
+		request.SetExtraData("request_source", "Strategy");
+		request.SetExtraData("broker_connect_id", std::to_string(service.m_generation));
+		request.SetExtraData("strategy_id", "7");
+		request.SetExtraData("strategy_instance_id", "11");
+		request.SetExtraData("signal_id", "8");
+		request.SetExtraData("client_order_id", "42");
+		request.SetExtraData("security", "600000.SSE");
+		request.SetExtraData("quantity", "100");
+		return request;
+	}
+
+	static void TestRouting(CTradeService& service, CAccountService& accounts, CSession& session)
+	{
+		int replies = 0;
+		trade::Error lastError = trade::Error::None;
+		service.SetStrategyReplyHandler([&replies, &lastError](const CRequest& origin, const trade::CCounterReply& reply)
+		{
+			Check(42 == origin.GetId() && 42 == reply.m_requestId && TestAccount(1) == reply.m_account, "strategy reply restores original identity");
+			++replies;
+			lastError = reply.m_result.m_error;
+		});
+		CRequest origin = StrategyRequest(service, _TyRequest::TRADE_ORDER_SUBMIT);
+		CRequest response;
+		response.SetType(origin.GetType());
+		response.SetErrorInfo(static_cast<int>(trade::Error::Rejected), "rejected");
+		std::chrono::steady_clock::time_point deadline = std::chrono::steady_clock::now() - std::chrono::seconds(1);
+		service.m_pending.emplace(response.GetId(), CTradeService::CPending{ origin, deadline });
+		CRequest mismatch = response;
+		mismatch.SetType(_TyRequest::TRADE_FUNDS_QUERY);
+		service.OnRequestReply(mismatch);
+		Check(0 == replies && 1 == service.m_pending.size(), "wrong type preserves pending request");
+		service.OnRequestReply(response);
+		service.OnRequestReply(response);
+		Check(1 == replies && service.m_pending.empty() && trade::Error::Rejected == lastError, "reply completes exactly once");
+		service.m_pending.emplace(response.GetId(), CTradeService::CPending{ origin, deadline });
+		service.RefreshPending();
+		service.OnRequestReply(response);
+		Check(2 == replies && trade::Error::UnknownResult == lastError, "timeout completes once and ignores late reply");
+		service.m_pending.emplace(response.GetId(), CTradeService::CPending{ origin, deadline });
+		service.FailPending();
+		Check(3 == replies && service.m_pending.empty(), "disconnect drains pending requests");
+		origin.SetExtraData("broker_connect_id", std::to_string(service.m_generation + 1));
+		service.DispatchReply(origin, response);
+		Check(trade::Error::UnknownResult == lastError, "old connection cannot report definite rejection");
+		origin.SetExtraData("broker_connect_id", "invalid");
+		Check(!service.DispatchReply(origin, response) && 4 == replies, "malformed route does not invoke strategy handler");
+		origin.SetExtraData("request_source", "Client");
+		service.DispatchReply(origin, response);
+		Check(4 == replies, "client request with strategy fields never invokes strategy handler");
+		Prepare(service, 77);
+		CRequest sync = StrategyRequest(service, _TyRequest::TRADE_FUNDS_QUERY);
+		sync.SetExtraData("request_source", "AccountSync");
+		sync.SetExtraData("sync_cycle", "77");
+		CRequest failedQuery;
+		failedQuery.SetType(sync.GetType());
+		failedQuery.SetErrorInfo(static_cast<int>(trade::Error::UnknownResult), "query failed");
+		Check(service.DispatchReply(sync, failedQuery) && !service.m_syncing.contains(TestAccount(1)) && 4 == replies, "sync failure clears its cycle without routing to strategy");
+		Prepare(service, 78);
+		service.DispatchReply(sync, failedQuery);
+		Check(78 == service.m_syncing.at(TestAccount(1)).m_cycle, "old sync cycle cannot cancel new synchronization");
+		service.m_syncing.clear();
+		service.SetStrategyReplyHandler({});
+		TestStrategyReplies(service, accounts);
+		session.NotifyState(SessionState::Ready, "test ready");
+		accounts.m_accounts[TestAccount(1)].m_info.m_state = TradeAccountState::Connected;
+		service.m_snapshots[TestAccount(1)].m_bReady = true;
+		service.m_snapshots[TestAccount(1)].m_account.m_account = TestAccount(1);
+		service.m_snapshots[TestAccount(1)].m_account.m_bConnected = true;
+		service.m_snapshots[TestAccount(1)].m_account.m_bFundsValid = true;
+		service.SetStrategyReplyHandler([&replies, &lastError](const CRequest&, const trade::CCounterReply& reply)
+		{
+			++replies;
+			lastError = reply.m_result.m_error;
+		});
+		CRequest wire = StrategyRequest(service, _TyRequest::TRADE_ORDER_SUBMIT);
+		Check(service.SendStrategyRequest(std::move(wire)).Ok(), "write failure is completed through reply path");
+		Check(5 == replies && trade::Error::UnknownResult == lastError && service.m_pending.empty(), "write failure completes exactly once without retry");
+		CRequest spoof = StrategyRequest(service, _TyRequest::TRADE_FUNDS_QUERY);
+		service.HandleTradeRequest(spoof);
+		Check(5 == replies && service.m_pending.empty(), "client cannot spoof strategy routing source");
+		service.SetStrategyReplyHandler({});
+		session.ClearHandlers();
+	}
+
+	static void TestStrategyReplies(CTradeService& service, CAccountService& accounts)
+	{
+		CStrategyService strategies(nullptr, &service, &accounts);
+		std::shared_ptr<CStrategyRuntime> runtime = std::make_shared<CStrategyRuntime>();
+		runtime->m_instanceId = 11;
+		runtime->m_config.m_strategyId = 7;
+		runtime->m_config.m_account = TestAccount(1);
+		runtime->m_config.m_eventQueueLimit = 100;
+		runtime->m_state.store(StrategyState::Stopped);
+		runtime->m_bScheduled = true;
+		strategies.m_runtimes.emplace(7, runtime);
+		strategies.m_signals[{ 7, 8 }] = SignalState::Pending;
+		struct CRuntimeGuard
+		{
+			std::unordered_map<_TyStrategyId, std::shared_ptr<CStrategyRuntime>>& m_runtimes;
+			CStrategyRuntime& m_runtime;
+			~CRuntimeGuard()
+			{
+				m_runtimes.clear();
+				m_runtime.m_events.clear();
+				m_runtime.m_bScheduled = false;
+			}
+		};
+		CRuntimeGuard guard{ strategies.m_runtimes, *runtime };
+		CRequest origin = StrategyRequest(service, _TyRequest::TRADE_ORDER_SUBMIT);
+		trade::CCounterReply reply;
+		reply.m_account = TestAccount(1);
+		reply.m_operation = trade::Operation::Submit;
+		strategies.OnTradeRequestReply(origin, reply);
+		Check(runtime->m_events.empty(), "success waits for real order push");
+		reply.m_result = { trade::Error::UnknownResult, "uncertain" };
+		strategies.OnTradeRequestReply(origin, reply);
+		Check(runtime->m_events.empty() && SignalState::Pending == strategies.m_signals.at({ 7, 8 }), "uncertain result preserves signal deduplication");
+		reply.m_result = { trade::Error::Rejected, "rejected" };
+		reply.m_operation = trade::Operation::Cancel;
+		strategies.OnTradeRequestReply(origin, reply);
+		Check(runtime->m_events.empty(), "cancel failure does not reject original order");
+		reply.m_operation = trade::Operation::Submit;
+		origin.SetExtraData("strategy_instance_id", "10");
+		strategies.OnTradeRequestReply(origin, reply);
+		Check(runtime->m_events.empty(), "old strategy instance reply is ignored");
+		origin.SetExtraData("strategy_instance_id", "11");
+		reply.m_account = TestAccount(2);
+		strategies.OnTradeRequestReply(origin, reply);
+		Check(runtime->m_events.empty(), "wrong account reply is ignored");
+		reply.m_account = TestAccount(1);
+		strategies.OnTradeRequestReply(origin, reply);
+		Check(1 == runtime->m_events.size() && SignalState::Rejected == strategies.m_signals.at({ 7, 8 }) && StrategyState::Stopped == runtime->m_state.load(), "definite rejection queues existing order event without starting strategy");
+		strategies.m_runtimes.clear();
+		strategies.OnTradeRequestReply(origin, reply);
+		Check(1 == runtime->m_events.size(), "deleted strategy reply is ignored");
+		runtime->m_events.clear();
+		runtime->m_bScheduled = false;
+	}
+
 public:
 	static void Run()
 	{
@@ -55,12 +202,12 @@ public:
 		CAccountService accounts(&session);
 		CTradeService service(&accounts, &session);
 		service.m_bRunning.store(true);
-		CAccountInfo info = AccountInfo(TestAccount(1));
+		CAccountInfo info = FmtAccountInfo(TestAccount(1));
 		info.m_state = TradeAccountState::Connected;
 		accounts.m_accounts[TestAccount(1)].m_info = info;
 		accounts.SetAccountStateHandler(std::bind_front(&CTradeService::OnAccountState, &service));
-		session.RegisterHandler(std::bind_front(&CAccountService::OnResponse, &accounts));
-		session.RegisterHandler(std::bind_front(&CTradeService::OnResponse, &service));
+		session.RegisterHandler(std::bind_front(&CAccountService::OnRequestReply, &accounts));
+		session.RegisterHandler(std::bind_front(&CTradeService::OnRequestReply, &service));
 		session.RegisterStateHandler(std::bind_front(&CAccountService::OnBrokerState, &accounts));
 		session.RegisterStateHandler(std::bind_front(&CTradeService::OnBrokerState, &service));
 		service.SetEventHandler([&nFunds](const trade::CCounterEvent& event)
@@ -89,7 +236,10 @@ public:
 		CRequest response;
 		response.SetType(_TyRequest::TRADE_FUNDS_QUERY);
 		trade::protocol::WriteReply(query, response);
-		service.CompleteRequest(response, TestAccount(1), 2, trade::Operation::Funds, 0, {});
+		CRequest ordinaryQuery;
+		ordinaryQuery.SetType(_TyRequest::TRADE_FUNDS_QUERY);
+		ordinaryQuery.SetExtraData("request_source", "Client");
+		service.DispatchReply(ordinaryQuery, response);
 		Check(25 == service.Snapshot(TestAccount(1)).m_version && 150 == service.Snapshot(TestAccount(1)).m_account.m_nBalance, "ordinary query never replaces account cache");
 		session.NotifyState(SessionState::Disconnected, "test disconnect");
 		Check(!accounts.IsConnected(TestAccount(1)) && !service.IsReady(TestAccount(1)), "disconnect invalidates account connectivity and trade readiness");
@@ -118,99 +268,15 @@ public:
 		CRequest catalogue;
 		catalogue.SetData(request::TradeAccountList{});
 		Prepare(service, 5);
-		accounts.OnCatalogue(catalogue, accounts.m_generation - 1);
+		accounts.OnAccountListReply(catalogue, accounts.m_broker_connect_id - 1);
 		Check(accounts.HasAccount(TestAccount(1)) && service.m_syncing.contains(TestAccount(1)), "stale catalogue cannot remove current accounts");
-		accounts.OnCatalogue(catalogue, accounts.m_generation);
+		accounts.OnAccountListReply(catalogue, accounts.m_broker_connect_id);
 		service.RefreshTrades();
 		Check(!accounts.HasAccount(TestAccount(1)) && service.m_snapshots.empty() && service.m_syncing.empty(), "removed accounts discard snapshots and pending synchronization");
 		service.CompleteQuery(Trades(50), service.m_generation, 5);
 		Check(service.m_snapshots.empty(), "late query cannot recreate a removed account");
 
-		int accountReplies = 0;
-		int tradeReplies = 0;
-		CRequest responseA;
-		responseA.SetType(_TyRequest::TRADE_ACCOUNT_LOGIN);
-		CRequest responseB;
-		responseB.SetType(_TyRequest::TRADE_FUNDS_QUERY);
-		std::chrono::steady_clock::time_point deadline = std::chrono::steady_clock::now() - std::chrono::seconds(1);
-		accounts.m_pending.emplace(responseA.GetId(), CAccountService::CPending{ [&accountReplies](const CRequest&)
-		{
-			++accountReplies;
-			return true;
-		}, deadline, responseA.GetType() });
-		service.m_pending.emplace(responseB.GetId(), CTradeService::CPending{ [&tradeReplies](const CRequest&)
-		{
-			++tradeReplies;
-			return true;
-		}, deadline, responseB.GetType() });
-		CRequest mismatched = responseA;
-		mismatched.SetType(_TyRequest::TRADE_FUNDS_QUERY);
-		session.Dispatch(mismatched);
-		Check(0 == accountReplies && 0 == tradeReplies && 1 == accounts.m_pending.size(), "wrong response type does not consume a pending account request");
-		session.Dispatch(responseA);
-		session.Dispatch(responseA);
-		Check(1 == accountReplies && 0 == tradeReplies && accounts.m_pending.empty(), "shared session dispatches account response exactly once to its owner");
-		service.RefreshPending();
-		session.Dispatch(responseB);
-		Check(1 == tradeReplies && service.m_pending.empty(), "timeout completes trade request once and ignores late response");
-		accounts.m_pending.emplace(responseA.GetId(), CAccountService::CPending{ [&accountReplies](const CRequest& reply)
-		{
-			Check(static_cast<int>(trade::Error::UnknownResult) == reply.GetErrorInfo()->first, "disconnect leaves result unknown");
-			++accountReplies;
-			return true;
-		}, deadline, responseA.GetType() });
-		service.m_pending.emplace(responseB.GetId(), CTradeService::CPending{ [&tradeReplies](const CRequest& reply)
-		{
-			Check(static_cast<int>(trade::Error::UnknownResult) == reply.GetErrorInfo()->first, "disconnect leaves trade result unknown");
-			++tradeReplies;
-			return true;
-		}, deadline, responseB.GetType() });
-		session.NotifyState(SessionState::Disconnected, "test disconnect");
-		session.Dispatch(responseA);
-		session.Dispatch(responseB);
-		Check(2 == accountReplies && 2 == tradeReplies && accounts.m_pending.empty() && service.m_pending.empty(), "disconnect drains both services without replaying callbacks");
-		int staleReplies = 0;
-		service.CompleteRequest(response, TestAccount(1), 9, trade::Operation::Funds, service.m_generation - 1, [&staleReplies](const trade::CCounterReply& reply)
-		{
-			Check(trade::Error::UnknownResult == reply.m_result.m_error, "old connection response cannot succeed");
-			++staleReplies;
-		});
-		Check(1 == staleReplies, "stale connection response completes once");
-		session.NotifyState(SessionState::Ready, "test ready");
-		CRequest accountWire;
-		accountWire.SetId(42);
-		accountWire.SetType(_TyRequest::TRADE_ACCOUNT_LOGIN);
-		CRequest tradeWire;
-		tradeWire.SetId(42);
-		tradeWire.SetType(_TyRequest::TRADE_ORDER_SUBMIT);
-		int uncertainReplies = 0;
-		Check(accounts.SendWireRequest(std::move(accountWire), [&uncertainReplies](const CRequest& reply)
-		{
-			Check(static_cast<int>(trade::Error::UnknownResult) == reply.GetErrorInfo()->first, "account write failure reports uncertain result");
-			++uncertainReplies;
-			return true;
-		}),
-			"accepted account request completes even when socket write fails");
-		Check(service.SendWireRequest(std::move(tradeWire), [&uncertainReplies](const CRequest& reply)
-		{
-			Check(static_cast<int>(trade::Error::UnknownResult) == reply.GetErrorInfo()->first, "trade write failure reports uncertain result");
-			++uncertainReplies;
-			return true;
-		}),
-			"accepted trade request completes even when socket write fails");
-		Check(accountWire.GetId() != tradeWire.GetId() && "42" == accountWire.GetExtraData("source_request_id") && "42" == tradeWire.GetExtraData("source_request_id"), "services allocate distinct upstream IDs for identical terminal IDs");
-		accounts.RefreshPending();
-		service.RefreshPending();
-		Check(2 == uncertainReplies && accounts.m_pending.empty() && service.m_pending.empty(), "write failures complete once and are never retried");
-		session.ClearHandlers();
-
-		trade::CReqParam invalid;
-		int rejectedReplies = 0;
-		Check(!service.SendRequest(std::move(invalid), [&rejectedReplies](const trade::CCounterReply&)
-		{
-			++rejectedReplies;
-		}).Ok() && 0 == rejectedReplies,
-			"invalid account rejected without callback");
+		TestRouting(service, accounts, session);
 	}
 };
 int main()

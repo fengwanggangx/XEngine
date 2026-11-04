@@ -1,4 +1,5 @@
 #include "../../strategy/CTradeService.h"
+#include "TradeProtocol.h"
 #include <future>
 #include <iostream>
 static _TyAccount TestAccount(std::uint64_t number)
@@ -73,10 +74,13 @@ int main(int nArgs, char** pArgs)
 	std::get<trade::CSubmitParam>(request.m_param).m_order.m_nPrice = 1000;
 	std::get<trade::CSubmitParam>(request.m_param).m_order.m_nPriceScale = 2;
 	std::get<trade::CSubmitParam>(request.m_param).m_order.m_nQuantity = 100;
-	if (!client.SendRequest(std::move(request), [&completion](const trade::CCounterReply& reply)
+	client.SetStrategyReplyHandler([&completion](const CRequest&, const trade::CCounterReply& reply)
 	{
 		completion.set_value(reply);
-	}).Ok())
+	});
+	CRequest wire = trade::protocol::WriteRequest(request);
+	wire.SetExtraData("strategy_instance_id", "1");
+	if (!client.SendStrategyRequest(std::move(wire)).Ok())
 	{
 		return 4;
 	}

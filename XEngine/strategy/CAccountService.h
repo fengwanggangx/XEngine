@@ -38,38 +38,40 @@ public:
 private:
 	void NotifyState(const CAccountInfo& info);
 	void RefreshAccounts();
-	void OnCatalogue(const CRequest& response, std::uint64_t nGeneration);
+	void OnAccountListReply(const CRequest& response, std::uint64_t brokerConnectId);
 
 	void FailPending();
 	void RefreshPending();
 	bool OnRequestReply(const CRequest& req);
-	bool SendRequest(CRequest&& request, _TyRequestNotify&& handler);
+	bool SendRequest(CRequest&& request);
 
 	struct CAccountRuntime
 	{
 		CAccountInfo m_info;
 		std::size_t m_useCount{ 0 };
-		bool m_bListed{ true };
+		bool m_bAtAccountList{ true };
 		bool m_bDisconnecting{ false };
 	};
 
 	void FinishDisconnect(const _TyAccount& account);
+	bool OnAccountReply(const CRequest& origin, const CRequest& reply);
 
 	struct CPending
 	{
-		_TyRequestNotify m_handler;
+		CRequest m_origin;
 		std::chrono::steady_clock::time_point m_deadline;
-		_TyRequest m_type{ _TyRequest::UNKNOWN };
 	};
 
-	std::mutex m_mtx_requests;
+	bool DispatchReply(const CRequest& origin, const CRequest& reply);
+
+	std::shared_mutex m_mtx_requests;
 	std::unordered_map<_TyRequestId, CPending> m_pending;
 	CSession* m_pSession{ nullptr };
 	mutable std::shared_mutex m_mtx_accounts;
 	std::map<_TyAccount, CAccountRuntime> m_accounts;
 	_TyRequestNotify m_pushHandler;
 	_TyAccountStateHandler m_accountStateHandler;
-	std::uint64_t m_generation{ 0 };
+	std::uint64_t m_broker_connect_id{ 0 };
 	std::atomic_bool m_bStopping{ false };
 	std::jthread m_refresh;
 	std::mutex m_mtx_wait;

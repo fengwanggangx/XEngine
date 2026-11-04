@@ -2,6 +2,7 @@
 #include "CAccountService.h"
 #include "../trade/TradingTypes.h"
 #include <array>
+#include <optional>
 #include <unordered_map>
 
 class CTradeService final
@@ -10,7 +11,7 @@ class CTradeService final
 	friend class CBrokerServiceTests;
 
 public:
-	using _TyReplyHandler = std::function<void(const trade::CCounterReply&)>;
+	using _TyStrategyReplyHandler = std::function<void(const CRequest&, const trade::CCounterReply&)>;
 	using _TyEventHandler = std::function<void(const trade::CCounterEvent&)>;
 	using _TyAccountReadyHandler = std::function<void(const _TyAccount&)>;
 
@@ -32,7 +33,8 @@ public:
 	void OnBrokerState(SessionState state, const std::string& reason = {});
 	const std::string& GetLastError() const;
 	bool HandleTradeRequest(const CRequest& req);
-	trade::CResult SendRequest(trade::CReqParam&& request, _TyReplyHandler&& handler);
+	trade::CResult SendStrategyRequest(CRequest&& request);
+	void SetStrategyReplyHandler(_TyStrategyReplyHandler&& handler);
 
 private:
 	void RefreshTrades();
@@ -45,16 +47,15 @@ private:
 	void FailPending();
 	void RefreshPending();
 	bool OnRequestReply(const CRequest& req);
-	bool SendRequest(CRequest&& request, _TyRequestNotify&& handler);
-	trade::CResult SendBrokerRequest(trade::CReqParam&& request, _TyReplyHandler&& handler);
-	void CompleteRequest(const CRequest& response, const _TyAccount& account, std::uint64_t nRequestId, trade::Operation operation, std::uint64_t nGeneration, const _TyReplyHandler& handler);
 
 	struct CPending
 	{
-		_TyRequestNotify m_handler;
+		CRequest m_origin;
 		std::chrono::steady_clock::time_point m_deadline;
-		_TyRequest m_type{ _TyRequest::UNKNOWN };
 	};
+
+	bool SendRequest(CRequest&& request);
+	bool DispatchReply(const CRequest& origin, const CRequest& reply);
 
 	std::mutex m_mtx_requests;
 	std::unordered_map<_TyRequestId, CPending> m_pending;
@@ -81,6 +82,7 @@ private:
 	std::condition_variable m_wake;
 
 	std::mutex m_mtx_handlers;
+	_TyStrategyReplyHandler m_strategyReplyHandler;
 	_TyEventHandler m_eventHandler;
 	_TyRequestNotify m_pushHandler;
 	_TyAccountReadyHandler m_accountReadyHandler;
