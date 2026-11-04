@@ -1,5 +1,6 @@
 #include "../../strategy/CTradeService.h"
-#include "TradeProtocol.h"
+#include "../TradeProtocol.h"
+#include "../../system/CEngineCenter.h"
 #include <future>
 #include <iostream>
 static _TyAccount TestAccount(std::uint64_t number)
@@ -29,6 +30,9 @@ int main(int nArgs, char** pArgs)
 	CSession broker(info);
 	CAccountService accounts(&broker);
 	CTradeService client(&accounts, &broker);
+	CEngineCenter center(nullptr, nullptr, &broker, nullptr, nullptr, &client, &accounts);
+	broker.RegisterHandler(std::bind_front(&CEngineCenter::OnReply, &center, SessionSource::Broker));
+	broker.RegisterStateHandler(std::bind_front(&CEngineCenter::OnSessionState, &center, SessionSource::Broker));
 	struct CBrokerGuard
 	{
 		CSession* m_pBroker;

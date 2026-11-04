@@ -1,3 +1,4 @@
+#include "../../system/CEngineCenter.h"
 #include "../../strategy/CTradeService.h"
 #include "TradeProtocol.h"
 #include "../../strategy/CStrategyService.h"
@@ -84,14 +85,14 @@ class CBrokerServiceTests
 		service.m_pending.emplace(response.GetId(), CTradeService::CPending{ origin, deadline });
 		CRequest mismatch = response;
 		mismatch.SetType(_TyRequest::TRADE_FUNDS_QUERY);
-		service.OnRequestReply(mismatch);
+		service.OnReply(mismatch);
 		Check(0 == replies && 1 == service.m_pending.size(), "wrong type preserves pending request");
-		service.OnRequestReply(response);
-		service.OnRequestReply(response);
+		service.OnReply(response);
+		service.OnReply(response);
 		Check(1 == replies && service.m_pending.empty() && trade::Error::Rejected == lastError, "reply completes exactly once");
 		service.m_pending.emplace(response.GetId(), CTradeService::CPending{ origin, deadline });
 		service.RefreshPending();
-		service.OnRequestReply(response);
+		service.OnReply(response);
 		Check(2 == replies && trade::Error::UnknownResult == lastError, "timeout completes once and ignores late reply");
 		service.m_pending.emplace(response.GetId(), CTradeService::CPending{ origin, deadline });
 		service.FailPending();
@@ -133,7 +134,7 @@ class CBrokerServiceTests
 		Check(service.SendStrategyRequest(std::move(wire)).Ok(), "write failure is completed through reply path");
 		Check(5 == replies && trade::Error::UnknownResult == lastError && service.m_pending.empty(), "write failure completes exactly once without retry");
 		CRequest spoof = StrategyRequest(service, _TyRequest::TRADE_FUNDS_QUERY);
-		service.HandleTradeRequest(spoof);
+		service.OnRequest(spoof);
 		Check(5 == replies && service.m_pending.empty(), "client cannot spoof strategy routing source");
 		service.SetStrategyReplyHandler({});
 		session.ClearHandlers();
@@ -167,28 +168,28 @@ class CBrokerServiceTests
 		trade::CCounterReply reply;
 		reply.m_account = TestAccount(1);
 		reply.m_operation = trade::Operation::Submit;
-		strategies.OnTradeRequestReply(origin, reply);
+		strategies.OnReply(origin, reply);
 		Check(runtime->m_events.empty(), "success waits for real order push");
 		reply.m_result = { trade::Error::UnknownResult, "uncertain" };
-		strategies.OnTradeRequestReply(origin, reply);
+		strategies.OnReply(origin, reply);
 		Check(runtime->m_events.empty() && SignalState::Pending == strategies.m_signals.at({ 7, 8 }), "uncertain result preserves signal deduplication");
 		reply.m_result = { trade::Error::Rejected, "rejected" };
 		reply.m_operation = trade::Operation::Cancel;
-		strategies.OnTradeRequestReply(origin, reply);
+		strategies.OnReply(origin, reply);
 		Check(runtime->m_events.empty(), "cancel failure does not reject original order");
 		reply.m_operation = trade::Operation::Submit;
 		origin.SetExtraData("strategy_instance_id", "10");
-		strategies.OnTradeRequestReply(origin, reply);
+		strategies.OnReply(origin, reply);
 		Check(runtime->m_events.empty(), "old strategy instance reply is ignored");
 		origin.SetExtraData("strategy_instance_id", "11");
 		reply.m_account = TestAccount(2);
-		strategies.OnTradeRequestReply(origin, reply);
+		strategies.OnReply(origin, reply);
 		Check(runtime->m_events.empty(), "wrong account reply is ignored");
 		reply.m_account = TestAccount(1);
-		strategies.OnTradeRequestReply(origin, reply);
+		strategies.OnReply(origin, reply);
 		Check(1 == runtime->m_events.size() && SignalState::Rejected == strategies.m_signals.at({ 7, 8 }) && StrategyState::Stopped == runtime->m_state.load(), "definite rejection queues existing order event without starting strategy");
 		strategies.m_runtimes.clear();
-		strategies.OnTradeRequestReply(origin, reply);
+		strategies.OnReply(origin, reply);
 		Check(1 == runtime->m_events.size(), "deleted strategy reply is ignored");
 		runtime->m_events.clear();
 		runtime->m_bScheduled = false;
@@ -206,10 +207,9 @@ public:
 		info.m_state = TradeAccountState::Connected;
 		accounts.m_accounts[TestAccount(1)].m_info = info;
 		accounts.SetAccountStateHandler(std::bind_front(&CTradeService::OnAccountState, &service));
-		session.RegisterHandler(std::bind_front(&CAccountService::OnRequestReply, &accounts));
-		session.RegisterHandler(std::bind_front(&CTradeService::OnRequestReply, &service));
-		session.RegisterStateHandler(std::bind_front(&CAccountService::OnBrokerState, &accounts));
-		session.RegisterStateHandler(std::bind_front(&CTradeService::OnBrokerState, &service));
+		CEngineCenter center(nullptr, nullptr, &session, nullptr, nullptr, &service, &accounts);
+		session.RegisterHandler(std::bind_front(&CEngineCenter::OnReply, &center, SessionSource::Broker));
+		session.RegisterStateHandler(std::bind_front(&CEngineCenter::OnSessionState, &center, SessionSource::Broker));
 		service.SetEventHandler([&nFunds](const trade::CCounterEvent& event)
 		{
 			if (trade::EventTy::Funds == event.m_kind)

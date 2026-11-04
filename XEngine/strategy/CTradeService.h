@@ -11,42 +11,42 @@ class CTradeService final
 	friend class CBrokerServiceTests;
 
 public:
+	bool OnReply(const CRequest& req);
 	using _TyStrategyReplyHandler = std::function<void(const CRequest&, const trade::CCounterReply&)>;
 	using _TyEventHandler = std::function<void(const trade::CCounterEvent&)>;
 	using _TyAccountReadyHandler = std::function<void(const _TyAccount&)>;
 
-	CTradeService(CAccountService* pAccountService, CSession* pSession);
+	void Stop();
 	~CTradeService();
 	bool Initialize();
-	void Stop();
 	bool IsReady(const _TyAccount& account) const;
-	trade::CAccountData Snapshot(const _TyAccount& account) const;
-	CAccountSnapshot GetAccount(const _TyAccount& account) const;
-	CPositionSnapshot GetPosition(const _TyAccount& account, const CSecurity& security) const;
-	std::vector<trade::COrder> GetOrders(const _TyAccount& account) const;
-	bool HasActiveOrders(const _TyAccount& account) const;
-	void SetEventHandler(_TyEventHandler&& handler);
-	void SetPushHandler(_TyRequestNotify&& handler);
-	void SetAccountReadyHandler(_TyAccountReadyHandler&& handler);
 	void OnAccountState(const _TyAccount& account);
 	void OnBrokerEvent(trade::CCounterEvent event);
+	void SetEventHandler(_TyEventHandler&& handler);
+	void SetPushHandler(_TyRequestNotify&& handler);
+	bool HasActiveOrders(const _TyAccount& account) const;
+	CAccountSnapshot GetAccount(const _TyAccount& account) const;
+	trade::CAccountData Snapshot(const _TyAccount& account) const;
+	void SetAccountReadyHandler(_TyAccountReadyHandler&& handler);
+	CTradeService(CAccountService* pAccountService, CSession* pSession);
+	std::vector<trade::COrder> GetOrders(const _TyAccount& account) const;
 	void OnBrokerState(SessionState state, const std::string& reason = {});
+	CPositionSnapshot GetPosition(const _TyAccount& account, const CSecurity& security) const;
 	const std::string& GetLastError() const;
-	bool HandleTradeRequest(const CRequest& req);
+	bool OnRequest(const CRequest& req);
 	trade::CResult SendStrategyRequest(CRequest&& request);
 	void SetStrategyReplyHandler(_TyStrategyReplyHandler&& handler);
 
 private:
 	void RefreshTrades();
+	void QueryAccount(const _TyAccount& account);
 	void PublishEvent(const trade::CCounterEvent& event);
 	void ApplyEvent(trade::CAccountData& data, trade::CCounterEvent& event);
-	void QueryAccount(const _TyAccount& account);
-	void QueryNext(const _TyAccount& account, std::uint64_t nGeneration, std::uint64_t nCycle, trade::Operation operation);
 	void CompleteQuery(const trade::CCounterReply& reply, std::uint64_t nGeneration, std::uint64_t nCycle);
+	void QueryNext(const _TyAccount& account, std::uint64_t nGeneration, std::uint64_t nCycle, trade::Operation operation);
 
 	void FailPending();
 	void RefreshPending();
-	bool OnRequestReply(const CRequest& req);
 
 	struct CPending
 	{

@@ -5,7 +5,8 @@
 #include "../network/CHttpServer.h"
 #include "../network/CTcpServer.h"
 #include "CSession.h"
-#include "CEngineService.h"
+#include "CEngineCenter.h"
+#include "CHQService.h"
 #include "../strategy/CTradeService.h"
 #include "../strategy/CAccountService.h"
 #include "../strategy/CStrategyService.h"
@@ -33,7 +34,7 @@ bool CBootLoader::Initialize()
 		return true;
 	}
 
-	if (nullptr != m_pTcpServer || nullptr != m_pHttpServer || nullptr != m_pHQMarket || nullptr != m_pBroker || nullptr != m_pAccountService || nullptr != m_pTradeService || nullptr != m_pStrategyService || nullptr != m_pEngineService)
+	if (nullptr != m_pTcpServer || nullptr != m_pHttpServer || nullptr != m_pHQMarket || nullptr != m_pBroker || nullptr != m_pAccountService || nullptr != m_pTradeService || nullptr != m_pStrategyService || nullptr != m_pEngineCenter || nullptr != m_pHQService)
 	{
 		Finalize();
 	}
@@ -135,11 +136,12 @@ bool CBootLoader::Initialize()
 		m_strLastError = m_pStrategyService->GetLastError();
 		return false;
 	}
-	m_pEngineService = new CEngineService(m_pTcpServer, m_pHQMarket, m_pStrategyService, m_pTradeService, m_pAccountService);
-	if (!m_pEngineService->Initialize())
+	m_pHQService = new CHQService(m_pHQMarket);
+	m_pEngineCenter = new CEngineCenter(m_pTcpServer, m_pHQMarket, m_pBroker, m_pHQService, m_pStrategyService, m_pTradeService, m_pAccountService);
+	if (!m_pEngineCenter->Initialize())
 	{
 		m_nErrorCode = 11;
-		m_strLastError = "Engine service initialization failed";
+		m_strLastError = "Engine center initialization failed";
 		return false;
 	}
 	m_pAccountService->SetAccountStateHandler(std::bind_front(&CTradeService::OnAccountState, m_pTradeService));
@@ -225,9 +227,15 @@ void CBootLoader::Finalize()
 	{
 		m_pBroker->ClearHandlers();
 	}
+	if (nullptr != m_pHQMarket)
+	{
+		m_pHQMarket->ClearHandlers();
+	}
 	// All callback producers have stopped; borrowers can now be destroyed.
-	delete m_pEngineService;
-	m_pEngineService = nullptr;
+	delete m_pEngineCenter;
+	m_pEngineCenter = nullptr;
+	delete m_pHQService;
+	m_pHQService = nullptr;
 	delete m_pStrategyService;
 	m_pStrategyService = nullptr;
 	delete m_pTradeService;

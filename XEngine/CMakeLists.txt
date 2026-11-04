@@ -24,7 +24,7 @@ file(GLOB strategySources CONFIGURE_DEPENDS strategy/*.cpp strategy/strategies/*
 file(GLOB tradingSources CONFIGURE_DEPENDS trade/*.cpp)
 add_library(xengine_trading STATIC ${tradingSources})
 target_link_libraries(xengine_trading PUBLIC xengine_support)
-add_library(xengine_services STATIC system/CEngineService.cpp system/CSubscriptionMgr.cpp ${strategySources})
+add_library(xengine_services STATIC system/CEngineCenter.cpp system/CHQService.cpp system/CSubscriptionMgr.cpp ${strategySources})
 target_link_libraries(xengine_services PUBLIC xengine_trading)
 add_executable(XEngine main.cpp system/CBootLoader.cpp)
 target_link_libraries(XEngine PRIVATE xengine_services)

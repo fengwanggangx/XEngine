@@ -116,71 +116,73 @@ class CStrategyService final
 	using _TyStateHandler = std::function<void(const CStrategySnapshot&)>;
 
 public:
-	CStrategyService(CSession* pSession, CTradeService* pTradeService, CAccountService* pAccountService);
 	~CStrategyService();
 	CStrategyService(const CStrategyService& arg) = delete;
 	CStrategyService& operator=(const CStrategyService& arg) = delete;
+	CStrategyService(CSession* pSession, CTradeService* pTradeService, CAccountService* pAccountService);
 
 public:
 	bool Initialize();
-	bool HandleStrategyRequest(const CRequest& req);
-	std::unique_ptr<IStrategy> CreateStrategy(const std::string& strType) const;
-	bool CreateStrategy(const CStrategyConfig& config);
+	bool OnRequest(const CRequest& req);
 	bool RemoveStrategy(_TyStrategyId id);
+	bool CreateStrategy(const CStrategyConfig& config);
+	std::unique_ptr<IStrategy> CreateStrategy(const std::string& strType) const;
 
 	const std::string& GetLastError() const;
 
 public:
+	void StopAll();
+	bool StopStrategy(_TyStrategyId id);
 	bool StartStrategy(_TyStrategyId id);
 	bool PauseStrategy(_TyStrategyId id);
-	bool StopStrategy(_TyStrategyId id);
-	void StopAll();
 
 public:
-	std::optional<CStrategySnapshot> GetSnapshot(_TyStrategyId id) const;
+	bool IsMarketAvailable() const;
 	std::vector<CStrategySnapshot> GetSnapshots() const;
 	void RegisterStateHandler(_TyStateHandler&& handler);
-	bool IsMarketAvailable() const;
+	std::optional<CStrategySnapshot> GetSnapshot(_TyStrategyId id) const;
+
+public:
+	bool OnReply(const CRequest& req);
+	void OnHQMarketState(SessionState state, const std::string& strReason);
+	void OnReply(const CRequest& origin, const trade::CCounterReply& reply);
 
 private:
-	bool OnHQMarketResponse(const CRequest& req);
-	void OnHQMarketState(SessionState state, const std::string& strReason);
-	bool BeginAccountUse(const _TyAccount& account, _TyStrategyId strategyId);
-	void EndAccountUse(const _TyAccount& account, _TyStrategyId strategyId);
-	void OnTradingEvent(const trade::CCounterEvent& event);
-	void OnTradeRequestReply(const CRequest& origin, const trade::CCounterReply& reply);
-	COrderSubmitResult SubmitTradingOrder(const COrderIntent& intent, const std::shared_ptr<CStrategyRuntime>& runtime);
 	void OnOrderEvent(const COrderEvent& ev);
 	void OnTradeEvent(const CTradeEvent& ev);
 	void OnAccountReady(const _TyAccount& account);
+	void OnTradingEvent(const trade::CCounterEvent& event);
+	void EndAccountUse(const _TyAccount& account, _TyStrategyId strategyId);
+	bool BeginAccountUse(const _TyAccount& account, _TyStrategyId strategyId);
+	COrderSubmitResult SubmitTradingOrder(const COrderIntent& intent, const std::shared_ptr<CStrategyRuntime>& runtime);
 
 private:
-	std::shared_ptr<CStrategyRuntime> FindRuntime(_TyStrategyId id) const;
-	bool ExecuteControl(_TyStrategyId id, StrategyEventType type);
-	bool EnqueueEvent(const std::shared_ptr<CStrategyRuntime>& runtime, CStrategyEvent&& ev);
-	void DrainEvents(const std::shared_ptr<CStrategyRuntime>& runtime);
-	bool DispatchEvent(CStrategyRuntime& runtime, CStrategyEvent& ev);
-	void HandleStrategyException(CStrategyRuntime& runtime, const std::string& strError);
-	void RouteMarketEvent(const std::string& strKey, CStrategyEvent&& ev);
-	void AddRoutes(const CStrategyConfig& cfg);
-	void RemoveRoutes(const CStrategyConfig& cfg);
-	void SubscribeRequiredQuotes(const CStrategyConfig& cfg);
-	void UnsubscribeUnusedQuotes(const CStrategyConfig& cfg);
-	void RestoreRequiredSubscriptions();
-	COrderSubmitResult SubmitOrder(_TyStrategyId id, const COrderIntent& intent);
-	bool CancelOrder(_TyStrategyId id, _TyOrderId orderId);
-	CStrategySnapshot MakeSnapshot(const std::shared_ptr<CStrategyRuntime>& runtime) const;
-	void NotifySnapshot(const std::shared_ptr<CStrategyRuntime>& runtime);
-	void WaitUntilIdle(const std::shared_ptr<CStrategyRuntime>& runtime);
-	static std::string GetMarketKey(const CRequest& req);
-	static bool IsFinishedOrderStatus(OrderStatus status);
 	bool LoadStrategies();
+	void RestoreRequiredSubscriptions();
 	bool AddStrategy(const CRequest& req);
 	bool ModifyStrategy(const CRequest& req);
-	bool QueryStrategies(const CRequest& req) const;
 	bool DeleteStrategy(const CRequest& req);
-	bool QueryRuntime(const CRequest& req) const;
 	bool ControlStrategy(const CRequest& req);
+	void AddRoutes(const CStrategyConfig& cfg);
+	bool QueryRuntime(const CRequest& req) const;
+	void RemoveRoutes(const CStrategyConfig& cfg);
+	bool QueryStrategies(const CRequest& req) const;
+	static std::string GetMarketKey(const CRequest& req);
+	static bool IsFinishedOrderStatus(OrderStatus status);
+	bool CancelOrder(_TyStrategyId id, _TyOrderId orderId);
+	void SubscribeRequiredQuotes(const CStrategyConfig& cfg);
+	void UnsubscribeUnusedQuotes(const CStrategyConfig& cfg);
+	bool ExecuteControl(_TyStrategyId id, StrategyEventType type);
+	bool DispatchEvent(CStrategyRuntime& runtime, CStrategyEvent& ev);
+	void DrainEvents(const std::shared_ptr<CStrategyRuntime>& runtime);
+	void WaitUntilIdle(const std::shared_ptr<CStrategyRuntime>& runtime);
+	std::shared_ptr<CStrategyRuntime> FindRuntime(_TyStrategyId id) const;
+	void RouteMarketEvent(const std::string& strKey, CStrategyEvent&& ev);
+	void NotifySnapshot(const std::shared_ptr<CStrategyRuntime>& runtime);
+	COrderSubmitResult SubmitOrder(_TyStrategyId id, const COrderIntent& intent);
+	void HandleStrategyException(CStrategyRuntime& runtime, const std::string& strError);
+	CStrategySnapshot MakeSnapshot(const std::shared_ptr<CStrategyRuntime>& runtime) const;
+	bool EnqueueEvent(const std::shared_ptr<CStrategyRuntime>& runtime, CStrategyEvent&& ev);
 
 private:
 	std::mutex m_mtx_accountUsers;

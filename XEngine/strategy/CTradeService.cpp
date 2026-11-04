@@ -28,8 +28,6 @@ bool CTradeService::Initialize()
 	m_strLastError.clear();
 	m_pAccountService->SetAccountStateHandler(std::bind_front(&CTradeService::OnAccountState, this));
 	m_bRunning.store(true);
-	m_pSession->RegisterHandler(std::bind_front(&CTradeService::OnRequestReply, this));
-	m_pSession->RegisterStateHandler(std::bind_front(&CTradeService::OnBrokerState, this));
 	m_refresh = std::jthread([this](std::stop_token stop)
 	{
 		while (!stop.stop_requested())
@@ -98,7 +96,7 @@ trade::CResult CTradeService::SendStrategyRequest(CRequest&& request)
 	return SendRequest(std::move(request)) ? trade::CResult{} : trade::CResult{ trade::Error::Unavailable, "XBroker is unavailable" };
 }
 
-bool CTradeService::HandleTradeRequest(const CRequest& req)
+bool CTradeService::OnRequest(const CRequest& req)
 {
 	if (!m_bRunning.load())
 	{
@@ -347,10 +345,10 @@ void CTradeService::CompleteQuery(const trade::CCounterReply& reply, std::uint64
 					continue;
 				}
 				trade::CCounterEvent ev;
-				event.m_account = account;
-				event.m_kind = trade::EventTy::Deal;
-				event.m_trade = row;
-				event.m_funds = cached.m_account;
+				ev.m_account = account;
+				ev.m_kind = trade::EventTy::Deal;
+				ev.m_trade = row;
+				ev.m_funds = cached.m_account;
 				for (const auto& order : cached.m_orders)
 				{
 					if (row.m_orderId == order.m_orderId)
@@ -397,7 +395,7 @@ void CTradeService::CompleteQuery(const trade::CCounterReply& reply, std::uint64
 			trade::CCounterEvent session;
 			session.m_account = account;
 			session.m_kind = trade::EventTy::Session;
-			session.m_account = cached.m_account;
+			session.m_funds = cached.m_account;
 			notifications.emplace_back(session);
 			m_syncing.erase(pending);
 		}
@@ -457,7 +455,7 @@ void CTradeService::ApplyEvent(trade::CAccountData& data, trade::CCounterEvent& 
 		}
 	}
 	std::uint64_t previous = data.m_version;
-	trade::UpdateAccountData(data, event);
+	trade::UpdateAccountData(data, ev);
 	if (0 == ev.m_sequence)
 	{
 		data.m_version = previous;
@@ -677,12 +675,12 @@ bool CTradeService::SendRequest(CRequest&& request)
 		response.SetId(nId);
 		response.SetType(request.GetType());
 		response.SetErrorInfo(static_cast<int>(trade::Error::UnknownResult), "XBroker write failed; reconcile before retry");
-		OnRequestReply(response);
+		OnReply(response);
 	}
 	return true;
 }
 
-bool CTradeService::OnRequestReply(const CRequest& req)
+bool CTradeService::OnReply(const CRequest& req)
 {
 	if (!m_bRunning.load())
 	{
@@ -833,6 +831,6 @@ void CTradeService::RefreshPending()
 		response.SetId(item.first);
 		response.SetType(item.second);
 		response.SetErrorInfo(static_cast<int>(trade::Error::UnknownResult), "XBroker request timed out; reconcile before retry");
-		OnRequestReply(response);
+		OnReply(response);
 	}
 }

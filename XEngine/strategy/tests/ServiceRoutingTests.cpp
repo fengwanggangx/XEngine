@@ -1,8 +1,12 @@
 #include "../CTradeService.h"
 #include "../CStrategyService.h"
-#include "../../system/CEngineService.h"
+#include "../CStrategyContext.h"
+#include "../../system/CEngineCenter.h"
+#include "../../system/CHQService.h"
+#include "../../trade/TradeProtocol.h"
 #include "../../request/request.pb.h"
 #include "../../network/CNetPool.h"
+#include "../../network/CTcpServer.h"
 #include "../../network/CFrameBuffer.h"
 #include <event2/event.h>
 #include <event2/buffer.h>
@@ -37,6 +41,118 @@ class CServiceRoutingTests
 		return response;
 	}
 
+	static void TestBrokerRouting(bufferevent* event, CEngineCenter& center, CAccountService& accounts, CTradeService& trader)
+	{
+		CRequest origin;
+		origin.SetId(301);
+		origin.SetConnectionId(7070);
+		origin.SetType(_TyRequest::TRADE_ACCOUNT_LOGIN);
+		std::chrono::steady_clock::time_point deadline = std::chrono::steady_clock::now() + std::chrono::seconds(15);
+		accounts.m_pending.emplace(9101, CAccountService::CPending{ origin, deadline });
+		CRequest response;
+		response.SetId(9101);
+		response.SetType(origin.GetType());
+		response.SetErrorInfo(1007, "test rejection");
+		Check(!center.OnReply(SessionSource::HQMarket, response) && accounts.m_pending.contains(9101), "HQ response cannot consume Broker pending state");
+		Check(center.OnReply(SessionSource::Broker, response) && accounts.m_pending.empty(), "Broker login response reaches account service");
+		Check(301 == LastResponse(event).GetId(), "account response restores original client request id");
+		Check(!center.OnReply(SessionSource::Broker, response), "duplicate account response is ignored");
+
+		origin.SetId(302);
+		origin.SetType(_TyRequest::TRADE_FUNDS_QUERY);
+		origin.SetExtraData("request_source", "Client");
+		trader.m_pending.emplace(9102, CTradeService::CPending{ origin, deadline });
+		response.SetId(9102);
+		response.SetType(_TyRequest::TRADE_ORDER_QUERY);
+		Check(!center.OnReply(SessionSource::Broker, response) && trader.m_pending.contains(9102), "mismatched trade response preserves pending request");
+		response.SetType(origin.GetType());
+		Check(center.OnReply(SessionSource::Broker, response) && trader.m_pending.empty(), "Broker funds response reaches trade service");
+		Check(302 == LastResponse(event).GetId(), "trade response restores original client request id");
+		Check(!center.OnReply(SessionSource::Broker, response), "duplicate trade response is ignored");
+	}
+
+	static void TestMarketRouting(bufferevent* event, CEngineCenter& center, CHQService& market, CStrategyService& strategies)
+	{
+		CRequest query;
+		query.SetId(201);
+		query.SetConnectionId(7070);
+		query.SetType(_TyRequest::MARKET_QUOTE_QUERY);
+		query.SetExtraData("security", "600519.SSE");
+		std::string key = market.GetQueryKey(query);
+		CHQService::CPendingQuery pending;
+		pending.m_routerId = 9001;
+		pending.m_strKey = key;
+		pending.m_type = query.GetType();
+		pending.m_deadline = std::chrono::steady_clock::now() + std::chrono::seconds(10);
+		pending.m_clients.push_back({ 7070, 200 });
+		market.m_pendingQueries.emplace(key, pending);
+		center.OnRequest(query);
+		Check(2 == market.m_pendingQueries.at(key).m_clients.size(), "identical client market queries merge");
+		CRequest response;
+		response.SetId(9001);
+		response.SetType(query.GetType());
+		Check(center.OnReply(SessionSource::HQMarket, response), "HQ reply reaches the pending query owner");
+		Check(201 == LastResponse(event).GetId() && market.m_pendingQueries.empty(), "market response restores client request identity and consumes pending state");
+		Check(!center.OnReply(SessionSource::Broker, response), "wrong upstream cannot consume a market response");
+
+		CQuoteInfo quote("600519", Exchange::sse, Channel::quote);
+		market.m_subscriptions.Subscribe(7070, { quote });
+		market.m_pendingBatchSubscriptions.emplace(9002, CHQService::CPendingSubscriptionBatch{ { 7070, 202 }, _TyRequest::MARKET_SUBSCRIBE, pending.m_deadline, { quote }, { quote } });
+		response.SetId(9002);
+		response.SetType(_TyRequest::MARKET_SUBSCRIBE);
+		response.SetErrorInfo(1006, "rejected");
+		center.OnReply(SessionSource::HQMarket, response);
+		Check(!market.m_subscriptions.IsSubscribed(7070, quote) && 202 == LastResponse(event).GetId(), "subscription failure rolls back client subscription");
+
+		market.m_subscriptions.Subscribe(7070, { quote });
+		market.m_pendingBatchSubscriptions.emplace(9003, CHQService::CPendingSubscriptionBatch{ { 7070, 203 }, _TyRequest::MARKET_SUBSCRIBE, pending.m_deadline, { quote }, { quote } });
+		CRequest accepted;
+		accepted.SetId(9003);
+		accepted.SetType(_TyRequest::MARKET_SUBSCRIBE);
+		center.OnReply(SessionSource::HQMarket, accepted);
+		Check(market.m_subscriptions.IsSubscribed(7070, quote) && 203 == LastResponse(event).GetId(), "successful subscription ACK retains subscription and original id");
+		market.m_pendingBatchSubscriptions.emplace(9004, CHQService::CPendingSubscriptionBatch{ { 7070, 204 }, _TyRequest::MARKET_SUBSCRIBE, std::chrono::steady_clock::time_point::min(), { quote }, { quote } });
+		market.ExpirePendingSubscriptions();
+		Check(!market.m_subscriptions.IsSubscribed(7070, quote) && LastResponse(event).GetErrorInfo().has_value(), "subscription timeout rolls back subscription");
+
+		market.m_subscriptions.Subscribe(7070, { quote });
+		strategies.m_bMarketAvailable.store(true);
+		// Hold the synthetic runtime scheduled so no worker is needed to observe delivery.
+		std::shared_ptr<CStrategyRuntime> runtime = std::make_shared<CStrategyRuntime>();
+		runtime->m_bAcceptMarketEvents.store(true);
+		runtime->m_bScheduled = true;
+		runtime->m_config.m_eventQueueLimit = 16;
+		strategies.m_runtimes.emplace(7, runtime);
+		strategies.m_marketRoutes[quote.String()].insert(7);
+		_TyQuoteData data;
+		data.mutable_security()->set_symbol("600519");
+		data.mutable_security()->set_exchange(hqmarket::market::v1::SSE);
+		CRequest push;
+		push.SetId(0);
+		push.SetType(_TyRequest::MARKET_QUOTE_PUSH);
+		push.SetData(data);
+		bool bRouted = center.OnReply(SessionSource::HQMarket, push);
+		bool bDelivered = LastResponse(event).GetData().has_quote() && 1 == runtime->m_events.size();
+		strategies.m_runtimes.clear();
+		strategies.m_marketRoutes.clear();
+		Check(bRouted && bDelivered, "same market push reaches client and strategy even when client service handles it");
+
+		pending.m_deadline = std::chrono::steady_clock::time_point::min();
+		market.m_pendingQueries.emplace(key, pending);
+		market.ExpirePendingQueries();
+		Check(1008 == LastResponse(event).GetErrorInfo()->first && market.m_pendingQueries.empty(), "market timeout completes and removes pending query");
+		pending.m_deadline = std::chrono::steady_clock::now() + std::chrono::seconds(10);
+		market.m_pendingQueries.emplace(key, pending);
+		center.OnSessionState(SessionSource::HQMarket, SessionState::Disconnected, "test disconnect");
+		Check(!strategies.IsMarketAvailable() && market.m_pendingQueries.empty(), "HQ disconnect invalidates strategy market and completes client queries");
+		Check(1007 == LastResponse(event).GetErrorInfo()->first, "HQ disconnect retains unavailable error");
+		center.OnSessionState(SessionSource::HQMarket, SessionState::Ready, "");
+		Check(strategies.IsMarketAvailable() && market.m_subscriptions.IsSubscribed(7070, quote), "HQ reconnect retains subscriptions and restores availability");
+		market.m_pendingQueries.emplace(key, pending);
+		center.HandleDisconnected(7070);
+		Check(market.m_pendingQueries.empty() && !market.m_subscriptions.IsSubscribed(7070, quote), "client disconnect clears market requests and subscriptions");
+	}
+
 public:
 	static void Run(bufferevent* event)
 	{
@@ -49,37 +165,45 @@ public:
 		trader.m_wake.notify_all();
 		trader.m_refresh.join();
 		accounts.SetAccountStateHandler(std::bind_front(&CTradeService::OnAccountState, &trader));
-		CEngineService engine(nullptr, nullptr, nullptr, &trader, &accounts);
+		CSession hq(CLoginInfo{});
+		CHQService market(&hq);
+		CStrategyService strategies(&hq, &trader, &accounts);
+		net::CTcpServer tcpServer(0);
+		CEngineCenter engine(&tcpServer, &hq, &broker, &market, &strategies, &trader, &accounts);
+		Check(engine.Initialize(), "center binds client and both Session callbacks before startup");
 		CRequest request;
 		request.SetId(123);
 		request.SetConnectionId(7070);
 		request.SetType(_TyRequest::TRADE_ACCOUNT_LOGIN);
-		engine.OnClientRequest(7070, request);
+		engine.OnRequest(request);
 		Check("authentication required" == LastResponse(event).GetErrorInfo()->second, "unauthenticated account requests remain rejected");
-		engine.m_client_tokens.emplace("test-token", std::chrono::steady_clock::now() + std::chrono::hours(1));
+		engine.m_clientTokens.emplace("test-token", std::chrono::steady_clock::now() + std::chrono::hours(1));
 		engine.m_tokenUsers.emplace("test-token", "tester");
 		CRequest authentication;
 		authentication.SetConnectionId(7070);
 		authentication.SetType(_TyRequest::AUTH_LOGIN);
 		authentication.SetExtraData("token", "test-token");
-		engine.OnClientRequest(7070, authentication);
+		engine.OnRequest(authentication);
 		std::pair<bool, std::string> authenticatedClient = engine.IsAuthenticated(7070);
 		Check(authenticatedClient.first && "tester" == authenticatedClient.second, "token authentication restores the client user");
 		engine.HandleDisconnected(7070);
 		Check(!engine.IsAuthenticated(7070).first, "disconnect removes the authenticated client identity");
-		engine.OnClientRequest(7070, authentication);
-		Check("tester" == engine.m_auth_clients.at(7070), "token reconnect binds the user again");
+		engine.OnRequest(authentication);
+		Check("tester" == engine.m_authClients.at(7070), "token reconnect binds the user again");
 		for (_TyRequest type : { _TyRequest::TRADE_ACCOUNT_LOGIN, _TyRequest::TRADE_ACCOUNT_LIST_QUERY, _TyRequest::TRADE_FUNDS_QUERY, _TyRequest::SUPPORTED_BROKER_QUERY })
 		{
 			request.SetType(type);
-			engine.OnClientRequest(7070, request);
+			engine.OnRequest(request);
 			CRequest response = LastResponse(event);
 			Check(123 == response.GetId() && type == response.GetType(), "direct account route preserves request identity");
 			Check("XBroker is unavailable" == response.GetErrorInfo()->second, "account route reaches trade service without a strategy service");
 		}
+		TestBrokerRouting(event, engine, accounts, trader);
+		TestMarketRouting(event, engine, market, strategies);
+		engine.OnRequest(authentication);
 		_TyAccount account{ 1, "000123" };
 		CAccountInfo entry;
-		entry = AccountInfo(account);
+		entry = FmtAccountInfo(account);
 		entry.m_state = TradeAccountState::Connected;
 		trade::CAccountData& cached = trader.m_snapshots[account];
 		cached.m_bReady = true;
@@ -91,14 +215,14 @@ public:
 		Check(accounts.AcquireAccount(account), "multiple consumers can use one account");
 		request.SetType(_TyRequest::TRADE_ACCOUNT_DISCONNECT);
 		WriteAccountIdentity(account, request);
-		engine.OnClientRequest(7070, request);
+		engine.OnRequest(request);
 		Check("Account is disconnecting or in use" == LastResponse(event).GetErrorInfo()->second, "direct account route preserves strategy disconnect guard");
 		accounts.ReleaseAccount(account);
-		engine.OnClientRequest(7070, request);
+		engine.OnRequest(request);
 		Check("Account is disconnecting or in use" == LastResponse(event).GetErrorInfo()->second, "remaining consumer still blocks disconnect");
 		accounts.ReleaseAccount(account);
 		accounts.ReleaseAccount(account);
-		engine.OnClientRequest(7070, request);
+		engine.OnRequest(request);
 		Check("XBroker is unavailable" == LastResponse(event).GetErrorInfo()->second, "disconnect forwards after strategies stop");
 		Check(accounts.AcquireAccount(account), "failed forwarding releases the disconnect guard");
 		accounts.ReleaseAccount(account);
@@ -134,7 +258,7 @@ public:
 		Check(accounts.m_accounts.contains(account), "disconnect guard retains runtime after final release");
 		accounts.FinishDisconnect(account);
 		Check(!accounts.m_accounts.contains(account), "runtime is removed after both guards finish");
-		accounts.m_accounts[account].m_info = AccountInfo(account);
+		accounts.m_accounts[account].m_info = FmtAccountInfo(account);
 		accounts.m_accounts.at(account).m_info.m_state = TradeAccountState::Connected;
 		trader.Stop();
 		Check(accounts.IsConnected(account), "stopping trade service leaves account state available");

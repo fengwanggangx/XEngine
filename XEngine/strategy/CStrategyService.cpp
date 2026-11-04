@@ -134,7 +134,7 @@ namespace
 	bool MakeStrategyConfig(const request::StrategyInfo& info, CStrategyConfig& cfg)
 	{
 		cfg.m_strategyId = info.strategy_id();
-		cfg.m_account = FmtAccount(info);
+		cfg.m_account = AccountIndex(info);
 		cfg.m_strType = info.strategy_type();
 		cfg.m_strName = info.strategy_name();
 		cfg.m_eventQueueLimit = (0 == info.event_queue_limit()) ? 4096 : info.event_queue_limit();
@@ -289,11 +289,9 @@ bool CStrategyService::Initialize()
 		m_strLastError = "Strategy session or trade service is unavailable";
 		return false;
 	}
-	m_pTradeService->SetStrategyReplyHandler(std::bind_front(&CStrategyService::OnTradeRequestReply, this));
+	m_pTradeService->SetStrategyReplyHandler(std::bind_front(static_cast<void (CStrategyService::*)(const CRequest&, const trade::CCounterReply&)>(&CStrategyService::OnReply), this));
 	m_pTradeService->SetEventHandler(std::bind_front(&CStrategyService::OnTradingEvent, this));
 	m_pTradeService->SetAccountReadyHandler(std::bind_front(&CStrategyService::OnAccountReady, this));
-	m_pSession->RegisterHandler(std::bind_front(&CStrategyService::OnHQMarketResponse, this));
-	m_pSession->RegisterStateHandler(std::bind_front(&CStrategyService::OnHQMarketState, this));
 	return LoadStrategies();
 }
 
@@ -322,7 +320,7 @@ void CStrategyService::EndAccountUse(const _TyAccount& account, _TyStrategyId st
 	}
 }
 
-void CStrategyService::OnTradeRequestReply(const CRequest& origin, const trade::CCounterReply& reply)
+void CStrategyService::OnReply(const CRequest& origin, const trade::CCounterReply& reply)
 {
 	std::uint64_t strategyId = 0;
 	std::uint64_t instanceId = 0;
@@ -421,7 +419,7 @@ void CStrategyService::OnAccountReady(const _TyAccount& account)
 	}
 }
 
-bool CStrategyService::HandleStrategyRequest(const CRequest& req)
+bool CStrategyService::OnRequest(const CRequest& req)
 {
 	std::lock_guard<std::mutex> operationLock(m_mtx_operations);
 	if (!req.IsStrategy())
@@ -466,12 +464,12 @@ bool CStrategyService::AddStrategy(const CRequest& req)
 		return false;
 	}
 	request::StrategyInfo info = req.GetData().strategy();
-	if (!IsAccountValid(FmtAccount(info)))
+	if (!IsAccountValid(AccountIndex(info)))
 	{
 		net::SendError(req.GetConnectionId(), req, 1202, "Account identity required");
 		return false;
 	}
-	if (!m_pAccountService->HasAccount(FmtAccount(info)))
+	if (!m_pAccountService->HasAccount(AccountIndex(info)))
 	{
 		net::SendError(req.GetConnectionId(), req, 1114, "Trading account does not exist");
 		return false;
@@ -493,7 +491,7 @@ bool CStrategyService::AddStrategy(const CRequest& req)
 		net::SendError(req.GetConnectionId(), req, 1104, "strategy database is unavailable");
 		return false;
 	}
-	std::string strSQL = "INSERT INTO table_strategy(strategy_type,strategy_name,parameters,subscriptions,event_queue_limit,auto_start,enabled,account_identity) VALUES(" + utility::Utf8Literal(info.strategy_type()) + "," + utility::Utf8Literal(info.strategy_name()) + "," + utility::Utf8Literal(SerializeParameters(info)) + "," + utility::Utf8Literal(SerializeSubscriptions(info)) + "," + std::to_string(info.event_queue_limit()) + "," + (info.auto_start() ? "1" : "0") + "," + (info.enabled() ? "1" : "0") + "," + utility::Utf8Literal(EncodeAccount(FmtAccount(info))) + ")";
+	std::string strSQL = "INSERT INTO table_strategy(strategy_type,strategy_name,parameters,subscriptions,event_queue_limit,auto_start,enabled,account_identity) VALUES(" + utility::Utf8Literal(info.strategy_type()) + "," + utility::Utf8Literal(info.strategy_name()) + "," + utility::Utf8Literal(SerializeParameters(info)) + "," + utility::Utf8Literal(SerializeSubscriptions(info)) + "," + std::to_string(info.event_queue_limit()) + "," + (info.auto_start() ? "1" : "0") + "," + (info.enabled() ? "1" : "0") + "," + utility::Utf8Literal(EncodeAccount(AccountIndex(info))) + ")";
 	if (0 != pDB->ExecUpdate(strSQL))
 	{
 		net::SendError(req.GetConnectionId(), req, 1105, "failed to add strategy");
@@ -530,7 +528,7 @@ bool CStrategyService::ModifyStrategy(const CRequest& req)
 		return false;
 	}
 	request::StrategyInfo info = req.GetData().strategy();
-	if (!IsAccountValid(FmtAccount(info)))
+	if (!IsAccountValid(AccountIndex(info)))
 	{
 		db::_TyDBPtr lookup = CDBEngine::InstanceRef().GetDBPtr(db::em_database::mysql);
 		if (nullptr == lookup)
@@ -547,7 +545,7 @@ bool CStrategyService::ModifyStrategy(const CRequest& req)
 		}
 		SetAccountIdentity(account, info);
 	}
-	if (!m_pAccountService->HasAccount(FmtAccount(info)))
+	if (!m_pAccountService->HasAccount(AccountIndex(info)))
 	{
 		net::SendError(req.GetConnectionId(), req, 1114, "Trading account does not exist");
 		return false;
@@ -605,7 +603,7 @@ bool CStrategyService::ModifyStrategy(const CRequest& req)
 		net::SendError(req.GetConnectionId(), req, 1107, "failed to create strategy runtime");
 		return false;
 	}
-	std::string strSQL = "UPDATE table_strategy SET strategy_type=" + utility::Utf8Literal(info.strategy_type()) + ",strategy_name=" + utility::Utf8Literal(info.strategy_name()) + ",parameters=" + utility::Utf8Literal(SerializeParameters(info)) + ",subscriptions=" + utility::Utf8Literal(SerializeSubscriptions(info)) + ",event_queue_limit=" + std::to_string(info.event_queue_limit()) + ",auto_start=" + (info.auto_start() ? "1" : "0") + ",enabled=" + (info.enabled() ? "1" : "0") + ",account_identity=" + utility::Utf8Literal(EncodeAccount(FmtAccount(info))) + " WHERE strategy_id=" + std::to_string(cfg.m_strategyId);
+	std::string strSQL = "UPDATE table_strategy SET strategy_type=" + utility::Utf8Literal(info.strategy_type()) + ",strategy_name=" + utility::Utf8Literal(info.strategy_name()) + ",parameters=" + utility::Utf8Literal(SerializeParameters(info)) + ",subscriptions=" + utility::Utf8Literal(SerializeSubscriptions(info)) + ",event_queue_limit=" + std::to_string(info.event_queue_limit()) + ",auto_start=" + (info.auto_start() ? "1" : "0") + ",enabled=" + (info.enabled() ? "1" : "0") + ",account_identity=" + utility::Utf8Literal(EncodeAccount(AccountIndex(info))) + " WHERE strategy_id=" + std::to_string(cfg.m_strategyId);
 	if (0 != pDB->ExecUpdate(strSQL))
 	{
 		if (info.enabled())
@@ -1077,7 +1075,7 @@ void CStrategyService::StopAll()
 	}
 }
 
-bool CStrategyService::OnHQMarketResponse(const CRequest& req)
+bool CStrategyService::OnReply(const CRequest& req)
 {
 	if (m_bStopping.load() || !m_bMarketAvailable.load() || (!req.IsMarket()))
 	{

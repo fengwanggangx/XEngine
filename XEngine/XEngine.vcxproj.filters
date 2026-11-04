@@ -59,7 +59,10 @@
     <ClCompile Include="thread\CThreadPool.cpp">
       <Filter>thread</Filter>
     </ClCompile>
-    <ClCompile Include="system\CEngineService.cpp">
+    <ClCompile Include="system\CEngineCenter.cpp">
+      <Filter>system</Filter>
+    </ClCompile>
+    <ClCompile Include="system\CHQService.cpp">
       <Filter>system</Filter>
     </ClCompile>
     <ClCompile Include="system\CSubscriptionMgr.cpp">
@@ -219,7 +222,10 @@
     <ClInclude Include="request\RequestCenter.h">
       <Filter>request</Filter>
     </ClInclude>
-    <ClInclude Include="system\CEngineService.h">
+    <ClInclude Include="system\CEngineCenter.h">
+      <Filter>system</Filter>
+    </ClInclude>
+    <ClInclude Include="system\CHQService.h">
       <Filter>system</Filter>
     </ClInclude>
     <ClInclude Include="system\CSubscriptionMgr.h">

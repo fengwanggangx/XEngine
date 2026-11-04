@@ -23,8 +23,6 @@ bool CAccountService::Initialize()
 		return false;
 	}
 	m_bStopping.store(false);
-	m_pSession->RegisterHandler(std::bind_front(&CAccountService::OnRequestReply, this));
-	m_pSession->RegisterStateHandler(std::bind_front(&CAccountService::OnBrokerState, this));
 	m_refresh = std::jthread([this](std::stop_token stop)
 	{
 		while (!stop.stop_requested())
@@ -172,7 +170,7 @@ bool CAccountService::AcquireAccount(const _TyAccount& account)
 {
 	std::unique_lock<std::shared_mutex> lock(m_mtx_accounts);
 	const auto mIter = m_accounts.find(account);
-	if ((m_accounts.end() == mIter) || !mIter->second.m_bAtAccountList || mIter->second.m_bbDisconnecting || (TradeAccountState::Connected != mIter->second.m_info.m_state))
+	if ((m_accounts.end() == mIter) || !mIter->second.m_bAtAccountList || mIter->second.m_bDisconnecting || (TradeAccountState::Connected != mIter->second.m_info.m_state))
 	{
 		return false;
 	}
@@ -189,7 +187,7 @@ void CAccountService::ReleaseAccount(const _TyAccount& account)
 		return;
 	}
 	--mIter->second.m_useCount;
-	if (!mIter->second.m_bAtAccountList && !mIter->second.m_bbDisconnecting && 0 == mIter->second.m_useCount)
+	if (!mIter->second.m_bAtAccountList && !mIter->second.m_bDisconnecting && 0 == mIter->second.m_useCount)
 	{
 		m_accounts.erase(mIter);
 	}
@@ -203,7 +201,7 @@ void CAccountService::FinishDisconnect(const _TyAccount& account)
 	{
 		return;
 	}
-	mIter->second.m_bbDisconnecting = false;
+	mIter->second.m_bDisconnecting = false;
 	if (!mIter->second.m_bAtAccountList && 0 == mIter->second.m_useCount)
 	{
 		m_accounts.erase(mIter);
@@ -215,7 +213,7 @@ const std::string& CAccountService::GetLastError() const
 	return m_strLastError;
 }
 
-bool CAccountService::HandleAccountRequest(const CRequest& req, const std::string& actor)
+bool CAccountService::OnRequest(const CRequest& req, const std::string& actor)
 {
 	_TyRequest t = req.GetType();
 	_TyAccount bDisconnectingAccount;
@@ -226,7 +224,7 @@ bool CAccountService::HandleAccountRequest(const CRequest& req, const std::strin
 		{
 			std::unique_lock<std::shared_mutex> lock(m_mtx_accounts);
 			const auto mIter = m_accounts.find(bDisconnectingAccount);
-			blocked = m_accounts.end() != mIter && (mIter->second.m_bbDisconnecting || 0 != mIter->second.m_useCount);
+			blocked = m_accounts.end() != mIter && (mIter->second.m_bDisconnecting || 0 != mIter->second.m_useCount);
 			if (!blocked)
 			{
 				if (m_accounts.end() == mIter)
@@ -234,18 +232,18 @@ bool CAccountService::HandleAccountRequest(const CRequest& req, const std::strin
 					CAccountRuntime runtime;
 					runtime.m_info = FmtAccountInfo(bDisconnectingAccount);
 					runtime.m_bAtAccountList = false;
-					runtime.m_bbDisconnecting = true;
+					runtime.m_bDisconnecting = true;
 					m_accounts.emplace(bDisconnectingAccount, std::move(runtime));
 				}
 				else
 				{
-					mIter->second.m_bbDisconnecting = true;
+					mIter->second.m_bDisconnecting = true;
 				}
 			}
 		}
 		if (blocked)
 		{
-			net::SendError(req.GetConnectionId(), req, 1202, "Account is bDisconnecting or in use");
+			net::SendError(req.GetConnectionId(), req, 1202, "Account is disconnecting or in use");
 			return false;
 		}
 	}
@@ -345,7 +343,7 @@ void CAccountService::OnAccountListReply(const CRequest& response, std::uint64_t
 		}
 		std::erase_if(m_accounts, [](const auto& entry)
 		{
-			return !entry.second.m_bAtAccountList && !entry.second.m_bbDisconnecting && 0 == entry.second.m_useCount;
+			return !entry.second.m_bAtAccountList && !entry.second.m_bDisconnecting && 0 == entry.second.m_useCount;
 		});
 	}
 	for (const auto& info : changes)
@@ -383,12 +381,12 @@ bool CAccountService::SendRequest(CRequest&& request)
 		response.SetId(nId);
 		response.SetType(request.GetType());
 		response.SetErrorInfo(static_cast<int>(trade::Error::UnknownResult), "XBroker write failed; reconcile before retry");
-		OnRequestReply(response);
+		OnReply(response);
 	}
 	return true;
 }
 
-bool CAccountService::OnRequestReply(const CRequest& req)
+bool CAccountService::OnReply(const CRequest& req)
 {
 	if (m_bStopping.load())
 	{
@@ -487,6 +485,6 @@ void CAccountService::RefreshPending()
 		req.SetId(item.first);
 		req.SetType(item.second);
 		req.SetErrorInfo(static_cast<int>(trade::Error::UnknownResult), "XBroker request timed out; reconcile before retry");
-		OnRequestReply(req);
+		OnReply(req);
 	}
 }

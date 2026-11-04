@@ -91,7 +91,8 @@
   </PropertyGroup>
   <ItemGroup>
     <ClCompile Include="basic\CDistributor.cpp" />
-    <ClCompile Include="system\CEngineService.cpp" />
+    <ClCompile Include="system\CEngineCenter.cpp" />
+    <ClCompile Include="system\CHQService.cpp" />
     <ClCompile Include="system\CSubscriptionMgr.cpp" />
     <ClCompile Include="request\RequestCenter.cpp" />
     <ClCompile Include="common\datetime.cpp">
@@ -135,7 +136,8 @@
   <ItemGroup>
     <ClInclude Include="basic\CDistributor.h" />
     <ClInclude Include="request\RequestCenter.h" />
-    <ClInclude Include="system\CEngineService.h" />
+    <ClInclude Include="system\CEngineCenter.h" />
+    <ClInclude Include="system\CHQService.h" />
     <ClInclude Include="system\CSubscriptionMgr.h" />
     <ClInclude Include="common\container.h" />
     <ClInclude Include="common\container_traits.h" />

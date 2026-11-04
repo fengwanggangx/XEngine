@@ -14,7 +14,8 @@ namespace net
 class CSession;
 class CTradeService;
 class CAccountService;
-class CEngineService;
+class CEngineCenter;
+class CHQService;
 class CStrategyService;
 
 class CBootLoader final
@@ -50,7 +51,8 @@ private:
 	CAccountService* m_pAccountService{ nullptr };
 	CTradeService* m_pTradeService{ nullptr };
 	CStrategyService* m_pStrategyService{ nullptr };
-	CEngineService* m_pEngineService{ nullptr };
+	CHQService* m_pHQService{ nullptr };
+	CEngineCenter* m_pEngineCenter{ nullptr };
 };
 
 #endif
