@@ -5,12 +5,12 @@
 
 namespace request
 {
-	bool IsAuthRequest(const CRequest& req)
+	bool IsUserAuthRequest(const CRequest& req)
 	{
 		return _TyRequest::AUTH_LOGIN == req.GetType();
 	}
 
-	bool IsRegisterAccountRequest(const CRequest& req)
+	bool IsUserRegisterRequest(const CRequest& req)
 	{
 		return _TyRequest::AUTH_REGISTER == req.GetType();
 	}

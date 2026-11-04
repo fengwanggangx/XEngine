@@ -11,7 +11,7 @@ class CTradeService;
 class CStrategyContext final : public IStrategyContext
 {
 public:
-	CStrategyContext(_TyStrategyId strategyId, const _TyAccount& accountIndex, CStrategyService* pStrategyService, CTradeService* pSnapshotProvider);
+	CStrategyContext(_TyStrategyId strategyId, const _TyAccount& account, CStrategyService* pStrategyService, CTradeService* pSnapshotProvider);
 
 	COrderSubmitResult SubmitOrder(const COrderIntent& intent) override;
 	bool CancelOrder(_TyOrderId orderId) override;
@@ -25,7 +25,7 @@ public:
 private:
 	_TyStrategyId m_strategyId{ 0 };
 	CStrategyService* m_pStrategyService{ nullptr };
-	_TyAccount m_accountIndex{};
+	_TyAccount m_account{};
 	CTradeService* m_pSnapshotProvider{ nullptr };
 	std::atomic_bool m_bEnabled{ true };
 };

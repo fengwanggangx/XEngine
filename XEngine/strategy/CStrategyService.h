@@ -143,13 +143,13 @@ public:
 private:
 	bool OnHQMarketResponse(const CRequest& req);
 	void OnHQMarketState(SessionState state, const std::string& strReason);
-	bool BeginAccountUse(const _TyAccount& accountIndex, _TyStrategyId strategyId);
-	void EndAccountUse(const _TyAccount& accountIndex, _TyStrategyId strategyId);
-	void OnTradingEvent(const trade::CCountEvent& event);
+	bool BeginAccountUse(const _TyAccount& account, _TyStrategyId strategyId);
+	void EndAccountUse(const _TyAccount& account, _TyStrategyId strategyId);
+	void OnTradingEvent(const trade::CCounterEvent& event);
 	COrderSubmitResult SubmitTradingOrder(const COrderIntent& intent);
 	void OnOrderEvent(const COrderEvent& ev);
 	void OnTradeEvent(const CTradeEvent& ev);
-	void OnAccountReady(const _TyAccount& accountIndex);
+	void OnAccountReady(const _TyAccount& account);
 
 private:
 	std::shared_ptr<CStrategyRuntime> FindRuntime(_TyStrategyId id) const;

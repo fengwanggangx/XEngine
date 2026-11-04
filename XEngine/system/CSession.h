@@ -1,7 +1,7 @@
 #ifndef XENGINE_HQMARKET_CSESSION_H
 #define XENGINE_HQMARKET_CSESSION_H
 
-#include "../system/CHostMgr.h"
+#include "CHostInfo.h"
 #include "../request/request.h"
 #include <atomic>
 #include <chrono>

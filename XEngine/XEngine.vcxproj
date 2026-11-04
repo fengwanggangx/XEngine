@@ -129,7 +129,6 @@
     <ClCompile Include="strategy\CTradeService.cpp" />
     <ClCompile Include="strategy\StrategyTypes.cpp" />
     <ClCompile Include="strategy\strategies\CMovingAverageStrategy.cpp" />
-    <ClCompile Include="system\CHostMgr.cpp" />
     <ClCompile Include="thread\CThreadPool.cpp" />
     <ClCompile Include="system\CBootLoader.cpp" />
   </ItemGroup>
@@ -179,7 +178,7 @@
     <ClInclude Include="strategy\IStrategyContext.h" />
     <ClInclude Include="strategy\StrategyTypes.h" />
     <ClInclude Include="strategy\strategies\CMovingAverageStrategy.h" />
-    <ClInclude Include="system\CHostMgr.h" />
+    <ClInclude Include="system\CHostInfo.h" />
     <ClInclude Include="thread\CThreadPool.h" />
     <ClInclude Include="system\CBootLoader.h" />
   </ItemGroup>

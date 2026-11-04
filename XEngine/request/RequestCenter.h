@@ -9,8 +9,8 @@
 
 namespace request
 {
-	bool IsAuthRequest(const CRequest& req);
-	bool IsRegisterAccountRequest(const CRequest& req);
+	bool IsUserAuthRequest(const CRequest& req);
+	bool IsUserRegisterRequest(const CRequest& req);
 	bool IsQuerySecurityRequest(const CRequest& req);
 	bool IsSubscriptionRequest(const CRequest& req);
 	bool IsUnSubscriptionRequest(const CRequest& req);

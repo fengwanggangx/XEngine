@@ -67,37 +67,6 @@ bool IsPasswordValid(const std::string& strPassword)
 
 CEngineService::CEngineService(net::CTcpServer* pTcpServer, CSession* pSession, CStrategyService* pStrategyService, CTradeService* pTradeService, CAccountService* pAccountService) : m_pTcpServer(pTcpServer), m_pSession(pSession), m_pStrategyService(pStrategyService), m_pTradeService(pTradeService), m_pAccountService(pAccountService)
 {
-	m_handler = {
-		{ _TyRequest::TRADE_ORDER_SUBMIT, std::bind_front(&CEngineService::HandleTradeRequest, this) },
-		{ _TyRequest::TRADE_ORDER_CANCEL, std::bind_front(&CEngineService::HandleTradeRequest, this) },
-		{ _TyRequest::TRADE_POSITION_QUERY, std::bind_front(&CEngineService::HandleTradeRequest, this) },
-		{ _TyRequest::TRADE_ORDER_QUERY, std::bind_front(&CEngineService::HandleTradeRequest, this) },
-		{ _TyRequest::TRADE_DEAL_QUERY, std::bind_front(&CEngineService::HandleTradeRequest, this) },
-
-		{ _TyRequest::AUTH_REGISTER, std::bind_front(&CEngineService::HandleRegisterAuth, this) },
-		{ _TyRequest::AUTH_LOGIN, std::bind_front(&CEngineService::HandleAuth, this) },
-		{ _TyRequest::HEARTBEAT, std::bind_front(&CEngineService::HandleHeartbeat, this) },
-		{ _TyRequest::MARKET_SUBSCRIBE, std::bind_front(&CEngineService::HandleSubscription, this) },
-		{ _TyRequest::MARKET_UNSUBSCRIBE, std::bind_front(&CEngineService::HandleSubscription, this) },
-		{ _TyRequest::MARKET_QUOTE_QUERY, std::bind_front(&CEngineService::HandleMarketQuery, this) },
-		{ _TyRequest::MARKET_BARS_QUERY, std::bind_front(&CEngineService::HandleMarketQuery, this) },
-		{ _TyRequest::MARKET_SECURITIES_QUERY, std::bind_front(&CEngineService::HandleMarketQuery, this) },
-		{ _TyRequest::MARKET_SECTORS_QUERY, std::bind_front(&CEngineService::HandleMarketQuery, this) },
-		{ _TyRequest::MARKET_SECTOR_CONSTITUENTS_QUERY, std::bind_front(&CEngineService::HandleMarketQuery, this) },
-		{ _TyRequest::SUPPORTED_BROKER_QUERY, std::bind_front(&CEngineService::HandleTradeRequest, this) },
-		{ _TyRequest::TRADE_ACCOUNT_LOGIN, std::bind_front(&CEngineService::HandleTradeAccountRequest, this) },
-		{ _TyRequest::TRADE_ACCOUNT_LIST_QUERY, std::bind_front(&CEngineService::HandleTradeAccountRequest, this) },
-		{ _TyRequest::TRADE_ACCOUNT_DISCONNECT, std::bind_front(&CEngineService::HandleTradeAccountRequest, this) },
-		{ _TyRequest::TRADE_FUNDS_QUERY, std::bind_front(&CEngineService::HandleTradeRequest, this) },
-		{ _TyRequest::STRATEGY_ADD, std::bind_front(&CEngineService::HandleStrategyRequest, this) },
-		{ _TyRequest::STRATEGY_MODIFY, std::bind_front(&CEngineService::HandleStrategyRequest, this) },
-		{ _TyRequest::STRATEGY_QUERY, std::bind_front(&CEngineService::HandleStrategyRequest, this) },
-		{ _TyRequest::STRATEGY_DELETE, std::bind_front(&CEngineService::HandleStrategyRequest, this) },
-		{ _TyRequest::STRATEGY_RUNTIME_QUERY, std::bind_front(&CEngineService::HandleStrategyRequest, this) },
-		{ _TyRequest::STRATEGY_START, std::bind_front(&CEngineService::HandleStrategyRequest, this) },
-		{ _TyRequest::STRATEGY_PAUSE, std::bind_front(&CEngineService::HandleStrategyRequest, this) },
-		{ _TyRequest::STRATEGY_STOP, std::bind_front(&CEngineService::HandleStrategyRequest, this) }
-	};
 }
 
 bool CEngineService::Initialize()
@@ -119,7 +88,11 @@ bool CEngineService::BroadcastTrading(const CRequest& push)
 	std::vector<net::_TyConnectionId> clients;
 	{
 		std::lock_guard<std::mutex> lock(m_mtx_state);
-		clients.assign(m_auth_clients.begin(), m_auth_clients.end());
+		clients.reserve(m_auth_clients.size());
+		for (const auto& client : m_auth_clients)
+		{
+			clients.emplace_back(client.first);
+		}
 	}
 	bool bSent = true;
 	for (net::_TyConnectionId id : clients)
@@ -334,7 +307,7 @@ std::string CEngineService::GetQueryKey(const CRequest& req) const
 	return {};
 }
 
-bool CEngineService::HandleMarketQuery(net::_TyConnectionId id, const CRequest& req)
+bool CEngineService::HandleQueryHQRequest(net::_TyConnectionId id, const CRequest& req)
 {
 	std::string strKey = GetQueryKey(req);
 	if (strKey.empty())
@@ -622,12 +595,14 @@ bool CEngineService::Login(const CRequest& req, std::string& strToken)
 	response.SetType(req.GetType());
 
 	response.SetExtraData("user_id", db::to_string(table.m_rows.front().at(0)));
-	{
-		std::lock_guard<std::mutex> lock(m_mtx_state);
-		m_clientUsers.insert_or_assign(req.GetConnectionId(), strUser);
-	}
 	response.SetExtraData("user", db::to_string(table.m_rows.front().at(1)));
 	strToken = utility::MakeSaltHex();
+	{
+		std::lock_guard<std::mutex> lock(m_mtx_state);
+		m_auth_clients.insert_or_assign(req.GetConnectionId(), strUser);
+		m_tokenUsers.insert_or_assign(strToken, strUser);
+		m_client_tokens.insert_or_assign(strToken, std::chrono::steady_clock::now() + TokenLifetime);
+	}
 	response.SetExtraData("token", strToken);
 	net::SendRequest(req.GetConnectionId(), response);
 	return true;
@@ -862,7 +837,6 @@ int CEngineService::HandleDisconnected(net::_TyConnectionId id)
 	{
 		std::lock_guard<std::mutex> lock(m_mtx_state);
 		m_auth_clients.erase(id);
-		m_clientUsers.erase(id);
 		std::erase_if(m_pending_batch_subscriptions, [id](const auto& item)
 		{
 			return id == item.second.m_client.m_router_id;
@@ -879,7 +853,7 @@ int CEngineService::HandleDisconnected(net::_TyConnectionId id)
 			{
 				return id == client.m_router_id;
 			}),
-						  clients.end());
+				clients.end());
 			if (clients.empty())
 			{
 				mIter = m_pending_queries.erase(mIter);
@@ -915,8 +889,7 @@ bool CEngineService::HandleReAuth(const CRequest& req)
 		}
 		if (bAccepted)
 		{
-			m_auth_clients.emplace(req.GetConnectionId());
-			m_clientUsers.insert_or_assign(req.GetConnectionId(), m_tokenUsers.at(strToken));
+			m_auth_clients.insert_or_assign(req.GetConnectionId(), m_tokenUsers.at(strToken));
 		}
 	}
 	if (bAccepted)
@@ -928,10 +901,15 @@ bool CEngineService::HandleReAuth(const CRequest& req)
 	return false;
 }
 
-bool CEngineService::IsAuthenticated(net::_TyConnectionId id) const
+std::pair<bool, std::string> CEngineService::IsAuthenticated(net::_TyConnectionId id) const
 {
-	std::lock_guard<std::mutex> lck(m_mtx_state);
-	return (m_auth_clients.end() != m_auth_clients.find(id));
+	std::lock_guard<std::mutex> lock(m_mtx_state);
+	const auto mIter = m_auth_clients.find(id);
+	if (m_auth_clients.end() == mIter)
+	{
+		return { false, std::string() };
+	}
+	return { true, mIter->second };
 }
 
 bool CEngineService::HandleAuth(net::_TyConnectionId id, const CRequest& req)
@@ -944,15 +922,9 @@ bool CEngineService::HandleAuth(net::_TyConnectionId id, const CRequest& req)
 	}
 
 	// 登录认证
-	if (request::IsAuthRequest(req))
+	if (request::IsUserAuthRequest(req))
 	{
-		if (Login(req, strToken))
-		{
-			std::lock_guard<std::mutex> lock(m_mtx_state);
-			m_auth_clients.emplace(req.GetConnectionId());
-			m_tokenUsers.insert_or_assign(strToken, m_clientUsers.at(req.GetConnectionId()));
-			m_client_tokens.insert_or_assign(strToken, std::chrono::steady_clock::now() + TokenLifetime);
-		}
+		Login(req, strToken);
 		return true;
 	}
 	net::SendError(req.GetConnectionId(), req, InvalidRequest, "unsupported authentication request");
@@ -962,27 +934,74 @@ bool CEngineService::HandleAuth(net::_TyConnectionId id, const CRequest& req)
 void CEngineService::OnClientRequest(net::_TyConnectionId id, const CRequest& req)
 {
 	ExpirePendingQueries();
-	_TyRequest type = req.GetType();
-	const auto mIter = m_handler.find(type);
-	if (m_handler.end() == mIter)
+	if (request::IsUserAuthRequest(req))
 	{
-		net::SendError(id, req, 1006, "unknown request type");
+		HandleAuth(id, req);
 		return;
 	}
-
-	if (request::IsAuthRequest(req) || request::IsRegisterAccountRequest(req))
+	if (request::IsUserRegisterRequest(req))
 	{
-		mIter->second(id, req);
+		HandleRegisterAuth(id, req);
 		return;
 	}
-
-	if (!IsAuthenticated(id))
+	auto [bAuthenticated, strUser] = IsAuthenticated(id);
+	if (!bAuthenticated)
 	{
 		net::SendError(id, req, 1002, "authentication required");
 		return;
 	}
 
-	mIter->second(id, req);
+	_TyRequest t = req.GetType();
+	switch (t)
+	{
+	case _TyRequest::TRADE_ORDER_SUBMIT:
+	case _TyRequest::TRADE_ORDER_CANCEL:
+	case _TyRequest::TRADE_POSITION_QUERY:
+	case _TyRequest::TRADE_ORDER_QUERY:
+	case _TyRequest::TRADE_DEAL_QUERY:
+	case _TyRequest::SUPPORTED_BROKER_QUERY:
+	case _TyRequest::TRADE_FUNDS_QUERY:
+		HandleTradeRequest(id, req);
+		return;
+
+	case _TyRequest::HEARTBEAT:
+		HandleHeartbeat(id, req);
+		return;
+
+	case _TyRequest::MARKET_SUBSCRIBE:
+	case _TyRequest::MARKET_UNSUBSCRIBE:
+		HandleSubscription(id, req);
+		return;
+
+	case _TyRequest::MARKET_QUOTE_QUERY:
+	case _TyRequest::MARKET_BARS_QUERY:
+	case _TyRequest::MARKET_SECURITIES_QUERY:
+	case _TyRequest::MARKET_SECTORS_QUERY:
+	case _TyRequest::MARKET_SECTOR_CONSTITUENTS_QUERY:
+		HandleQueryHQRequest(id, req);
+		return;
+
+	case _TyRequest::TRADE_ACCOUNT_LOGIN:
+	case _TyRequest::TRADE_ACCOUNT_LIST_QUERY:
+	case _TyRequest::TRADE_ACCOUNT_DISCONNECT:
+		HandleTradeAccountRequest(id, req, strUser);
+		return;
+
+	case _TyRequest::STRATEGY_ADD:
+	case _TyRequest::STRATEGY_MODIFY:
+	case _TyRequest::STRATEGY_QUERY:
+	case _TyRequest::STRATEGY_DELETE:
+	case _TyRequest::STRATEGY_RUNTIME_QUERY:
+	case _TyRequest::STRATEGY_START:
+	case _TyRequest::STRATEGY_PAUSE:
+	case _TyRequest::STRATEGY_STOP:
+		HandleStrategyRequest(id, req);
+		return;
+
+	default:
+		net::SendError(id, req, 1006, "unknown request type");
+		return;
+	}
 }
 
 bool CEngineService::HandleHeartbeat(net::_TyConnectionId id, const CRequest& req)
@@ -1018,33 +1037,24 @@ int CEngineService::OnNetEvent(const net::CNetEvent& ev)
 	return 1;
 }
 
-bool CEngineService::HandleTradeAccountRequest(net::_TyConnectionId id, const CRequest& req)
+bool CEngineService::HandleTradeAccountRequest(net::_TyConnectionId id, const CRequest& req, const std::string& strUser)
 {
-	if (!IsAuthenticated(id) || (nullptr == m_pAccountService))
+	if (nullptr == m_pAccountService)
 	{
-		net::SendError(id, req, AuthenticationRequired, "authentication required");
+		net::SendError(id, req, UpstreamUnavailable, "Account service is unavailable");
 		return false;
 	}
-	std::string actor;
-	{
-		std::lock_guard<std::mutex> lock(m_mtx_state);
-		const auto mIter = m_clientUsers.find(id);
-		if (m_clientUsers.end() != mIter)
-		{
-			actor = mIter->second;
-		}
-	}
-	return m_pAccountService->HandleAccountRequest(req, actor);
+	return m_pAccountService->HandleAccountRequest(req, strUser);
 }
 
 bool CEngineService::HandleTradeRequest(net::_TyConnectionId id, const CRequest& req)
 {
-	if (!IsAuthenticated(id) || nullptr == m_pTradeService)
+	if (!IsAuthenticated(id).first || nullptr == m_pTradeService)
 	{
 		net::SendError(id, req, AuthenticationRequired, "authentication required");
 		return false;
 	}
-	return m_pTradeService->HandleTradingRequest(req);
+	return m_pTradeService->HandleTradeRequest(req);
 }
 
 CEngineService::~CEngineService()

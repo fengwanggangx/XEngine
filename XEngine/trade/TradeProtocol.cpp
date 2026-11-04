@@ -5,7 +5,7 @@ namespace trade::protocol
 {
 	void WriteOrder(const trade::COrder& row, request::TradeOrderRecord& wire)
 	{
-		SetAccountIdentity(row.m_accountIndex, wire);
+		SetAccountIdentity(row.m_account, wire);
 		wire.set_client_order_id(row.m_clientId);
 		wire.set_order_id(row.m_orderId);
 		wire.set_request_id(row.m_requestId);
@@ -36,7 +36,7 @@ namespace trade::protocol
 	}
 	void WriteTrade(const trade::CTrade& row, request::TradeRecord& wire)
 	{
-		SetAccountIdentity(row.m_accountIndex, wire);
+		SetAccountIdentity(row.m_account, wire);
 		wire.set_trade_id(row.m_tradeId);
 		wire.set_order_id(row.m_orderId);
 		wire.set_security(row.m_strSecurity);
@@ -56,7 +56,7 @@ namespace trade::protocol
 	}
 	void WritePosition(const trade::CPosition& row, request::TradePositionRecord& wire)
 	{
-		SetAccountIdentity(row.m_accountIndex, wire);
+		SetAccountIdentity(row.m_account, wire);
 		wire.set_security(row.m_strSecurity);
 		wire.set_total_quantity(row.m_nTotal);
 		wire.set_available_quantity(row.m_nAvailable);
@@ -72,9 +72,9 @@ namespace trade::protocol
 		std::size_t nDot = strValue.rfind('.');
 		return std::string::npos == nDot ? CSecurity{} : CSecurity(strValue.substr(0, nDot), ParseMarket(strValue.substr(nDot + 1)));
 	}
-	void WriteFunds(const CAccount& row, bool bReady, request::TradeAccountInfo& wire)
+	void WriteFunds(const CFunds& row, bool bReady, request::TradeAccountInfo& wire)
 	{
-		SetAccountIdentity(row.m_accountIndex, wire);
+		SetAccountIdentity(row.m_account, wire);
 		wire.set_balance(row.m_nBalance);
 		wire.set_frozen(row.m_nFrozen);
 		wire.set_available(row.m_bExplicitAvailable ? row.m_nAvailable : row.m_nBalance - row.m_nFrozen);
@@ -90,7 +90,7 @@ namespace trade::protocol
 	{
 		request::TradeCounterReply wire;
 		wire.set_request_id(reply.m_requestId);
-		SetAccountIdentity(reply.m_accountIndex, wire);
+		SetAccountIdentity(reply.m_account, wire);
 		wire.set_operation(static_cast<int>(reply.m_operation));
 		wire.set_error_code(static_cast<int>(reply.m_result.m_error));
 		wire.set_error_message(reply.m_result.m_strMessage);
@@ -106,7 +106,7 @@ namespace trade::protocol
 				{
 					wire.mutable_receipt()->set_order_id(value.m_orderId);
 				}
-				else if constexpr (std::is_same_v<T, CAccount>)
+				else if constexpr (std::is_same_v<T, CFunds>)
 				{
 					WriteFunds(value, true, *wire.mutable_funds());
 					wire.mutable_funds()->set_server_time_ms(wire.server_time_ms());
@@ -139,18 +139,18 @@ namespace trade::protocol
 		}
 		response.SetData(wire);
 	}
-	void WriteEvent(const CCountEvent& event, request::TradeEventRecord& wire)
+	void WriteEvent(const CCounterEvent& event, request::TradeEventRecord& wire)
 	{
 		wire.set_sequence(event.m_sequence);
 		wire.set_request_id(event.m_requestId);
-		SetAccountIdentity(event.m_accountIndex, wire);
+		SetAccountIdentity(event.m_account, wire);
 		wire.set_kind(static_cast<int>(event.m_kind));
-		wire.set_connected(event.m_account.m_bConnected);
+		wire.set_connected(event.m_funds.m_bConnected);
 		wire.set_extended_fields(true);
 		wire.set_account_valid(event.m_bAccountValid);
 		if (event.m_bAccountValid)
 		{
-			WriteFunds(event.m_account, true, *wire.mutable_account_snapshot());
+			WriteFunds(event.m_funds, true, *wire.mutable_account_snapshot());
 		}
 		switch (event.m_kind)
 		{
@@ -164,18 +164,18 @@ namespace trade::protocol
 			WritePosition(event.m_position, *wire.mutable_position());
 			break;
 		case EventTy::Funds:
-			WriteFunds(event.m_account, true, *wire.mutable_funds());
+			WriteFunds(event.m_funds, true, *wire.mutable_funds());
 			break;
 		default:
 			break;
 		}
 	}
-	COrderEvent OrderEvent(const CCountEvent& event)
+	COrderEvent OrderEvent(const CCounterEvent& event)
 	{
 		const trade::COrder& row = event.m_order;
 		COrderEvent order;
 		order.m_sequence = event.m_sequence;
-		order.m_accountIndex = event.m_accountIndex;
+		order.m_account = event.m_account;
 		order.m_strategyId = row.m_strategyId;
 		order.m_signalId = row.m_signalId;
 		order.m_clientOrderId = row.m_clientId;
@@ -216,11 +216,11 @@ namespace trade::protocol
 		}
 		return order;
 	}
-	CTradeEvent TradeEvent(const CCountEvent& event)
+	CTradeEvent TradeEvent(const CCounterEvent& event)
 	{
 		CTradeEvent trade;
 		trade.m_sequence = event.m_sequence;
-		trade.m_accountIndex = event.m_accountIndex;
+		trade.m_account = event.m_account;
 		trade.m_strategyId = event.m_order.m_strategyId;
 		trade.m_signalId = event.m_order.m_signalId;
 		trade.m_clientOrderId = event.m_order.m_clientId;
@@ -237,7 +237,7 @@ namespace trade::protocol
 	request::TradeAccountRecord AccountPayload(const CAccountInfo& info)
 	{
 		request::TradeAccountRecord payload;
-		SetAccountIdentity(AccountIndex(info), payload);
+		SetAccountIdentity(FmtAccount(info), payload);
 		payload.set_site(info.m_strSite);
 		payload.set_broker_name(info.m_strBrokerName);
 		payload.set_name(info.m_strName);
@@ -246,14 +246,14 @@ namespace trade::protocol
 		return payload;
 	}
 
-	::CRequest Push(const CCountEvent& event, const CAccountInfo& account)
+	::CRequest Push(const CCounterEvent& event, const CAccountInfo& account)
 	{
 		::CRequest push;
 		push.SetId(0);
 		push.SetExtraData("sequence", std::to_string(event.m_sequence));
 		push.SetExtraData("request_id", std::to_string(event.m_requestId));
-		push.SetExtraData("broker_id", std::to_string(event.m_accountIndex.first));
-		push.SetExtraData("account", event.m_accountIndex.second);
+		push.SetExtraData("broker_id", std::to_string(event.m_account.first));
+		push.SetExtraData("account", event.m_account.second);
 		switch (event.m_kind)
 		{
 		case trade::EventTy::Session:
@@ -280,7 +280,7 @@ namespace trade::protocol
 		{
 			push.SetType(_TyRequest::TRADE_ACCOUNT_INFO_PUSH);
 			request::TradeAccountInfo rows;
-			WriteFunds(event.m_account, true, rows);
+			WriteFunds(event.m_funds, true, rows);
 			push.SetData(rows);
 		}
 		break;
@@ -296,7 +296,7 @@ namespace trade::protocol
 		if (event.m_bAccountValid)
 		{
 			request::TradeAccountInfo funds;
-			WriteFunds(event.m_account, true, funds);
+			WriteFunds(event.m_funds, true, funds);
 			push.SetEventAccount(funds);
 		}
 		return push;
@@ -310,7 +310,7 @@ namespace trade::protocol
 		COrder ReadOrder(const request::TradeOrderRecord& wire)
 		{
 			COrder row;
-			row.m_accountIndex = AccountIndex(wire);
+			row.m_account = FmtAccount(wire);
 			row.m_clientId = wire.client_order_id();
 			row.m_orderId = wire.order_id();
 			row.m_requestId = wire.request_id();
@@ -342,7 +342,7 @@ namespace trade::protocol
 		CTrade ReadTrade(const request::TradeRecord& wire)
 		{
 			CTrade row;
-			row.m_accountIndex = AccountIndex(wire);
+			row.m_account = FmtAccount(wire);
 			row.m_orderId = wire.order_id();
 			row.m_tradeId = wire.trade_id();
 			row.m_strSecurity = wire.security();
@@ -362,14 +362,14 @@ namespace trade::protocol
 		}
 		CPosition ReadPosition(const request::TradePositionRecord& wire)
 		{
-			CPosition row{ AccountIndex(wire), wire.security(), wire.total_quantity(), wire.available_quantity(), wire.frozen_quantity(), wire.today_quantity(), wire.book_cost_cents() };
+			CPosition row{ FmtAccount(wire), wire.security(), wire.total_quantity(), wire.available_quantity(), wire.frozen_quantity(), wire.today_quantity(), wire.book_cost_cents() };
 			row.m_bCostKnown = !wire.extended_fields() || wire.cost_known();
 			row.m_bFrozenKnown = !wire.extended_fields() || wire.frozen_known();
 			return row;
 		}
-		CAccount ReadFunds(const request::TradeAccountInfo& wire)
+		CFunds ReadFunds(const request::TradeAccountInfo& wire)
 		{
-			CAccount row{ AccountIndex(wire), wire.balance(), wire.frozen(), wire.connected(), true };
+			CFunds row{ FmtAccount(wire), wire.balance(), wire.frozen(), wire.connected(), true };
 			row.m_nAvailable = wire.available();
 			row.m_bExplicitAvailable = true;
 			row.m_bFundsValid = !wire.extended_fields() || wire.funds_valid();
@@ -377,22 +377,22 @@ namespace trade::protocol
 			row.m_nState = wire.account_state();
 			return row;
 		}
-		bool ReadEvent(const request::TradeEventRecord& wire, CCountEvent& event)
+		bool ReadEvent(const request::TradeEventRecord& wire, CCounterEvent& event)
 		{
 			if (0 > wire.kind() || static_cast<int>(EventTy::Position) < wire.kind())
 			{
 				return false;
 			}
 			event.m_sequence = wire.sequence();
-			event.m_accountIndex = AccountIndex(wire);
+			event.m_account = FmtAccount(wire);
 			event.m_requestId = wire.request_id();
 			event.m_kind = static_cast<EventTy>(wire.kind());
-			event.m_account.m_accountIndex = event.m_accountIndex;
-			event.m_account.m_bConnected = wire.connected();
+			event.m_funds.m_account = event.m_account;
+			event.m_funds.m_bConnected = wire.connected();
 			event.m_bAccountValid = !wire.extended_fields() || wire.account_valid();
 			if (wire.has_account_snapshot())
 			{
-				event.m_account = ReadFunds(wire.account_snapshot());
+				event.m_funds = ReadFunds(wire.account_snapshot());
 			}
 			switch (event.m_kind)
 			{
@@ -415,7 +415,7 @@ namespace trade::protocol
 				{
 					return false;
 				}
-				event.m_account = ReadFunds(wire.funds());
+				event.m_funds = ReadFunds(wire.funds());
 				break;
 			case EventTy::Position:
 				if (!wire.has_position())
@@ -434,8 +434,8 @@ namespace trade::protocol
 	{
 		::CRequest wire;
 		wire.SetId(request.m_requestId);
-		wire.SetExtraData("broker_id", std::to_string(request.m_accountIndex.first));
-		wire.SetExtraData("account", request.m_accountIndex.second);
+		wire.SetExtraData("broker_id", std::to_string(request.m_account.first));
+		wire.SetExtraData("account", request.m_account.second);
 		switch (request.GetOperation())
 		{
 		case Operation::Login:
@@ -501,11 +501,11 @@ namespace trade::protocol
 			return false;
 		}
 		const request::TradeCounterReply& wire = response.GetData().counter_reply();
-		if (!IsAccountValid(AccountIndex(wire)) || static_cast<int>(Operation::Login) > wire.operation() || static_cast<int>(Operation::Trades) < wire.operation())
+		if (!IsAccountValid(FmtAccount(wire)) || static_cast<int>(Operation::Login) > wire.operation() || static_cast<int>(Operation::Trades) < wire.operation())
 		{
 			return false;
 		}
-		reply.m_accountIndex = AccountIndex(wire);
+		reply.m_account = FmtAccount(wire);
 		reply.m_requestId = wire.request_id();
 		reply.m_operation = static_cast<Operation>(wire.operation());
 		reply.m_version = wire.watermark();
@@ -518,7 +518,7 @@ namespace trade::protocol
 		switch (reply.m_operation)
 		{
 		case Operation::Funds:
-			if (!wire.has_funds() || reply.m_accountIndex != AccountIndex(wire.funds()))
+			if (!wire.has_funds() || reply.m_account != FmtAccount(wire.funds()))
 			{
 				return false;
 			}
@@ -533,7 +533,7 @@ namespace trade::protocol
 			std::vector<CPosition> rows;
 			for (const auto& row : wire.positions().positions())
 			{
-				if (reply.m_accountIndex != AccountIndex(row))
+				if (reply.m_account != FmtAccount(row))
 				{
 					return false;
 				}
@@ -551,7 +551,7 @@ namespace trade::protocol
 			std::vector<COrder> rows;
 			for (const auto& row : wire.orders().orders())
 			{
-				if (reply.m_accountIndex != AccountIndex(row))
+				if (reply.m_account != FmtAccount(row))
 				{
 					return false;
 				}
@@ -569,7 +569,7 @@ namespace trade::protocol
 			std::vector<CTrade> rows;
 			for (const auto& row : wire.trades().trades())
 			{
-				if (reply.m_accountIndex != AccountIndex(row))
+				if (reply.m_account != FmtAccount(row))
 				{
 					return false;
 				}
@@ -587,19 +587,19 @@ namespace trade::protocol
 			return true;
 		}
 	}
-	bool ReadPush(const ::CRequest& response, CCountEvent& event)
+	bool ReadPush(const ::CRequest& response, CCounterEvent& event)
 	{
-		if (!utility::to_number(response.GetExtraData("sequence"), event.m_sequence) || !ReadAccountIdentity(response, event.m_accountIndex) || !IsAccountValid(event.m_accountIndex))
+		if (!utility::to_number(response.GetExtraData("sequence"), event.m_sequence) || !FmtAccount(response, event.m_account) || !IsAccountValid(event.m_account))
 		{
 			return false;
 		}
 		utility::to_number(response.GetExtraData("request_id"), event.m_requestId);
-		event.m_account.m_accountIndex = event.m_accountIndex;
+		event.m_funds.m_account = event.m_account;
 		const request::RequestData& data = response.GetData();
 		event.m_bAccountValid = data.has_event_account();
 		if (data.has_event_account())
 		{
-			event.m_account = ReadFunds(data.event_account());
+			event.m_funds = ReadFunds(data.event_account());
 		}
 		switch (response.GetType())
 		{
@@ -609,9 +609,9 @@ namespace trade::protocol
 				return false;
 			}
 			event.m_kind = EventTy::Session;
-			event.m_account.m_bConnected = request::ACCOUNT_CONNECTED == data.account().state();
-			event.m_account.m_nState = static_cast<int>(data.account().state());
-			return event.m_accountIndex == AccountIndex(data.account());
+			event.m_funds.m_bConnected = request::ACCOUNT_CONNECTED == data.account().state();
+			event.m_funds.m_nState = static_cast<int>(data.account().state());
+			return event.m_account == FmtAccount(data.account());
 		case _TyRequest::TRADE_ORDER_PUSH:
 			if (!data.has_trade_orders() || 1 != data.trade_orders().orders_size())
 			{
@@ -619,7 +619,7 @@ namespace trade::protocol
 			}
 			event.m_kind = EventTy::Order;
 			event.m_order = ReadOrder(data.trade_orders().orders(0));
-			return event.m_accountIndex == event.m_order.m_accountIndex;
+			return event.m_account == event.m_order.m_account;
 		case _TyRequest::TRADE_TRADE_PUSH:
 			if (!data.has_trades() || 1 != data.trades().trades_size())
 			{
@@ -627,7 +627,7 @@ namespace trade::protocol
 			}
 			event.m_kind = EventTy::Deal;
 			event.m_trade = ReadTrade(data.trades().trades(0));
-			return event.m_accountIndex == event.m_trade.m_accountIndex;
+			return event.m_account == event.m_trade.m_account;
 		case _TyRequest::TRADE_ACCOUNT_INFO_PUSH:
 			if (!data.has_account_info())
 			{
@@ -635,8 +635,8 @@ namespace trade::protocol
 			}
 			event.m_kind = EventTy::Funds;
 			event.m_bAccountValid = true;
-			event.m_account = ReadFunds(data.account_info());
-			return event.m_accountIndex == event.m_account.m_accountIndex;
+			event.m_funds = ReadFunds(data.account_info());
+			return event.m_account == event.m_funds.m_account;
 		case _TyRequest::TRADE_POSITION_PUSH:
 			if (!data.has_trade_positions() || 1 != data.trade_positions().positions_size())
 			{
@@ -644,7 +644,7 @@ namespace trade::protocol
 			}
 			event.m_kind = EventTy::Position;
 			event.m_position = ReadPosition(data.trade_positions().positions(0));
-			return event.m_accountIndex == event.m_position.m_accountIndex;
+			return event.m_account == event.m_position.m_account;
 		default:
 			return false;
 		}

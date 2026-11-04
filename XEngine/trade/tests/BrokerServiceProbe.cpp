@@ -19,7 +19,7 @@ int main(int nArgs, char** pArgs)
 	info.m_host.m_strName = "Broker";
 	info.m_host.m_strHost = "127.0.0.1";
 	info.m_host.m_nPort = static_cast<unsigned int>(std::stoul(pArgs[1]));
-	_TyAccount accountIndex = { 1, pArgs[3] };
+	_TyAccount account = { 1, pArgs[3] };
 	std::atomic_int nEvents{ 0 };
 	std::atomic_bool bTradeCorrelated{ false };
 	std::promise<trade::CCounterReply> completion;
@@ -38,7 +38,7 @@ int main(int nArgs, char** pArgs)
 	};
 	CBrokerGuard guard{ &broker };
 	accounts.SetAccountStateHandler(std::bind_front(&CTradeService::OnAccountState, &client));
-	client.SetEventHandler([&nEvents, &bTradeCorrelated](const trade::CCountEvent& event)
+	client.SetEventHandler([&nEvents, &bTradeCorrelated](const trade::CCounterEvent& event)
 	{
 		if (trade::EventTy::Deal == event.m_kind && 700 == event.m_order.m_clientId && 77 == event.m_order.m_strategyId)
 		{
@@ -53,20 +53,20 @@ int main(int nArgs, char** pArgs)
 	{
 		return 2;
 	}
-	for (int nIndex = 0; nIndex < 100 && !client.Snapshot(accountIndex).m_bReady; ++nIndex)
+	for (int nIndex = 0; nIndex < 100 && !client.Snapshot(account).m_bReady; ++nIndex)
 	{
 		std::this_thread::sleep_for(std::chrono::milliseconds(100));
 	}
-	if (!client.Snapshot(accountIndex).m_bReady)
+	if (!client.Snapshot(account).m_bReady)
 	{
 		return 3;
 	}
 	trade::CReqParam request;
-	request.m_accountIndex = accountIndex;
+	request.m_account = account;
 	request.m_param = trade::CSubmitParam{};
 	request.m_requestId = 700;
 	std::get<trade::CSubmitParam>(request.m_param).m_order.m_clientId = 700;
-	std::get<trade::CSubmitParam>(request.m_param).m_order.m_accountIndex = accountIndex;
+	std::get<trade::CSubmitParam>(request.m_param).m_order.m_account = account;
 	std::get<trade::CSubmitParam>(request.m_param).m_order.m_strategyId = 77;
 	std::get<trade::CSubmitParam>(request.m_param).m_order.m_signalId = 78;
 	std::get<trade::CSubmitParam>(request.m_param).m_order.m_strSecurity = "600000.SSE";
@@ -90,7 +90,7 @@ int main(int nArgs, char** pArgs)
 		client.Stop();
 		accounts.Stop();
 		broker.Stop();
-		if (trade::Error::UnknownResult != reply.m_result.m_error || client.Snapshot(accountIndex).m_bReady)
+		if (trade::Error::UnknownResult != reply.m_result.m_error || client.Snapshot(account).m_bReady)
 		{
 			return 9;
 		}
@@ -103,14 +103,14 @@ int main(int nArgs, char** pArgs)
 	}
 	// A submit response is partial: it must not replace the synchronized position cache.
 	std::this_thread::sleep_for(std::chrono::milliseconds(1200));
-	if (client.Snapshot(accountIndex).m_positions.empty() || !bTradeCorrelated.load())
+	if (client.Snapshot(account).m_positions.empty() || !bTradeCorrelated.load())
 	{
 		return 7;
 	}
 	client.Stop();
 	accounts.Stop();
 	broker.Stop();
-	if (client.Snapshot(accountIndex).m_bReady)
+	if (client.Snapshot(account).m_bReady)
 	{
 		return 8;
 	}

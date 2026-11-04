@@ -11,35 +11,35 @@ class CTradeService final
 
 public:
 	using _TyReplyHandler = std::function<void(const trade::CCounterReply&)>;
-	using _TyEventHandler = std::function<void(const trade::CCountEvent&)>;
+	using _TyEventHandler = std::function<void(const trade::CCounterEvent&)>;
 	using _TyAccountReadyHandler = std::function<void(const _TyAccount&)>;
 
 	CTradeService(CAccountService* pAccountService, CSession* pSession);
 	~CTradeService();
 	bool Initialize();
 	void Stop();
-	bool IsReady(const _TyAccount& accountIndex) const;
-	trade::CAccountData Snapshot(const _TyAccount& accountIndex) const;
-	CAccountSnapshot GetAccount(const _TyAccount& accountIndex) const;
-	CPositionSnapshot GetPosition(const _TyAccount& accountIndex, const CSecurity& security) const;
-	std::vector<trade::COrder> GetOrders(const _TyAccount& accountIndex) const;
-	bool HasActiveOrders(const _TyAccount& accountIndex) const;
+	bool IsReady(const _TyAccount& account) const;
+	trade::CAccountData Snapshot(const _TyAccount& account) const;
+	CAccountSnapshot GetAccount(const _TyAccount& account) const;
+	CPositionSnapshot GetPosition(const _TyAccount& account, const CSecurity& security) const;
+	std::vector<trade::COrder> GetOrders(const _TyAccount& account) const;
+	bool HasActiveOrders(const _TyAccount& account) const;
 	void SetEventHandler(_TyEventHandler&& handler);
 	void SetPushHandler(_TyRequestNotify&& handler);
 	void SetAccountReadyHandler(_TyAccountReadyHandler&& handler);
-	void OnAccountState(const _TyAccount& accountIndex);
-	void OnBrokerEvent(trade::CCountEvent event);
+	void OnAccountState(const _TyAccount& account);
+	void OnBrokerEvent(trade::CCounterEvent event);
 	void OnBrokerState(SessionState state, const std::string& reason = {});
 	const std::string& GetLastError() const;
-	bool HandleTradingRequest(const CRequest& req);
+	bool HandleTradeRequest(const CRequest& req);
 	trade::CResult SendRequest(trade::CReqParam&& request, _TyReplyHandler&& handler);
 
 private:
 	void RefreshTrades();
-	void PublishEvent(const trade::CCountEvent& event);
-	void ApplyEvent(trade::CAccountData& data, trade::CCountEvent& event);
-	void QueryAccount(const _TyAccount& accountIndex);
-	void QueryNext(const _TyAccount& accountIndex, std::uint64_t nGeneration, std::uint64_t nCycle, trade::Operation operation);
+	void PublishEvent(const trade::CCounterEvent& event);
+	void ApplyEvent(trade::CAccountData& data, trade::CCounterEvent& event);
+	void QueryAccount(const _TyAccount& account);
+	void QueryNext(const _TyAccount& account, std::uint64_t nGeneration, std::uint64_t nCycle, trade::Operation operation);
 	void CompleteQuery(const trade::CCounterReply& reply, std::uint64_t nGeneration, std::uint64_t nCycle);
 
 	void FailPending();
@@ -47,7 +47,7 @@ private:
 	bool OnRequestReply(const CRequest& req);
 	bool SendRequest(CRequest&& request, _TyRequestNotify&& handler);
 	trade::CResult SendBrokerRequest(trade::CReqParam&& request, _TyReplyHandler&& handler);
-	void CompleteRequest(const CRequest& response, const _TyAccount& accountIndex, std::uint64_t nRequestId, trade::Operation operation, std::uint64_t nGeneration, const _TyReplyHandler& handler);
+	void CompleteRequest(const CRequest& response, const _TyAccount& account, std::uint64_t nRequestId, trade::Operation operation, std::uint64_t nGeneration, const _TyReplyHandler& handler);
 
 	struct CPending
 	{
@@ -66,7 +66,7 @@ private:
 	std::map<_TyAccount, trade::CAccountData> m_snapshots;
 	struct CSync
 	{
-		std::vector<trade::CCountEvent> m_events;
+		std::vector<trade::CCounterEvent> m_events;
 		trade::CAccountData m_data;
 		std::array<std::uint64_t, 5> m_versions{};
 		std::uint64_t m_cycle{ 0 };

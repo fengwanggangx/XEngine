@@ -153,16 +153,16 @@ private:
 	net::_TyConnectionId m_connection_id{ -1 };
 };
 
-inline bool ReadAccountIdentity(const CRequest& request, _TyAccount& account)
+inline bool FmtAccount(const CRequest& req, _TyAccount& account)
 {
 	try
 	{
-		std::string broker = request.GetExtraData("broker_id");
+		std::string broker = req.GetExtraData("broker_id");
 		if (broker.empty() || std::string::npos != broker.find_first_not_of("0123456789"))
 		{
 			return false;
 		}
-		account = { std::stoull(broker), request.GetExtraData("account") };
+		account = { std::stoull(broker), req.GetExtraData("account") };
 		return IsAccountValid(account);
 	}
 	catch (const std::exception&)

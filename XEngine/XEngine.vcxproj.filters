@@ -80,9 +80,6 @@
     <ClCompile Include="system\CBootLoader.cpp">
       <Filter>system</Filter>
     </ClCompile>
-    <ClCompile Include="system\CHostMgr.cpp">
-      <Filter>system</Filter>
-    </ClCompile>
     <ClCompile Include="ini\CIniFile.cpp">
       <Filter>ini</Filter>
     </ClCompile>
@@ -249,7 +246,7 @@
     <ClInclude Include="system\CBootLoader.h">
       <Filter>system</Filter>
     </ClInclude>
-    <ClInclude Include="system\CHostMgr.h">
+    <ClInclude Include="system\CHostInfo.h">
       <Filter>system</Filter>
     </ClInclude>
     <ClInclude Include="ini\CIniFile.h">

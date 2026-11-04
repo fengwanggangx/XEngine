@@ -55,17 +55,17 @@ namespace trade
 			Read(stream, account.first);
 			Read(stream, account.second);
 		}
-		void Write(std::ostream& stream, const CAccount& value)
+		void Write(std::ostream& stream, const CFunds& value)
 		{
-			Write(stream, value.m_accountIndex);
+			Write(stream, value.m_account);
 			Write(stream, value.m_nBalance);
 			Write(stream, value.m_nFrozen);
 			Write(stream, value.m_bConnected);
 			Write(stream, value.m_bMigrated);
 		}
-		void Read(std::istream& stream, CAccount& value)
+		void Read(std::istream& stream, CFunds& value)
 		{
-			Read(stream, value.m_accountIndex);
+			Read(stream, value.m_account);
 			Read(stream, value.m_nBalance);
 			Read(stream, value.m_nFrozen);
 			Read(stream, value.m_bConnected);
@@ -73,7 +73,7 @@ namespace trade
 		}
 		void Write(std::ostream& stream, const CPosition& value)
 		{
-			Write(stream, value.m_accountIndex);
+			Write(stream, value.m_account);
 			Write(stream, value.m_strSecurity);
 			Write(stream, value.m_nTotal);
 			Write(stream, value.m_nAvailable);
@@ -83,7 +83,7 @@ namespace trade
 		}
 		void Read(std::istream& stream, CPosition& value)
 		{
-			Read(stream, value.m_accountIndex);
+			Read(stream, value.m_account);
 			Read(stream, value.m_strSecurity);
 			Read(stream, value.m_nTotal);
 			Read(stream, value.m_nAvailable);
@@ -93,7 +93,7 @@ namespace trade
 		}
 		void Write(std::ostream& stream, const COrder& value)
 		{
-			Write(stream, value.m_accountIndex);
+			Write(stream, value.m_account);
 			Write(stream, value.m_clientId);
 			Write(stream, value.m_orderId);
 			Write(stream, value.m_requestId);
@@ -115,7 +115,7 @@ namespace trade
 		}
 		void Read(std::istream& stream, COrder& value)
 		{
-			Read(stream, value.m_accountIndex);
+			Read(stream, value.m_account);
 			Read(stream, value.m_clientId);
 			Read(stream, value.m_orderId);
 			Read(stream, value.m_requestId);
@@ -139,7 +139,7 @@ namespace trade
 		{
 			Write(stream, value.m_tradeId);
 			Write(stream, value.m_orderId);
-			Write(stream, value.m_accountIndex);
+			Write(stream, value.m_account);
 			Write(stream, value.m_strSecurity);
 			Write(stream, value.m_side);
 			Write(stream, value.m_nPrice);
@@ -152,7 +152,7 @@ namespace trade
 		{
 			Read(stream, value.m_tradeId);
 			Read(stream, value.m_orderId);
-			Read(stream, value.m_accountIndex);
+			Read(stream, value.m_account);
 			Read(stream, value.m_strSecurity);
 			Read(stream, value.m_side);
 			Read(stream, value.m_nPrice);
@@ -217,26 +217,26 @@ namespace trade
 			Read(stream, value.m_nResume);
 			Read(stream, value.m_nClose);
 		}
-		void Write(std::ostream& stream, const CCountEvent& value)
+		void Write(std::ostream& stream, const CCounterEvent& value)
 		{
 			Write(stream, value.m_sequence);
 			Write(stream, value.m_requestId);
-			Write(stream, value.m_accountIndex);
+			Write(stream, value.m_account);
 			Write(stream, value.m_kind);
 			Write(stream, value.m_order);
 			Write(stream, value.m_trade);
-			Write(stream, value.m_account);
+			Write(stream, value.m_funds);
 			Write(stream, value.m_position);
 		}
-		void Read(std::istream& stream, CCountEvent& value)
+		void Read(std::istream& stream, CCounterEvent& value)
 		{
 			Read(stream, value.m_sequence);
 			Read(stream, value.m_requestId);
-			Read(stream, value.m_accountIndex);
+			Read(stream, value.m_account);
 			Read(stream, value.m_kind);
 			Read(stream, value.m_order);
 			Read(stream, value.m_trade);
-			Read(stream, value.m_account);
+			Read(stream, value.m_funds);
 			Read(stream, value.m_position);
 		}
 	} // namespace
@@ -316,9 +316,9 @@ namespace trade
 		}
 		for (std::size_t nIndex = 0; nIndex < nCount; ++nIndex)
 		{
-			CAccount value;
+			CFunds value;
 			Read(stream, value);
-			if (!stream || !next.m_accounts.emplace(value.m_accountIndex, std::move(value)).second)
+			if (!stream || !next.m_accounts.emplace(value.m_account, std::move(value)).second)
 			{
 				return false;
 			}
@@ -332,7 +332,7 @@ namespace trade
 		{
 			CPosition value;
 			Read(stream, value);
-			if (!stream || !next.m_positions.emplace(std::make_pair(value.m_accountIndex, value.m_strSecurity), std::move(value)).second)
+			if (!stream || !next.m_positions.emplace(std::make_pair(value.m_account, value.m_strSecurity), std::move(value)).second)
 			{
 				return false;
 			}
@@ -401,7 +401,7 @@ namespace trade
 		next.m_events.reserve(nCount);
 		for (std::size_t nIndex = 0; nIndex < nCount; ++nIndex)
 		{
-			CCountEvent event;
+			CCounterEvent event;
 			Read(stream, event);
 			if (!stream)
 			{
@@ -451,15 +451,15 @@ namespace trade
 			rows.push_back(row);
 		}
 	} // namespace
-	void UpdateAccountData(CAccountData& snapshot, const CCountEvent& event)
+	void UpdateAccountData(CAccountData& snapshot, const CCounterEvent& event)
 	{
-		if (!IsAccountValid(snapshot.m_account.m_accountIndex) || snapshot.m_account.m_accountIndex != event.m_accountIndex)
+		if (!IsAccountValid(snapshot.m_account.m_account) || snapshot.m_account.m_account != event.m_account)
 		{
 			return;
 		}
 		if (event.m_bAccountValid)
 		{
-			snapshot.m_account = event.m_account;
+			snapshot.m_account = event.m_funds;
 		}
 		snapshot.m_version = event.m_sequence;
 		switch (event.m_kind)
@@ -482,7 +482,7 @@ namespace trade
 		case EventTy::Position:
 			UpdateRow(snapshot.m_positions, event.m_position, [&event](const CPosition& row)
 			{
-				return event.m_accountIndex == row.m_accountIndex && event.m_position.m_strSecurity == row.m_strSecurity;
+				return event.m_account == row.m_account && event.m_position.m_strSecurity == row.m_strSecurity;
 			});
 			break;
 		default:

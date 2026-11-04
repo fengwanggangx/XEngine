@@ -68,9 +68,9 @@ XEngine 通过 `[Broker] host/port/token` 连接 XBroker。账户不再使用数
 
 ## 交易服务分层
 
-`CAccountService` 仅管理账户身份、目录、登录连接状态、占用计数及退出保护。`IsConnected(accountIndex)` 表示账户已经连接，不表示资金和持仓等数据已经同步。账户状态变化通过通知使交易服务立即取消旧同步并失效旧快照；实际柜台连接和会话由 XBroker 管理。
+`CAccountService` 仅管理账户身份、目录、登录连接状态、占用计数及退出保护。`IsConnected(account)` 表示账户已经连接，不表示资金和持仓等数据已经同步。账户状态变化通过通知使交易服务立即取消旧同步并失效旧快照；实际柜台连接和会话由 XBroker 管理。
 
-`CTradeService` 保存资金、持仓、委托、成交、同步水位和数据就绪标记，按资金、持仓、委托、成交顺序查询并衔接增量推送，提供 `Snapshot()`、`GetAccount()`、`GetPosition()` 和 `GetOrders()`。`IsReady(accountIndex)` 同时检查账户连接和交易数据同步状态；策略启动及报单要求交易数据就绪。交易请求和委托成交通知也由交易服务处理。
+`CTradeService` 保存资金、持仓、委托、成交、同步水位和数据就绪标记，按资金、持仓、委托、成交顺序查询并衔接增量推送，提供 `Snapshot()`、`GetAccount()`、`GetPosition()` 和 `GetOrders()`。`IsReady(account)` 同时检查账户连接和交易数据同步状态；策略启动及报单要求交易数据就绪。交易请求和委托成交通知也由交易服务处理。
 
 `CBootLoader` 独立创建 HQMarket 和 XBroker 两个 `CSession`。账户服务和交易服务借用同一个 Broker Session，并各自注册响应及连接状态回调。账户服务处理券商目录、账户登录、退出和账户目录请求；交易服务处理资金、持仓、委托、成交、报单和撤单。两者各自管理请求关联、超时和断线完成，Session 负责认证、心跳、重连及响应广播，不再使用独立的 Broker 客户端。账户服务通知终端账户状态，交易服务通知终端资金、持仓、委托和成交变化。
 

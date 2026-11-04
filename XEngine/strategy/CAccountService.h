@@ -6,7 +6,7 @@
 #include <condition_variable>
 #include <map>
 #include <mutex>
-#include <set>
+#include <shared_mutex>
 #include <thread>
 #include <vector>
 #include <unordered_map>
@@ -23,15 +23,15 @@ public:
 	~CAccountService();
 	bool Initialize();
 	void Stop();
-	bool HasAccount(const _TyAccount& accountIndex) const;
-	bool IsConnected(const _TyAccount& accountIndex) const;
-	bool AcquireAccount(const _TyAccount& accountIndex);
-	void ReleaseAccount(const _TyAccount& accountIndex);
+	bool HasAccount(const _TyAccount& account) const;
+	bool IsConnected(const _TyAccount& account) const;
+	bool AcquireAccount(const _TyAccount& account);
+	void ReleaseAccount(const _TyAccount& account);
 	std::vector<_TyAccount> GetAccounts() const;
 	bool HandleAccountRequest(const CRequest& req, const std::string& actor);
 	void SetPushHandler(_TyRequestNotify&& handler);
 	void SetAccountStateHandler(_TyAccountStateHandler&& handler);
-	void OnBrokerEvent(const trade::CCountEvent& event);
+	void OnBrokerEvent(const trade::CCounterEvent& event);
 	void OnBrokerState(SessionState state, const std::string& reason = {});
 	const std::string& GetLastError() const;
 
@@ -45,6 +45,16 @@ private:
 	bool OnRequestReply(const CRequest& req);
 	bool SendRequest(CRequest&& request, _TyRequestNotify&& handler);
 
+	struct CAccountRuntime
+	{
+		CAccountInfo m_info;
+		std::size_t m_useCount{ 0 };
+		bool m_bListed{ true };
+		bool m_bDisconnecting{ false };
+	};
+
+	void FinishDisconnect(const _TyAccount& account);
+
 	struct CPending
 	{
 		_TyRequestNotify m_handler;
@@ -55,10 +65,8 @@ private:
 	std::mutex m_mtx_requests;
 	std::unordered_map<_TyRequestId, CPending> m_pending;
 	CSession* m_pSession{ nullptr };
-	mutable std::mutex m_mtx_accounts;
-	std::map<_TyAccount, CAccountInfo> m_accounts;
-	std::map<_TyAccount, std::size_t> m_accountUsers;
-	std::set<_TyAccount> m_disconnectingAccounts;
+	mutable std::shared_mutex m_mtx_accounts;
+	std::map<_TyAccount, CAccountRuntime> m_accounts;
 	_TyRequestNotify m_pushHandler;
 	_TyAccountStateHandler m_accountStateHandler;
 	std::uint64_t m_generation{ 0 };

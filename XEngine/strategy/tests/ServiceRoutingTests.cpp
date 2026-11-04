@@ -1,6 +1,7 @@
 #include "../CTradeService.h"
 #include "../CStrategyService.h"
 #include "../../system/CEngineService.h"
+#include "../../request/request.pb.h"
 #include "../../network/CNetPool.h"
 #include "../../network/CFrameBuffer.h"
 #include <event2/event.h>
@@ -55,8 +56,19 @@ public:
 		request.SetType(_TyRequest::TRADE_ACCOUNT_LOGIN);
 		engine.OnClientRequest(7070, request);
 		Check("authentication required" == LastResponse(event).GetErrorInfo()->second, "unauthenticated account requests remain rejected");
-		engine.m_auth_clients.emplace(7070);
-		engine.m_clientUsers.emplace(7070, "tester");
+		engine.m_client_tokens.emplace("test-token", std::chrono::steady_clock::now() + std::chrono::hours(1));
+		engine.m_tokenUsers.emplace("test-token", "tester");
+		CRequest authentication;
+		authentication.SetConnectionId(7070);
+		authentication.SetType(_TyRequest::AUTH_LOGIN);
+		authentication.SetExtraData("token", "test-token");
+		engine.OnClientRequest(7070, authentication);
+		std::pair<bool, std::string> authenticatedClient = engine.IsAuthenticated(7070);
+		Check(authenticatedClient.first && "tester" == authenticatedClient.second, "token authentication restores the client user");
+		engine.HandleDisconnected(7070);
+		Check(!engine.IsAuthenticated(7070).first, "disconnect removes the authenticated client identity");
+		engine.OnClientRequest(7070, authentication);
+		Check("tester" == engine.m_auth_clients.at(7070), "token reconnect binds the user again");
 		for (_TyRequest type : { _TyRequest::TRADE_ACCOUNT_LOGIN, _TyRequest::TRADE_ACCOUNT_LIST_QUERY, _TyRequest::TRADE_FUNDS_QUERY, _TyRequest::SUPPORTED_BROKER_QUERY })
 		{
 			request.SetType(type);
@@ -71,10 +83,10 @@ public:
 		entry.m_state = TradeAccountState::Connected;
 		trade::CAccountData& cached = trader.m_snapshots[account];
 		cached.m_bReady = true;
-		cached.m_account.m_accountIndex = account;
+		cached.m_account.m_account = account;
 		cached.m_account.m_bConnected = true;
 		cached.m_account.m_bFundsValid = true;
-		accounts.m_accounts.emplace(account, std::move(entry));
+		accounts.m_accounts[account].m_info = std::move(entry);
 		Check(accounts.AcquireAccount(account), "ready account permits strategy use");
 		Check(accounts.AcquireAccount(account), "multiple consumers can use one account");
 		request.SetType(_TyRequest::TRADE_ACCOUNT_DISCONNECT);
@@ -96,11 +108,34 @@ public:
 			Check(!strategies.BeginAccountUse(account, 7), "duplicate strategy does not acquire twice");
 			strategies.EndAccountUse(account, 7);
 			strategies.EndAccountUse(account, 7);
-			Check(accounts.m_accountUsers.empty(), "strategy releases account use exactly once");
+			Check(0 == accounts.m_accounts.at(account).m_useCount, "strategy releases account use exactly once");
 			strategies.StopAll();
 			Check(accounts.AcquireAccount(account), "stopping strategies does not stop the shared trade service");
 			accounts.ReleaseAccount(account);
 		}
+		Check(accounts.AcquireAccount(account), "catalogue refresh starts with an occupied account");
+		accounts.m_accounts.at(account).m_bDisconnecting = true;
+		request::TradeAccountList catalogue;
+		request::TradeAccountRecord* record = catalogue.add_accounts();
+		record->set_broker_id(account.first);
+		record->set_account(account.second);
+		record->set_state(static_cast<request::TradingAccountState>(TradeAccountState::Connected));
+		CRequest catalogueResponse;
+		catalogueResponse.SetData(catalogue);
+		accounts.OnCatalogue(catalogueResponse, accounts.m_generation);
+		Check(1 == accounts.m_accounts.at(account).m_useCount && accounts.m_accounts.at(account).m_bDisconnecting, "catalogue refresh preserves local runtime guards");
+		Check(!accounts.AcquireAccount(account), "disconnecting account rejects new use");
+		catalogue.clear_accounts();
+		catalogueResponse.SetData(catalogue);
+		accounts.OnCatalogue(catalogueResponse, accounts.m_generation);
+		Check(!accounts.HasAccount(account) && accounts.GetAccounts().empty(), "removed runtime is hidden from the account directory");
+		Check(1 == accounts.m_accounts.at(account).m_useCount && accounts.m_accounts.at(account).m_bDisconnecting, "missing account retains outstanding use and disconnect guards");
+		accounts.ReleaseAccount(account);
+		Check(accounts.m_accounts.contains(account), "disconnect guard retains runtime after final release");
+		accounts.FinishDisconnect(account);
+		Check(!accounts.m_accounts.contains(account), "runtime is removed after both guards finish");
+		accounts.m_accounts[account].m_info = AccountInfo(account);
+		accounts.m_accounts.at(account).m_info.m_state = TradeAccountState::Connected;
 		trader.Stop();
 		Check(accounts.IsConnected(account), "stopping trade service leaves account state available");
 		Check(accounts.AcquireAccount(account), "account service remains usable after trade service stops");

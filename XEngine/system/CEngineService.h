@@ -8,9 +8,9 @@
 
 #include <atomic>
 #include <chrono>
-#include <functional>
 #include <mutex>
 #include <string>
+#include <utility>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
@@ -77,11 +77,11 @@ private:
 	bool HandleAuth(net::_TyConnectionId id, const CRequest& req);
 	bool HandleRegisterAuth(net::_TyConnectionId id, const CRequest& req);
 	bool HandleSubscription(net::_TyConnectionId id, const CRequest& req);
-	bool HandleMarketQuery(net::_TyConnectionId id, const CRequest& req);
+	bool HandleQueryHQRequest(net::_TyConnectionId id, const CRequest& req);
 	bool HandleHeartbeat(net::_TyConnectionId id, const CRequest& req);
 	bool HandleStrategyRequest(net::_TyConnectionId id, const CRequest& req);
 	bool HandleTradeRequest(net::_TyConnectionId id, const CRequest& req);
-	bool HandleTradeAccountRequest(net::_TyConnectionId id, const CRequest& req);
+	bool HandleTradeAccountRequest(net::_TyConnectionId id, const CRequest& req, const std::string& strUser);
 
 	int HandleDisconnected(net::_TyConnectionId id);
 	bool HandleReAuth(const CRequest& req);
@@ -94,7 +94,7 @@ private:
 	bool RouteQueryRequest(const CRequest& response);
 
 private:
-	bool IsAuthenticated(net::_TyConnectionId id) const;
+	std::pair<bool, std::string> IsAuthenticated(net::_TyConnectionId id) const;
 	CQuoteInfo GetQuoteInfo(const CRequest& req) const;
 	void SendSubscriptionResponse(net::_TyConnectionId id, _TyRequestId requestId, bool bAccepted, const std::string& strReason, _TyRequest type = _TyRequest::MARKET_SUBSCRIBE, const std::vector<CQuoteInfo>& subscriptions = {}) const;
 	std::string GetMarketResponseKey(const CRequest& req) const;
@@ -104,13 +104,10 @@ private:
 	bool Login(const CRequest& req, std::string& strToken);
 
 private:
-	std::unordered_map<_TyRequest, std::function<bool(net::_TyConnectionId, const CRequest&)>> m_handler;
-
 	mutable std::mutex m_mtx_state;
-	std::unordered_set<net::_TyConnectionId> m_auth_clients;
+	std::unordered_map<net::_TyConnectionId, std::string> m_auth_clients;
 	std::unordered_map<std::string, std::chrono::steady_clock::time_point> m_client_tokens;
 
-	std::unordered_map<net::_TyConnectionId, std::string> m_clientUsers;
 	std::unordered_map<std::string, std::string> m_tokenUsers;
 	CSubscriptionMgr m_subscriptions;
 	std::unordered_map<std::string, std::vector<PendingSubscription>> m_pending_subscriptions;

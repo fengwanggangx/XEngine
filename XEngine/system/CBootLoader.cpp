@@ -4,7 +4,6 @@
 #include "../ini/CINIHandler.h"
 #include "../network/CHttpServer.h"
 #include "../network/CTcpServer.h"
-#include "CHostMgr.h"
 #include "CSession.h"
 #include "CEngineService.h"
 #include "../strategy/CTradeService.h"
@@ -34,7 +33,7 @@ bool CBootLoader::Initialize()
 		return true;
 	}
 
-	if (nullptr != m_pTcpServer || nullptr != m_pHttpServer || nullptr != m_pHostMgr || nullptr != m_pHQMarket || nullptr != m_pBroker || nullptr != m_pAccountService || nullptr != m_pTradeService || nullptr != m_pStrategyService || nullptr != m_pEngineService)
+	if (nullptr != m_pTcpServer || nullptr != m_pHttpServer || nullptr != m_pHQMarket || nullptr != m_pBroker || nullptr != m_pAccountService || nullptr != m_pTradeService || nullptr != m_pStrategyService || nullptr != m_pEngineService)
 	{
 		Finalize();
 	}
@@ -48,14 +47,6 @@ bool CBootLoader::Initialize()
 	{
 		m_nErrorCode = 1;
 		m_strLastError = "Failed to enable libevent thread support";
-		return false;
-	}
-
-	m_pHostMgr = new CHostMgr();
-	if (!m_pHostMgr->GetActiveHost().has_value())
-	{
-		m_nErrorCode = 2;
-		m_strLastError = "Failed to initialize CHostMgr";
 		return false;
 	}
 
@@ -251,8 +242,6 @@ void CBootLoader::Finalize()
 	m_pHttpServer = nullptr;
 	delete m_pTcpServer;
 	m_pTcpServer = nullptr;
-	delete m_pHostMgr;
-	m_pHostMgr = nullptr;
 	CDBEngine::InstanceRef().Close();
 	m_bInitialized = false;
 }
@@ -265,11 +254,6 @@ net::CTcpServer& CBootLoader::GetTcpServer()
 net::CHttpServer& CBootLoader::GetHttpServer()
 {
 	return *m_pHttpServer;
-}
-
-CHostMgr& CBootLoader::GetHostMgr()
-{
-	return *m_pHostMgr;
 }
 
 const std::string& CBootLoader::GetLastError() const

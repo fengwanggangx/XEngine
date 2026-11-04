@@ -22,15 +22,15 @@ struct CAccountInfo
 	std::string m_strLastError;
 };
 
-inline _TyAccount AccountIndex(const CAccountInfo& info)
+inline _TyAccount FmtAccount(const CAccountInfo& info)
 {
 	return { info.m_brokerId, info.m_strAccount };
 }
 
-inline CAccountInfo AccountInfo(const _TyAccount& index)
+inline CAccountInfo FmtAccountInfo(const _TyAccount& account)
 {
 	CAccountInfo info;
-	info.m_brokerId = index.first;
-	info.m_strAccount = index.second;
+	info.m_brokerId = account.first;
+	info.m_strAccount = account.second;
 	return info;
 }

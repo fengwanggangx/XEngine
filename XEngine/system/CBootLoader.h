@@ -11,7 +11,6 @@ namespace net
 	class CTcpServer;
 } // namespace net
 
-class CHostMgr;
 class CSession;
 class CTradeService;
 class CAccountService;
@@ -32,7 +31,6 @@ public:
 	const std::filesystem::path& GetRoot() const;
 	net::CTcpServer& GetTcpServer();
 	net::CHttpServer& GetHttpServer();
-	CHostMgr& GetHostMgr();
 	const std::string& GetLastError() const;
 	int GetErrorCode() const;
 
@@ -47,7 +45,6 @@ private:
 private:
 	net::CTcpServer* m_pTcpServer{ nullptr };
 	net::CHttpServer* m_pHttpServer{ nullptr };
-	CHostMgr* m_pHostMgr{ nullptr };
 	CSession* m_pHQMarket{ nullptr };
 	CSession* m_pBroker{ nullptr };
 	CAccountService* m_pAccountService{ nullptr };

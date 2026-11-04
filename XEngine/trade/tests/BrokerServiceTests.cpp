@@ -19,7 +19,7 @@ class CBrokerServiceTests
 	static trade::CCounterReply Trades(std::uint64_t nVersion)
 	{
 		trade::CCounterReply reply;
-		reply.m_accountIndex = TestAccount(1);
+		reply.m_account = TestAccount(1);
 		reply.m_operation = trade::Operation::Trades;
 		reply.m_version = nVersion;
 		reply.m_data = std::vector<trade::CTrade>{};
@@ -28,7 +28,7 @@ class CBrokerServiceTests
 
 	static void Prepare(CTradeService& service, std::uint64_t nCycle)
 	{
-		service.m_pAccountService->m_accounts[TestAccount(1)].m_state = TradeAccountState::Connected;
+		service.m_pAccountService->m_accounts[TestAccount(1)].m_info.m_state = TradeAccountState::Connected;
 		CTradeService::CSync& pending = service.m_syncing[TestAccount(1)];
 		pending.m_cycle = nCycle;
 		pending.m_completed = 3;
@@ -39,11 +39,11 @@ class CBrokerServiceTests
 
 	static CRequest FundsPush(std::uint64_t nSequence, std::int64_t nBalance)
 	{
-		trade::CCountEvent event;
+		trade::CCounterEvent event;
 		event.m_kind = trade::EventTy::Funds;
-		event.m_accountIndex = TestAccount(1);
+		event.m_account = TestAccount(1);
 		event.m_sequence = nSequence;
-		event.m_account = { TestAccount(1), nBalance, 0, true, true };
+		event.m_funds = { TestAccount(1), nBalance, 0, true, true };
 		return trade::protocol::Push(event, {});
 	}
 
@@ -57,13 +57,13 @@ public:
 		service.m_bRunning.store(true);
 		CAccountInfo info = AccountInfo(TestAccount(1));
 		info.m_state = TradeAccountState::Connected;
-		accounts.m_accounts[TestAccount(1)] = info;
+		accounts.m_accounts[TestAccount(1)].m_info = info;
 		accounts.SetAccountStateHandler(std::bind_front(&CTradeService::OnAccountState, &service));
 		session.RegisterHandler(std::bind_front(&CAccountService::OnResponse, &accounts));
 		session.RegisterHandler(std::bind_front(&CTradeService::OnResponse, &service));
 		session.RegisterStateHandler(std::bind_front(&CAccountService::OnBrokerState, &accounts));
 		session.RegisterStateHandler(std::bind_front(&CTradeService::OnBrokerState, &service));
-		service.SetEventHandler([&nFunds](const trade::CCountEvent& event)
+		service.SetEventHandler([&nFunds](const trade::CCounterEvent& event)
 		{
 			if (trade::EventTy::Funds == event.m_kind)
 			{
@@ -82,10 +82,10 @@ public:
 		session.Dispatch(FundsPush(25, 150));
 		Check(150 == service.Snapshot(TestAccount(1)).m_account.m_nBalance && 2 == nFunds, "live push continues after queries");
 		trade::CCounterReply query;
-		query.m_accountIndex = TestAccount(1);
+		query.m_account = TestAccount(1);
 		query.m_operation = trade::Operation::Funds;
 		query.m_version = 100;
-		query.m_data = trade::CAccount{ TestAccount(1), 999, 0, true, true };
+		query.m_data = trade::CFunds{ TestAccount(1), 999, 0, true, true };
 		CRequest response;
 		response.SetType(_TyRequest::TRADE_FUNDS_QUERY);
 		trade::protocol::WriteReply(query, response);

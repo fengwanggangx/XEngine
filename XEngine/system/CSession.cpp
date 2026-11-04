@@ -276,7 +276,7 @@ bool CSession::HandleAuthRequest(const CRequest& req)
 
 void CSession::HandleResponse(const CRequest& req)
 {
-	if (request::IsAuthRequest(req))
+	if (request::IsUserAuthRequest(req))
 	{
 		HandleAuthRequest(req);
 	}

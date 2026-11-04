@@ -66,7 +66,7 @@ namespace trade
 	};
 	struct COrder
 	{
-		_TyAccount m_accountIndex{};
+		_TyAccount m_account{};
 		std::uint64_t m_clientId{ 0 }, m_orderId{ 0 }, m_requestId{ 0 }, m_strategyId{ 0 }, m_signalId{ 0 };
 		std::string m_strSecurity;
 		Side m_side{ Side::Buy };
@@ -81,14 +81,14 @@ namespace trade
 	};
 	struct CPosition
 	{
-		_TyAccount m_accountIndex{};
+		_TyAccount m_account{};
 		std::string m_strSecurity;
 		std::int64_t m_nTotal{ 0 }, m_nAvailable{ 0 }, m_nFrozen{ 0 }, m_nToday{ 0 }, m_nCost{ 0 };
 		bool m_bFrozenKnown{ true }, m_bCostKnown{ true };
 	};
-	struct CAccount
+	struct CFunds
 	{
-		_TyAccount m_accountIndex{};
+		_TyAccount m_account{};
 		std::int64_t m_nBalance{ 0 }, m_nFrozen{ 0 };
 		bool m_bConnected{ false }, m_bMigrated{ true };
 		std::int64_t m_nAvailable{ 0 };
@@ -98,7 +98,7 @@ namespace trade
 	struct CTrade
 	{
 		std::uint64_t m_tradeId{ 0 }, m_orderId{ 0 };
-		_TyAccount m_accountIndex{};
+		_TyAccount m_account{};
 		std::string m_strSecurity;
 		Side m_side{ Side::Buy };
 		std::int64_t m_nPrice{ 0 }, m_nQuantity{ 0 }, m_nFee{ 0 }, m_nTime{ 0 };
@@ -109,14 +109,14 @@ namespace trade
 		int m_market{ 0 };
 		bool m_bFeeKnown{ true };
 	};
-	struct CCountEvent
+	struct CCounterEvent
 	{
 		std::uint64_t m_sequence{ 0 }, m_requestId{ 0 };
-		_TyAccount m_accountIndex{};
+		_TyAccount m_account{};
 		EventTy m_kind{ EventTy::Session };
 		COrder m_order;
 		CTrade m_trade;
-		CAccount m_account;
+		CFunds m_funds;
 		CPosition m_position;
 		bool m_bAccountValid{ true };
 	};
@@ -174,7 +174,7 @@ namespace trade
 	struct CReqParam
 	{
 		std::uint64_t m_requestId{ 0 };
-		_TyAccount m_accountIndex{};
+		_TyAccount m_account{};
 		_TyRequestParam m_param{ CFundsQueryParam{} };
 
 		Operation GetOperation() const
@@ -190,7 +190,7 @@ namespace trade
 		bool m_bReady{ false };
 		std::uint64_t m_version{ 0 };
 		std::int64_t m_nTime{ 0 };
-		CAccount m_account;
+		CFunds m_account;
 		std::vector<CPosition> m_positions;
 		std::vector<COrder> m_orders;
 		std::vector<CTrade> m_trades;
@@ -199,11 +199,11 @@ namespace trade
 	{
 		std::uint64_t m_orderId{ 0 };
 	};
-	using _TyCounterReplyData = std::variant<std::monostate, COperationReceipt, CAccount, std::vector<CPosition>, std::vector<COrder>, std::vector<CTrade>>;
+	using _TyCounterReplyData = std::variant<std::monostate, COperationReceipt, CFunds, std::vector<CPosition>, std::vector<COrder>, std::vector<CTrade>>;
 	struct CCounterReply
 	{
 		std::uint64_t m_requestId{ 0 };
-		_TyAccount m_accountIndex{};
+		_TyAccount m_account{};
 		Operation m_operation{ Operation::Funds };
 		CResult m_result;
 		std::uint64_t m_version{ 0 };
@@ -239,16 +239,16 @@ namespace trade
 	{
 		std::uint64_t m_nextOrder{ 1 }, m_nextTrade{ 1 }, m_sequence{ 0 };
 		int m_nSettledDay{ 0 }, m_nClosedDay{ 0 };
-		std::map<_TyAccount, CAccount> m_accounts;
+		std::map<_TyAccount, CFunds> m_accounts;
 		std::map<std::pair<_TyAccount, std::string>, CPosition> m_positions;
 		std::map<std::uint64_t, COrder> m_orders;
 		std::map<std::uint64_t, CTrade> m_trades;
-		std::vector<CCountEvent> m_events;
+		std::vector<CCounterEvent> m_events;
 		std::map<std::pair<int, std::string>, CRule> m_rules;
 		std::map<int, CCalendar> m_calendar;
 		std::map<std::string, std::pair<std::int64_t, std::uint64_t>> m_consumedBooks;
 	};
-	void UpdateAccountData(CAccountData& snapshot, const CCountEvent& event);
+	void UpdateAccountData(CAccountData& snapshot, const CCounterEvent& event);
 	void ApplyChanges(CState& state, const CState& changes);
 	bool IsActive(Status status);
 	std::string EncodeState(const CState& state);
