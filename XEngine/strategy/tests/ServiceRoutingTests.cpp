@@ -96,26 +96,36 @@ class CServiceRoutingTests
 		Check(!center.OnBrokerReply(response), "wrong upstream cannot consume a market response");
 
 		CQuoteInfo quote("600519", Exchange::sse, Channel::quote);
-		market.m_subscriptions.Subscribe(7070, { quote });
+		CStrategyConfig cfg;
+		cfg.m_strategyId = 42;
+		cfg.m_subscriptions = { quote };
+		strategies.AddRoutes(cfg);
+		Check(market.HasDemand(quote), "strategy routes acquire shared HQ demand");
+		strategies.RemoveRoutes(cfg);
+		Check(!market.HasDemand(quote), "removing strategy routes releases HQ demand");
+		market.m_subscriptions.Subscribe(FmtHQSubID(SubType::Client, 7070), { quote });
+		market.m_upstreamSubscriptions[quote.String()] = { quote, 9002, _TyRequest::MARKET_SUBSCRIBE, false, pending.m_deadline };
 		market.m_pendingBatchSubscriptions.emplace(9002, CHQService::CPendingSubscriptionBatch{ { 7070, 202 }, _TyRequest::MARKET_SUBSCRIBE, pending.m_deadline, { quote }, { quote } });
 		response.SetId(9002);
 		response.SetType(_TyRequest::MARKET_SUBSCRIBE);
 		response.SetErrorInfo(1006, "rejected");
 		center.OnHQMarketReply(response);
-		Check(!market.m_subscriptions.IsSubscribed(7070, quote) && 202 == LastResponse(event).GetId(), "subscription failure rolls back client subscription");
+		Check(!market.m_subscriptions.IsSubscribed(FmtHQSubID(SubType::Client, 7070), quote) && 202 == LastResponse(event).GetId(), "subscription failure rolls back client subscription");
 
-		market.m_subscriptions.Subscribe(7070, { quote });
+		market.m_subscriptions.Subscribe(FmtHQSubID(SubType::Client, 7070), { quote });
+		market.m_upstreamSubscriptions[quote.String()] = { quote, 9003, _TyRequest::MARKET_SUBSCRIBE, false, pending.m_deadline };
 		market.m_pendingBatchSubscriptions.emplace(9003, CHQService::CPendingSubscriptionBatch{ { 7070, 203 }, _TyRequest::MARKET_SUBSCRIBE, pending.m_deadline, { quote }, { quote } });
 		CRequest accepted;
 		accepted.SetId(9003);
 		accepted.SetType(_TyRequest::MARKET_SUBSCRIBE);
 		center.OnHQMarketReply(accepted);
-		Check(market.m_subscriptions.IsSubscribed(7070, quote) && 203 == LastResponse(event).GetId(), "successful subscription ACK retains subscription and original id");
+		Check(market.m_subscriptions.IsSubscribed(FmtHQSubID(SubType::Client, 7070), quote) && 203 == LastResponse(event).GetId(), "successful subscription ACK retains subscription and original id");
+		market.m_upstreamSubscriptions[quote.String()] = { quote, 9004, _TyRequest::MARKET_SUBSCRIBE, false, std::chrono::steady_clock::time_point::min() };
 		market.m_pendingBatchSubscriptions.emplace(9004, CHQService::CPendingSubscriptionBatch{ { 7070, 204 }, _TyRequest::MARKET_SUBSCRIBE, std::chrono::steady_clock::time_point::min(), { quote }, { quote } });
 		market.ExpirePendingSubscriptions();
-		Check(!market.m_subscriptions.IsSubscribed(7070, quote) && LastResponse(event).GetErrorInfo().has_value(), "subscription timeout rolls back subscription");
+		Check(!market.m_subscriptions.IsSubscribed(FmtHQSubID(SubType::Client, 7070), quote) && LastResponse(event).GetErrorInfo().has_value(), "subscription timeout rolls back subscription");
 
-		market.m_subscriptions.Subscribe(7070, { quote });
+		market.m_subscriptions.Subscribe(FmtHQSubID(SubType::Client, 7070), { quote });
 		strategies.m_bMarketAvailable.store(true);
 		// Hold the synthetic runtime scheduled so no worker is needed to observe delivery.
 		std::shared_ptr<CStrategyRuntime> runtime = std::make_shared<CStrategyRuntime>();
@@ -147,10 +157,10 @@ class CServiceRoutingTests
 		Check(!strategies.IsMarketAvailable() && market.m_pendingQueries.empty(), "HQ disconnect invalidates strategy market and completes client queries");
 		Check(1007 == LastResponse(event).GetErrorInfo()->first, "HQ disconnect retains unavailable error");
 		center.OnHQMarketStateChanged(SessionState::Ready, "");
-		Check(strategies.IsMarketAvailable() && market.m_subscriptions.IsSubscribed(7070, quote), "HQ reconnect retains subscriptions and restores availability");
+		Check(strategies.IsMarketAvailable() && market.m_subscriptions.IsSubscribed(FmtHQSubID(SubType::Client, 7070), quote), "HQ reconnect retains subscriptions and restores availability");
 		market.m_pendingQueries.emplace(key, pending);
 		center.HandleClientDisconnected(7070);
-		Check(market.m_pendingQueries.empty() && !market.m_subscriptions.IsSubscribed(7070, quote), "client disconnect clears market requests and subscriptions");
+		Check(market.m_pendingQueries.empty() && !market.m_subscriptions.IsSubscribed(FmtHQSubID(SubType::Client, 7070), quote), "client disconnect clears market requests and subscriptions");
 	}
 
 public:
@@ -167,7 +177,7 @@ public:
 		accounts.SetAccountStateHandler(std::bind_front(&CTradeService::OnAccountState, &trader));
 		CSession hq(CLoginInfo{});
 		CHQService market(&hq);
-		CStrategyService strategies(&hq, &trader, &accounts);
+		CStrategyService strategies(&market, &trader, &accounts);
 		net::CTcpServer tcpServer(0);
 		CEngineCenter engine(&tcpServer, &hq, &broker, &market, &strategies, &trader, &accounts);
 		Check(engine.Initialize(), "center binds client and both Session callbacks before startup");

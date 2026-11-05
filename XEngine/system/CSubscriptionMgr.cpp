@@ -1,13 +1,65 @@
 #include "CSubscriptionMgr.h"
 
+#include <charconv>
 #include <mutex>
+#include <string_view>
 
-std::vector<CQuoteInfo> CSubscriptionMgr::Subscribe(net::_TyConnectionId id, const std::vector<CQuoteInfo>& subscriptions)
+std::string FmtHQSubID(SubType type, std::uint64_t id)
+{
+	switch (type)
+	{
+	case SubType::Client:
+		return "client_" + std::to_string(id);
+	case SubType::Strategy:
+		return "strategy_" + std::to_string(id);
+	default:
+		return {};
+	}
+}
+
+bool ParseHQSubID(const std::string& text, SubType& type, std::uint64_t& id)
+{
+	std::string_view value(text);
+	SubType parsedType = SubType::Unknown;
+	if (value.starts_with("client_"))
+	{
+		parsedType = SubType::Client;
+		value.remove_prefix(7);
+	}
+	else if (value.starts_with("strategy_"))
+	{
+		parsedType = SubType::Strategy;
+		value.remove_prefix(9);
+	}
+	else
+	{
+		return false;
+	}
+	if (value.empty() || ((1 < value.size()) && ('0' == value.front())))
+	{
+		return false;
+	}
+	std::uint64_t parsedId = 0;
+	std::from_chars_result result = std::from_chars(value.data(), value.data() + value.size(), parsedId);
+	if ((std::errc{} != result.ec) || (value.data() + value.size() != result.ptr))
+	{
+		return false;
+	}
+	type = parsedType;
+	id = parsedId;
+	return true;
+}
+
+std::vector<CQuoteInfo> CSubscriptionMgr::Subscribe(const std::string& id, const std::vector<CQuoteInfo>& subscriptions)
 {
 	std::vector<CQuoteInfo> added;
+	if (id.empty() || subscriptions.empty())
+	{
+		return added;
+	}
 	added.reserve(subscriptions.size());
 	std::lock_guard<std::shared_mutex> lock(m_mtx_info);
-	_TyClientSubscriptions& infos = m_id_infos[id];
+	_TySubscriptions& infos = m_id_infos[id];
 	for (const auto& info : subscriptions)
 	{
 		std::string strKey = info.String();
@@ -25,21 +77,21 @@ std::vector<CQuoteInfo> CSubscriptionMgr::Subscribe(net::_TyConnectionId id, con
 	return added;
 }
 
-std::vector<CQuoteInfo> CSubscriptionMgr::Unsubscribe(net::_TyConnectionId id, const std::vector<CQuoteInfo>& subscriptions)
+std::vector<CQuoteInfo> CSubscriptionMgr::Unsubscribe(const std::string& id, const std::vector<CQuoteInfo>& subscriptions)
 {
 	std::vector<CQuoteInfo> removed;
 	removed.reserve(subscriptions.size());
 	std::lock_guard<std::shared_mutex> lock(m_mtx_info);
-	auto clientIter = m_id_infos.find(id);
-	if (m_id_infos.end() == clientIter)
+	auto subscriberIter = m_id_infos.find(id);
+	if (m_id_infos.end() == subscriberIter)
 	{
 		return removed;
 	}
 	for (const auto& info : subscriptions)
 	{
 		std::string strKey = info.String();
-		auto infoIter = clientIter->second.find(strKey);
-		if (clientIter->second.end() == infoIter)
+		auto infoIter = subscriberIter->second.find(strKey);
+		if (subscriberIter->second.end() == infoIter)
 		{
 			continue;
 		}
@@ -53,26 +105,26 @@ std::vector<CQuoteInfo> CSubscriptionMgr::Unsubscribe(net::_TyConnectionId id, c
 				m_info_ids.erase(idsIter);
 			}
 		}
-		clientIter->second.erase(infoIter);
+		subscriberIter->second.erase(infoIter);
 	}
-	if (clientIter->second.empty())
+	if (subscriberIter->second.empty())
 	{
-		m_id_infos.erase(clientIter);
+		m_id_infos.erase(subscriberIter);
 	}
 	return removed;
 }
 
-std::vector<CQuoteInfo> CSubscriptionMgr::RemoveClient(net::_TyConnectionId id)
+std::vector<CQuoteInfo> CSubscriptionMgr::RemoveSubscriber(const std::string& id)
 {
 	std::vector<CQuoteInfo> removed;
 	std::lock_guard<std::shared_mutex> lock(m_mtx_info);
-	auto clientIter = m_id_infos.find(id);
-	if (m_id_infos.end() == clientIter)
+	auto subscriberIter = m_id_infos.find(id);
+	if (m_id_infos.end() == subscriberIter)
 	{
 		return removed;
 	}
-	removed.reserve(clientIter->second.size());
-	for (const auto& info : clientIter->second)
+	removed.reserve(subscriberIter->second.size());
+	for (const auto& info : subscriberIter->second)
 	{
 		auto idsIter = m_info_ids.find(info.first);
 		if (m_info_ids.end() == idsIter)
@@ -86,7 +138,7 @@ std::vector<CQuoteInfo> CSubscriptionMgr::RemoveClient(net::_TyConnectionId id)
 			m_info_ids.erase(idsIter);
 		}
 	}
-	m_id_infos.erase(clientIter);
+	m_id_infos.erase(subscriberIter);
 	return removed;
 }
 
@@ -98,25 +150,25 @@ void CSubscriptionMgr::RemoveSubscription(const std::string& strKey)
 	{
 		return;
 	}
-	for (net::_TyConnectionId id : idsIter->second)
+	for (const std::string& id : idsIter->second)
 	{
-		auto clientIter = m_id_infos.find(id);
-		if (m_id_infos.end() == clientIter)
+		auto subscriberIter = m_id_infos.find(id);
+		if (m_id_infos.end() == subscriberIter)
 		{
 			continue;
 		}
-		clientIter->second.erase(strKey);
-		if (clientIter->second.empty())
+		subscriberIter->second.erase(strKey);
+		if (subscriberIter->second.empty())
 		{
-			m_id_infos.erase(clientIter);
+			m_id_infos.erase(subscriberIter);
 		}
 	}
 	m_info_ids.erase(idsIter);
 }
 
-std::vector<net::_TyConnectionId> CSubscriptionMgr::GetSubscriberIds(const std::string& strKey) const
+std::vector<std::string> CSubscriptionMgr::GetSubscriberIds(const std::string& strKey) const
 {
-	std::vector<net::_TyConnectionId> ids;
+	std::vector<std::string> ids;
 	std::shared_lock<std::shared_mutex> lock(m_mtx_info);
 	auto idsIter = m_info_ids.find(strKey);
 	if (m_info_ids.end() != idsIter)
@@ -133,15 +185,15 @@ std::vector<CQuoteInfo> CSubscriptionMgr::GetSubscriptions() const
 	subscriptions.reserve(m_info_ids.size());
 	for (const auto& item : m_info_ids)
 	{
-		for (net::_TyConnectionId id : item.second)
+		for (const std::string& id : item.second)
 		{
-			const auto clientIter = m_id_infos.find(id);
-			if (m_id_infos.end() == clientIter)
+			const auto subscriberIter = m_id_infos.find(id);
+			if (m_id_infos.end() == subscriberIter)
 			{
 				continue;
 			}
-			const auto infoIter = clientIter->second.find(item.first);
-			if (clientIter->second.end() != infoIter)
+			const auto infoIter = subscriberIter->second.find(item.first);
+			if (subscriberIter->second.end() != infoIter)
 			{
 				subscriptions.emplace_back(infoIter->second);
 			}
@@ -151,11 +203,11 @@ std::vector<CQuoteInfo> CSubscriptionMgr::GetSubscriptions() const
 	return subscriptions;
 }
 
-std::size_t CSubscriptionMgr::GetSubscriptionCount(net::_TyConnectionId id) const
+std::size_t CSubscriptionMgr::GetSubscriptionCount(const std::string& id) const
 {
 	std::shared_lock<std::shared_mutex> lock(m_mtx_info);
-	auto clientIter = m_id_infos.find(id);
-	return m_id_infos.end() == clientIter ? 0 : clientIter->second.size();
+	auto subscriberIter = m_id_infos.find(id);
+	return m_id_infos.end() == subscriberIter ? 0 : subscriberIter->second.size();
 }
 
 std::size_t CSubscriptionMgr::GetSubscriptionCount(const CQuoteInfo& info) const
@@ -170,9 +222,9 @@ std::size_t CSubscriptionMgr::GetSubscriptionCount(const CQuoteInfo& info) const
 	return m_info_ids.end() == idsIter ? 0 : idsIter->second.size();
 }
 
-bool CSubscriptionMgr::IsSubscribed(net::_TyConnectionId id, const CQuoteInfo& info) const
+bool CSubscriptionMgr::IsSubscribed(const std::string& id, const CQuoteInfo& info) const
 {
 	std::shared_lock<std::shared_mutex> lock(m_mtx_info);
-	auto clientIter = m_id_infos.find(id);
-	return (m_id_infos.end() != clientIter) && clientIter->second.contains(info.String());
+	auto subscriberIter = m_id_infos.find(id);
+	return (m_id_infos.end() != subscriberIter) && subscriberIter->second.contains(info.String());
 }

@@ -37,7 +37,7 @@ inline bool DecodeAccount(const std::string& text, _TyAccount& account)
 }
 
 template <class T>
-_TyAccount AccountIndex(const T& account)
+_TyAccount FmtAccount(const T& account)
 {
 	return { account.broker_id(), account.account() };
 }

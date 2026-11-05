@@ -49,3 +49,8 @@ file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/service-routing-runtime/ini")
 file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/service-routing-runtime/ini/system.ini" "[Broker]\n")
 add_test(NAME service_routing_tests COMMAND service_routing_tests)
 set_tests_properties(service_routing_tests PROPERTIES WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/service-routing-runtime" TIMEOUT 30)
+
+# Offline transport double; all subscription logic is the production implementation.
+add_executable(market_subscription_tests system/tests/MarketSubscriptionTests.cpp system/CHQService.cpp system/CSubscriptionMgr.cpp)
+target_link_libraries(market_subscription_tests PRIVATE xengine_support)
+add_test(NAME market_subscription_tests COMMAND market_subscription_tests)

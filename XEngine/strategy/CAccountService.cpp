@@ -317,7 +317,7 @@ void CAccountService::OnAccountListReply(const CRequest& response, std::uint64_t
 		const auto& lst = response.GetData().account_list().accounts();
 		for (const auto& row : lst)
 		{
-			_TyAccount account = AccountIndex(row);
+			_TyAccount account = FmtAccount(row);
 			accounts.emplace(account);
 			CAccountInfo info = FmtAccountInfo(account);
 			info.m_strName = row.name();

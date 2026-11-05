@@ -20,7 +20,7 @@
 #include <vector>
 
 class CRequest;
-class CSession;
+class CHQService;
 class CStrategyContext;
 class CTradeService;
 class CAccountService;
@@ -80,14 +80,6 @@ struct CStrategyRuntime
 	std::string m_strLastError;
 };
 
-struct CSubscriptionEntry
-{
-	CQuoteInfo m_quote;
-	std::unordered_set<_TyStrategyId> m_strategyIds;
-	bool m_bSubscribed{ false };
-	bool m_bSubscribing{ false };
-};
-
 struct CSignalKey
 {
 	_TyStrategyId m_strategyId{ 0 };
@@ -119,7 +111,7 @@ public:
 	~CStrategyService();
 	CStrategyService(const CStrategyService& arg) = delete;
 	CStrategyService& operator=(const CStrategyService& arg) = delete;
-	CStrategyService(CSession* pSession, CTradeService* pTradeService, CAccountService* pAccountService);
+	CStrategyService(CHQService* pHQService, CTradeService* pTradeService, CAccountService* pAccountService);
 
 public:
 	bool Initialize();
@@ -158,7 +150,6 @@ private:
 
 private:
 	bool LoadStrategies();
-	void RestoreRequiredSubscriptions();
 	bool AddStrategy(const CRequest& req);
 	bool ModifyStrategy(const CRequest& req);
 	bool DeleteStrategy(const CRequest& req);
@@ -170,8 +161,6 @@ private:
 	static std::string GetMarketKey(const CRequest& req);
 	static bool IsFinishedOrderStatus(OrderStatus status);
 	bool CancelOrder(_TyStrategyId id, _TyOrderId orderId);
-	void SubscribeRequiredQuotes(const CStrategyConfig& cfg);
-	void UnsubscribeUnusedQuotes(const CStrategyConfig& cfg);
 	bool ExecuteControl(_TyStrategyId id, StrategyEventType type);
 	bool DispatchEvent(CStrategyRuntime& runtime, CStrategyEvent& ev);
 	void DrainEvents(const std::shared_ptr<CStrategyRuntime>& runtime);
@@ -188,7 +177,7 @@ private:
 	std::mutex m_mtx_accountUsers;
 	std::map<_TyAccount, std::unordered_set<_TyStrategyId>> m_runningStrategies;
 	std::mutex m_mtx_operations;
-	CSession* m_pSession{ nullptr };
+	CHQService* m_pHQService{ nullptr };
 	// Borrowed from CBootLoader; trading callbacks are stopped before destruction.
 	CTradeService* m_pTradeService{ nullptr };
 	CAccountService* m_pAccountService{ nullptr };
@@ -198,7 +187,6 @@ private:
 
 	mutable std::shared_mutex m_mtx_routes;
 	std::unordered_map<std::string, std::unordered_set<_TyStrategyId>> m_marketRoutes;
-	std::unordered_map<std::string, CSubscriptionEntry> m_subscriptions;
 
 	mutable std::shared_mutex m_mtx_orders;
 	using _TyOrderRouteIndex = std::pair<_TyAccount, _TyOrderId>;

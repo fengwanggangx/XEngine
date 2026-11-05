@@ -10,6 +10,7 @@
 #include "../request/request.h"
 #include "../request/request.pb.h"
 #include "../system/CSession.h"
+#include "../system/CHQService.h"
 #include "CStrategyContext.h"
 #include "CTradeService.h"
 #include "../trade/TradeProtocol.h"
@@ -134,7 +135,7 @@ namespace
 	bool MakeStrategyConfig(const request::StrategyInfo& info, CStrategyConfig& cfg)
 	{
 		cfg.m_strategyId = info.strategy_id();
-		cfg.m_account = AccountIndex(info);
+		cfg.m_account = FmtAccount(info);
 		cfg.m_strType = info.strategy_type();
 		cfg.m_strName = info.strategy_name();
 		cfg.m_eventQueueLimit = (0 == info.event_queue_limit()) ? 4096 : info.event_queue_limit();
@@ -265,9 +266,8 @@ std::size_t CSignalKeyHash::operator()(const CSignalKey& key) const
 	return strategyHash ^ (signalHash + 0x9e3779b9U + (strategyHash << 6) + (strategyHash >> 2));
 }
 
-CStrategyService::CStrategyService(CSession* pSession, CTradeService* pTradeService, CAccountService* pAccountService) : m_pSession(pSession), m_pTradeService(pTradeService), m_pAccountService(pAccountService)
+CStrategyService::CStrategyService(CHQService* pHQService, CTradeService* pTradeService, CAccountService* pAccountService) : m_pHQService(pHQService), m_pTradeService(pTradeService), m_pAccountService(pAccountService)
 {
-	m_bMarketAvailable.store((nullptr != m_pSession) && m_pSession->IsAuthenticated());
 }
 
 CStrategyService::~CStrategyService()
@@ -284,9 +284,9 @@ CStrategyService::~CStrategyService()
 bool CStrategyService::Initialize()
 {
 	m_strLastError.clear();
-	if (nullptr == m_pSession || nullptr == m_pTradeService || nullptr == m_pAccountService)
+	if (nullptr == m_pHQService || nullptr == m_pTradeService || nullptr == m_pAccountService)
 	{
-		m_strLastError = "Strategy session or trade service is unavailable";
+		m_strLastError = "Strategy market or trade service is unavailable";
 		return false;
 	}
 	m_pTradeService->SetStrategyReplyHandler(std::bind_front(static_cast<void (CStrategyService::*)(const CRequest&, const trade::CCounterReply&)>(&CStrategyService::OnReply), this));
@@ -464,12 +464,12 @@ bool CStrategyService::AddStrategy(const CRequest& req)
 		return false;
 	}
 	request::StrategyInfo info = req.GetData().strategy();
-	if (!IsAccountValid(AccountIndex(info)))
+	if (!IsAccountValid(FmtAccount(info)))
 	{
 		net::SendError(req.GetConnectionId(), req, 1202, "Account identity required");
 		return false;
 	}
-	if (!m_pAccountService->HasAccount(AccountIndex(info)))
+	if (!m_pAccountService->HasAccount(FmtAccount(info)))
 	{
 		net::SendError(req.GetConnectionId(), req, 1114, "Trading account does not exist");
 		return false;
@@ -491,7 +491,7 @@ bool CStrategyService::AddStrategy(const CRequest& req)
 		net::SendError(req.GetConnectionId(), req, 1104, "strategy database is unavailable");
 		return false;
 	}
-	std::string strSQL = "INSERT INTO table_strategy(strategy_type,strategy_name,parameters,subscriptions,event_queue_limit,auto_start,enabled,account_identity) VALUES(" + utility::Utf8Literal(info.strategy_type()) + "," + utility::Utf8Literal(info.strategy_name()) + "," + utility::Utf8Literal(SerializeParameters(info)) + "," + utility::Utf8Literal(SerializeSubscriptions(info)) + "," + std::to_string(info.event_queue_limit()) + "," + (info.auto_start() ? "1" : "0") + "," + (info.enabled() ? "1" : "0") + "," + utility::Utf8Literal(EncodeAccount(AccountIndex(info))) + ")";
+	std::string strSQL = "INSERT INTO table_strategy(strategy_type,strategy_name,parameters,subscriptions,event_queue_limit,auto_start,enabled,account_identity) VALUES(" + utility::Utf8Literal(info.strategy_type()) + "," + utility::Utf8Literal(info.strategy_name()) + "," + utility::Utf8Literal(SerializeParameters(info)) + "," + utility::Utf8Literal(SerializeSubscriptions(info)) + "," + std::to_string(info.event_queue_limit()) + "," + (info.auto_start() ? "1" : "0") + "," + (info.enabled() ? "1" : "0") + "," + utility::Utf8Literal(EncodeAccount(FmtAccount(info))) + ")";
 	if (0 != pDB->ExecUpdate(strSQL))
 	{
 		net::SendError(req.GetConnectionId(), req, 1105, "failed to add strategy");
@@ -528,7 +528,7 @@ bool CStrategyService::ModifyStrategy(const CRequest& req)
 		return false;
 	}
 	request::StrategyInfo info = req.GetData().strategy();
-	if (!IsAccountValid(AccountIndex(info)))
+	if (!IsAccountValid(FmtAccount(info)))
 	{
 		db::_TyDBPtr lookup = CDBEngine::InstanceRef().GetDBPtr(db::em_database::mysql);
 		if (nullptr == lookup)
@@ -545,7 +545,7 @@ bool CStrategyService::ModifyStrategy(const CRequest& req)
 		}
 		SetAccountIdentity(account, info);
 	}
-	if (!m_pAccountService->HasAccount(AccountIndex(info)))
+	if (!m_pAccountService->HasAccount(FmtAccount(info)))
 	{
 		net::SendError(req.GetConnectionId(), req, 1114, "Trading account does not exist");
 		return false;
@@ -603,7 +603,7 @@ bool CStrategyService::ModifyStrategy(const CRequest& req)
 		net::SendError(req.GetConnectionId(), req, 1107, "failed to create strategy runtime");
 		return false;
 	}
-	std::string strSQL = "UPDATE table_strategy SET strategy_type=" + utility::Utf8Literal(info.strategy_type()) + ",strategy_name=" + utility::Utf8Literal(info.strategy_name()) + ",parameters=" + utility::Utf8Literal(SerializeParameters(info)) + ",subscriptions=" + utility::Utf8Literal(SerializeSubscriptions(info)) + ",event_queue_limit=" + std::to_string(info.event_queue_limit()) + ",auto_start=" + (info.auto_start() ? "1" : "0") + ",enabled=" + (info.enabled() ? "1" : "0") + ",account_identity=" + utility::Utf8Literal(EncodeAccount(AccountIndex(info))) + " WHERE strategy_id=" + std::to_string(cfg.m_strategyId);
+	std::string strSQL = "UPDATE table_strategy SET strategy_type=" + utility::Utf8Literal(info.strategy_type()) + ",strategy_name=" + utility::Utf8Literal(info.strategy_name()) + ",parameters=" + utility::Utf8Literal(SerializeParameters(info)) + ",subscriptions=" + utility::Utf8Literal(SerializeSubscriptions(info)) + ",event_queue_limit=" + std::to_string(info.event_queue_limit()) + ",auto_start=" + (info.auto_start() ? "1" : "0") + ",enabled=" + (info.enabled() ? "1" : "0") + ",account_identity=" + utility::Utf8Literal(EncodeAccount(FmtAccount(info))) + " WHERE strategy_id=" + std::to_string(cfg.m_strategyId);
 	if (0 != pDB->ExecUpdate(strSQL))
 	{
 		if (info.enabled())
@@ -769,22 +769,18 @@ bool CStrategyService::LoadStrategies()
 		m_strLastError = "Strategy database is unavailable";
 		return false;
 	}
-	const db::CTable& tableExists = pDB->ExecQuery("SHOW TABLES LIKE 'table_strategy'");
-	if (tableExists.m_rows.empty())
+	const db::CTable& test = pDB->ExecQuery("SHOW TABLES LIKE 'table_strategy'");
+	if (test.m_rows.empty())
 	{
 		m_strLastError = "MySQL table_strategy does not exist";
 		return false;
 	}
 	const db::CTable& table = pDB->ExecQuery("SELECT strategy_id,strategy_type,strategy_name,parameters,subscriptions,event_queue_limit,auto_start,account_identity FROM table_strategy WHERE enabled=1 ORDER BY strategy_id");
-	for (const db::_TyRow& values : table.m_rows)
+
+	std::vector<std::string> row;
+	for (const db::_TyRow& item : table.m_rows)
 	{
-		std::vector<std::string> row;
-		row.reserve(values.size());
-		for (const db::_TyCell& value : values)
-		{
-			row.emplace_back(db::to_string(value));
-		}
-		if (8 != row.size())
+		if (8 != db::to_string_row(item, row))
 		{
 			m_strLastError = "table_strategy contains an invalid row";
 			return false;
@@ -910,7 +906,6 @@ bool CStrategyService::RemoveStrategy(_TyStrategyId id)
 	runtime->m_bRemoving.store(true);
 	runtime->m_bAcceptMarketEvents.store(false);
 	RemoveRoutes(runtime->m_config);
-	UnsubscribeUnusedQuotes(runtime->m_config);
 	WaitUntilIdle(runtime);
 	runtime->m_context->Disable();
 	{
@@ -971,14 +966,12 @@ bool CStrategyService::StartStrategy(_TyStrategyId id)
 	if ((StrategyState::Initialized == state) || (StrategyState::Stopped == state))
 	{
 		AddRoutes(runtime->m_config);
-		SubscribeRequiredQuotes(runtime->m_config);
 	}
 	if (!ExecuteControl(id, StrategyEventType::Start))
 	{
 		runtime->m_state.store(state);
 		EndAccountUse(runtime->m_config.m_account, id);
 		RemoveRoutes(runtime->m_config);
-		UnsubscribeUnusedQuotes(runtime->m_config);
 		return false;
 	}
 	return true;
@@ -1033,7 +1026,6 @@ bool CStrategyService::StopStrategy(_TyStrategyId id)
 		runtime->m_state.store(state);
 	}
 	RemoveRoutes(runtime->m_config);
-	UnsubscribeUnusedQuotes(runtime->m_config);
 	if (bStopped)
 	{
 		EndAccountUse(runtime->m_config.m_account, id);
@@ -1065,7 +1057,6 @@ void CStrategyService::StopAll()
 			StopStrategy(runtime->m_config.m_strategyId);
 		}
 		RemoveRoutes(runtime->m_config);
-		UnsubscribeUnusedQuotes(runtime->m_config);
 	}
 	for (const auto& runtime : runtimes)
 	{
@@ -1120,10 +1111,6 @@ void CStrategyService::OnHQMarketState(SessionState state, const std::string& st
 {
 	bool bAvailable = SessionState::Ready == state;
 	m_bMarketAvailable.store(bAvailable);
-	if (bAvailable)
-	{
-		RestoreRequiredSubscriptions();
-	}
 	std::vector<std::shared_ptr<CStrategyRuntime>> runtimes;
 	{
 		std::shared_lock<std::shared_mutex> lock(m_mtx_strategies);
@@ -1484,14 +1471,16 @@ void CStrategyService::RouteMarketEvent(const std::string& strKey, CStrategyEven
 
 void CStrategyService::AddRoutes(const CStrategyConfig& cfg)
 {
+	// Keep local routing and HQ demand in the same order during start/stop.
+	// HQService never calls back into StrategyService while holding its state lock.
 	std::unique_lock<std::shared_mutex> lock(m_mtx_routes);
 	for (const auto& quote : cfg.m_subscriptions)
 	{
-		std::string strKey = quote.String();
-		m_marketRoutes[strKey].emplace(cfg.m_strategyId);
-		CSubscriptionEntry& entry = m_subscriptions[strKey];
-		entry.m_quote = quote;
-		entry.m_strategyIds.emplace(cfg.m_strategyId);
+		m_marketRoutes[quote.String()].emplace(cfg.m_strategyId);
+	}
+	if (nullptr != m_pHQService)
+	{
+		m_pHQService->Subscribe(FmtHQSubID(SubType::Strategy, cfg.m_strategyId), cfg.m_subscriptions);
 	}
 }
 
@@ -1500,113 +1489,19 @@ void CStrategyService::RemoveRoutes(const CStrategyConfig& cfg)
 	std::unique_lock<std::shared_mutex> lock(m_mtx_routes);
 	for (const auto& quote : cfg.m_subscriptions)
 	{
-		std::string strKey = quote.String();
-		const auto routeIter = m_marketRoutes.find(strKey);
-		if (m_marketRoutes.end() != routeIter)
+		const auto mIter = m_marketRoutes.find(quote.String());
+		if (m_marketRoutes.end() != mIter)
 		{
-			routeIter->second.erase(cfg.m_strategyId);
-			if (routeIter->second.empty())
+			mIter->second.erase(cfg.m_strategyId);
+			if (mIter->second.empty())
 			{
-				m_marketRoutes.erase(routeIter);
-			}
-		}
-		const auto subscriptionIter = m_subscriptions.find(strKey);
-		if (m_subscriptions.end() != subscriptionIter)
-		{
-			subscriptionIter->second.m_strategyIds.erase(cfg.m_strategyId);
-		}
-	}
-}
-
-void CStrategyService::SubscribeRequiredQuotes(const CStrategyConfig& cfg)
-{
-	if ((nullptr == m_pSession) || !m_bMarketAvailable.load())
-	{
-		return;
-	}
-	std::vector<CQuoteInfo> quotes;
-	{
-		std::unique_lock<std::shared_mutex> lock(m_mtx_routes);
-		quotes.reserve(cfg.m_subscriptions.size());
-		for (const auto& quote : cfg.m_subscriptions)
-		{
-			const auto mIter = m_subscriptions.find(quote.String());
-			if ((m_subscriptions.end() != mIter) && !mIter->second.m_bSubscribed && !mIter->second.m_bSubscribing)
-			{
-				mIter->second.m_bSubscribing = true;
-				quotes.emplace_back(quote);
+				m_marketRoutes.erase(mIter);
 			}
 		}
 	}
-	for (const auto& quote : quotes)
+	if (nullptr != m_pHQService)
 	{
-		bool bSubscribed = m_pSession->SendRequest(request::Subscription(quote));
-		std::unique_lock<std::shared_mutex> lock(m_mtx_routes);
-		const auto mIter = m_subscriptions.find(quote.String());
-		if (m_subscriptions.end() != mIter)
-		{
-			mIter->second.m_bSubscribed = bSubscribed;
-			mIter->second.m_bSubscribing = false;
-		}
-	}
-}
-
-void CStrategyService::UnsubscribeUnusedQuotes(const CStrategyConfig& cfg)
-{
-	std::vector<CQuoteInfo> quotes;
-	{
-		std::unique_lock<std::shared_mutex> lock(m_mtx_routes);
-		for (const auto& quote : cfg.m_subscriptions)
-		{
-			const auto mIter = m_subscriptions.find(quote.String());
-			if ((m_subscriptions.end() != mIter) && mIter->second.m_strategyIds.empty())
-			{
-				if (mIter->second.m_bSubscribed)
-				{
-					quotes.emplace_back(mIter->second.m_quote);
-				}
-				m_subscriptions.erase(mIter);
-			}
-		}
-	}
-	if (nullptr != m_pSession)
-	{
-		for (const auto& quote : quotes)
-		{
-			m_pSession->SendRequest(request::UnSubscription(quote));
-		}
-	}
-}
-
-void CStrategyService::RestoreRequiredSubscriptions()
-{
-	if (nullptr == m_pSession)
-	{
-		return;
-	}
-	std::vector<CQuoteInfo> quotes;
-	{
-		std::unique_lock<std::shared_mutex> lock(m_mtx_routes);
-		quotes.reserve(m_subscriptions.size());
-		for (const auto& item : m_subscriptions)
-		{
-			if (!item.second.m_strategyIds.empty() && !item.second.m_bSubscribed && !item.second.m_bSubscribing)
-			{
-				m_subscriptions[item.first].m_bSubscribing = true;
-				quotes.emplace_back(item.second.m_quote);
-			}
-		}
-	}
-	for (const auto& quote : quotes)
-	{
-		bool bSubscribed = m_pSession->SendRequest(request::Subscription(quote));
-		std::unique_lock<std::shared_mutex> lock(m_mtx_routes);
-		const auto mIter = m_subscriptions.find(quote.String());
-		if (m_subscriptions.end() != mIter)
-		{
-			mIter->second.m_bSubscribed = bSubscribed;
-			mIter->second.m_bSubscribing = false;
-		}
+		m_pHQService->Release(FmtHQSubID(SubType::Strategy, cfg.m_strategyId));
 	}
 }
 

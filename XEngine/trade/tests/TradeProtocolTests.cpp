@@ -18,7 +18,7 @@ int main()
 		CAccountInfo info = FmtAccountInfo(account);
 		info.m_strBrokerName = "测试券商";
 		info.m_strName = "账户别名";
-		Check(account == AccountIndex(trade::protocol::AccountPayload(info)), "display identity preserved");
+		Check(account == FmtAccount(trade::protocol::AccountPayload(info)), "display identity preserved");
 		for (trade::Operation operation : { trade::Operation::Funds, trade::Operation::Positions, trade::Operation::Orders, trade::Operation::Trades })
 		{
 			trade::CCounterReply reply;

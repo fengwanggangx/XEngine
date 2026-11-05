@@ -2,7 +2,8 @@
 #define XENGINE_SYSTEM_CSUBSCRIPTIONMGR_H
 
 #include "../request/MarketTypes.h"
-#include "../network/common_net.h"
+#include <cstddef>
+#include <cstdint>
 
 #include <shared_mutex>
 #include <string>
@@ -10,26 +11,36 @@
 #include <unordered_set>
 #include <vector>
 
+enum class SubType
+{
+	Unknown,
+	Client,
+	Strategy
+};
+
+std::string FmtHQSubID(SubType type, std::uint64_t id);
+bool ParseHQSubID(const std::string& text, SubType& type, std::uint64_t& id);
+
 class CSubscriptionMgr final
 {
-	public:
-	std::vector<CQuoteInfo> Subscribe(net::_TyConnectionId id, const std::vector<CQuoteInfo>& subscriptions);
-	std::vector<CQuoteInfo> Unsubscribe(net::_TyConnectionId id, const std::vector<CQuoteInfo>& subscriptions);
-	std::vector<CQuoteInfo> RemoveClient(net::_TyConnectionId id);
+public:
+	std::vector<CQuoteInfo> Subscribe(const std::string& id, const std::vector<CQuoteInfo>& subscriptions);
+	std::vector<CQuoteInfo> Unsubscribe(const std::string& id, const std::vector<CQuoteInfo>& subscriptions);
+	std::vector<CQuoteInfo> RemoveSubscriber(const std::string& id);
 	void RemoveSubscription(const std::string& strKey);
-	std::vector<net::_TyConnectionId> GetSubscriberIds(const std::string& strKey) const;
+	std::vector<std::string> GetSubscriberIds(const std::string& strKey) const;
 	std::vector<CQuoteInfo> GetSubscriptions() const;
-	std::size_t GetSubscriptionCount(net::_TyConnectionId id) const;
+	std::size_t GetSubscriptionCount(const std::string& id) const;
 	std::size_t GetSubscriptionCount(const CQuoteInfo& info) const;
-	bool IsSubscribed(net::_TyConnectionId id, const CQuoteInfo& info) const;
+	bool IsSubscribed(const std::string& id, const CQuoteInfo& info) const;
 
-	private:
-	using _TyClientSubscriptions = std::unordered_map<std::string, CQuoteInfo>;
-	using _TySubscriberIds = std::unordered_set<net::_TyConnectionId>;
+private:
+	using _TySubscriptions = std::unordered_map<std::string, CQuoteInfo>;
+	using _TySubscriberIds = std::unordered_set<std::string>;
 
 	mutable std::shared_mutex m_mtx_info;
 	std::unordered_map<std::string, _TySubscriberIds> m_info_ids;
-	std::unordered_map<net::_TyConnectionId, _TyClientSubscriptions> m_id_infos;
+	std::unordered_map<std::string, _TySubscriptions> m_id_infos;
 };
 
 #endif

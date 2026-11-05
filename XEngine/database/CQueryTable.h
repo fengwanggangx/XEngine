@@ -61,6 +61,17 @@ namespace db
 		}
 		return {};
 	}
+
+	inline std::size_t to_string_row(const _TyRow& row, std::vector<std::string>& val)
+	{
+		val.clear();
+		for (const db::_TyCell& v : row)
+		{
+			val.emplace_back(db::to_string(v));
+		}
+		return val.size();
+	}
+
 } // namespace db
 
 #endif

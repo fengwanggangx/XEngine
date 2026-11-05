@@ -129,14 +129,14 @@ bool CBootLoader::Initialize()
 		m_strLastError = m_pTradeService->GetLastError();
 		return false;
 	}
-	m_pStrategyService = new CStrategyService(m_pHQMarket, m_pTradeService, m_pAccountService);
+	m_pHQService = new CHQService(m_pHQMarket);
+	m_pStrategyService = new CStrategyService(m_pHQService, m_pTradeService, m_pAccountService);
 	if (!m_pStrategyService->Initialize())
 	{
 		m_nErrorCode = 10;
 		m_strLastError = m_pStrategyService->GetLastError();
 		return false;
 	}
-	m_pHQService = new CHQService(m_pHQMarket);
 	m_pEngineCenter = new CEngineCenter(m_pTcpServer, m_pHQMarket, m_pBroker, m_pHQService, m_pStrategyService, m_pTradeService, m_pAccountService);
 	if (!m_pEngineCenter->Initialize())
 	{
@@ -234,10 +234,10 @@ void CBootLoader::Finalize()
 	// All callback producers have stopped; borrowers can now be destroyed.
 	delete m_pEngineCenter;
 	m_pEngineCenter = nullptr;
-	delete m_pHQService;
-	m_pHQService = nullptr;
 	delete m_pStrategyService;
 	m_pStrategyService = nullptr;
+	delete m_pHQService;
+	m_pHQService = nullptr;
 	delete m_pTradeService;
 	m_pTradeService = nullptr;
 	delete m_pAccountService;
