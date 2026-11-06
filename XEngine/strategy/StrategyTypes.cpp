@@ -4,7 +4,7 @@
 
 bool CStrategyConfig::IsValid() const
 {
-	if (!IsAccountValid(m_account) || (0 == m_strategyId) || m_strType.empty() || m_strName.empty() || (0 == m_eventQueueLimit) || m_subscriptions.empty())
+	if (!IsAccountValid(m_account) || (0 == m_id) || m_strType.empty() || m_strName.empty() || (0 == m_eventQueueLimit) || m_subscriptions.empty())
 	{
 		return false;
 	}

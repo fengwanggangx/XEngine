@@ -1,7 +1,7 @@
 #include "TradingTypes.h"
 bool COrderIntent::IsValid() const
 {
-	if ((0 == m_strategyId) || (0 == m_signalId) || !m_security.IsValid() || (OrderSide::Unknown == m_side) || (PositionEffect::Unknown == m_positionEffect))
+	if ((0 == m_id) || (0 == m_signalId) || !m_security.IsValid() || (OrderSide::Unknown == m_side) || (PositionEffect::Unknown == m_positionEffect))
 	{
 		return false;
 	}

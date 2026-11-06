@@ -14,7 +14,7 @@ bool CMovingAverageStrategy::Initialize(IStrategyContext& context, const CStrate
 		return false;
 	}
 	m_pContext = &context;
-	m_strategyId = config.m_strategyId;
+	m_id = config.m_id;
 	m_shortWindow = shortWindow;
 	m_longWindow = longWindow;
 	return true;
@@ -97,7 +97,7 @@ void CMovingAverageStrategy::TryGenerateSignal(const _TyQuoteData& data)
 		return;
 	}
 	COrderIntent intent;
-	intent.m_strategyId = m_strategyId;
+	intent.m_id = m_id;
 	intent.m_signalId = m_nextSignalId++;
 	intent.m_security = CSecurity(data.security().symbol(), static_cast<Exchange>(static_cast<int>(data.security().exchange())));
 	intent.m_side = 0 < relation ? OrderSide::Buy : OrderSide::Sell;
@@ -117,8 +117,8 @@ void CMovingAverageStrategy::TryGenerateSignal(const _TyQuoteData& data)
 
 bool CMovingAverageStrategy::ReadWindow(const CStrategyConfig& config, const std::string& strName, std::size_t& window)
 {
-	const auto mIter = config.m_parameters.find(strName);
-	if (config.m_parameters.end() == mIter)
+	const auto mIter = config.m_params.find(strName);
+	if (config.m_params.end() == mIter)
 	{
 		return true;
 	}

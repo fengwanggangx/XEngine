@@ -4,31 +4,31 @@
 #include <mutex>
 #include <string_view>
 
-std::string FmtHQSubID(SubType type, std::uint64_t id)
+std::string FmtHQSubID(HQOrigin type, std::uint64_t id)
 {
 	switch (type)
 	{
-	case SubType::Client:
+	case HQOrigin::Client:
 		return "client_" + std::to_string(id);
-	case SubType::Strategy:
+	case HQOrigin::Strategy:
 		return "strategy_" + std::to_string(id);
 	default:
 		return {};
 	}
 }
 
-bool ParseHQSubID(const std::string& text, SubType& type, std::uint64_t& id)
+bool ParseHQSubID(const std::string& text, HQOrigin& type, std::uint64_t& id)
 {
 	std::string_view value(text);
-	SubType parsedType = SubType::Unknown;
+	HQOrigin parsedType = HQOrigin::Unknown;
 	if (value.starts_with("client_"))
 	{
-		parsedType = SubType::Client;
+		parsedType = HQOrigin::Client;
 		value.remove_prefix(7);
 	}
 	else if (value.starts_with("strategy_"))
 	{
-		parsedType = SubType::Strategy;
+		parsedType = HQOrigin::Strategy;
 		value.remove_prefix(9);
 	}
 	else

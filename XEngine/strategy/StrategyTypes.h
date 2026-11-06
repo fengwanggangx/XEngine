@@ -47,10 +47,10 @@ enum class LogLevel
 struct CStrategyConfig
 {
 	_TyAccount m_account{};
-	_TyStrategyId m_strategyId{ 0 };
+	_TyStrategyId m_id{ 0 };
 	std::string m_strType;
 	std::string m_strName;
-	std::unordered_map<std::string, std::string> m_parameters;
+	std::unordered_map<std::string, std::string> m_params;
 	std::vector<CQuoteInfo> m_subscriptions;
 	std::size_t m_eventQueueLimit{ 4096 };
 	bool m_bAutoStart{ false };
@@ -66,7 +66,7 @@ struct CTimerEvent
 
 struct CStrategySnapshot
 {
-	_TyStrategyId m_strategyId{ 0 };
+	_TyStrategyId m_id{ 0 };
 	std::string m_strType;
 	std::string m_strName;
 	StrategyState m_state{ StrategyState::Created };

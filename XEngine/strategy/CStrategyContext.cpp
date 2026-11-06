@@ -5,7 +5,7 @@
 
 #include <iostream>
 
-CStrategyContext::CStrategyContext(_TyStrategyId strategyId, const _TyAccount& account, CStrategyService* pStrategyService, CTradeService* pSnapshotProvider) : m_strategyId(strategyId), m_pStrategyService(pStrategyService), m_account(account), m_pSnapshotProvider(pSnapshotProvider)
+CStrategyContext::CStrategyContext(_TyStrategyId strategyId, const _TyAccount& account, CStrategyService* pStrategyService, CTradeService* pSnapshotProvider) : m_id(strategyId), m_pStrategyService(pStrategyService), m_account(account), m_pSnapshotProvider(pSnapshotProvider)
 {
 }
 
@@ -16,20 +16,20 @@ COrderSubmitResult CStrategyContext::SubmitOrder(const COrderIntent& intent)
 		return { false, false, 0, 0, "Strategy context is disabled" };
 	}
 	COrderIntent normalizedIntent = intent;
-	if (0 == normalizedIntent.m_strategyId)
+	if (0 == normalizedIntent.m_id)
 	{
-		normalizedIntent.m_strategyId = m_strategyId;
+		normalizedIntent.m_id = m_id;
 	}
-	if (normalizedIntent.m_strategyId != m_strategyId)
+	if (normalizedIntent.m_id != m_id)
 	{
 		return { false, false, 0, 0, "Order intent belongs to another strategy" };
 	}
-	return m_pStrategyService->SubmitOrder(m_strategyId, normalizedIntent);
+	return m_pStrategyService->SubmitOrder(m_id, normalizedIntent);
 }
 
 bool CStrategyContext::CancelOrder(_TyOrderId orderId)
 {
-	return m_bEnabled.load() && (nullptr != m_pStrategyService) && m_pStrategyService->CancelOrder(m_strategyId, orderId);
+	return m_bEnabled.load() && (nullptr != m_pStrategyService) && m_pStrategyService->CancelOrder(m_id, orderId);
 }
 
 CPositionSnapshot CStrategyContext::GetPosition(const CSecurity& security) const
@@ -55,7 +55,7 @@ CAccountSnapshot CStrategyContext::GetAccount() const
 void CStrategyContext::WriteLog(LogLevel level, const std::string& strMessage)
 {
 	std::ostream& stream = LogLevel::Error == level ? std::cerr : std::cout;
-	stream << "[strategy:" << m_strategyId << "] " << strMessage << '\n';
+	stream << "[strategy:" << m_id << "] " << strMessage << '\n';
 }
 
 bool CStrategyContext::IsMarketAvailable() const

@@ -97,7 +97,7 @@ namespace trade
 			Write(stream, value.m_clientId);
 			Write(stream, value.m_orderId);
 			Write(stream, value.m_requestId);
-			Write(stream, value.m_strategyId);
+			Write(stream, value.m_id);
 			Write(stream, value.m_signalId);
 			Write(stream, value.m_strSecurity);
 			Write(stream, value.m_side);
@@ -119,7 +119,7 @@ namespace trade
 			Read(stream, value.m_clientId);
 			Read(stream, value.m_orderId);
 			Read(stream, value.m_requestId);
-			Read(stream, value.m_strategyId);
+			Read(stream, value.m_id);
 			Read(stream, value.m_signalId);
 			Read(stream, value.m_strSecurity);
 			Read(stream, value.m_side);

@@ -67,7 +67,7 @@ namespace trade
 	struct COrder
 	{
 		_TyAccount m_account{};
-		std::uint64_t m_clientId{ 0 }, m_orderId{ 0 }, m_requestId{ 0 }, m_strategyId{ 0 }, m_signalId{ 0 };
+		std::uint64_t m_clientId{ 0 }, m_orderId{ 0 }, m_requestId{ 0 }, m_id{ 0 }, m_signalId{ 0 };
 		std::string m_strSecurity;
 		Side m_side{ Side::Buy };
 		Status m_status{ Status::Accepted };

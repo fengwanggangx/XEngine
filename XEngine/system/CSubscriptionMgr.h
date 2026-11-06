@@ -11,15 +11,15 @@
 #include <unordered_set>
 #include <vector>
 
-enum class SubType
+enum class HQOrigin
 {
 	Unknown,
 	Client,
 	Strategy
 };
 
-std::string FmtHQSubID(SubType type, std::uint64_t id);
-bool ParseHQSubID(const std::string& text, SubType& type, std::uint64_t& id);
+std::string FmtHQSubID(HQOrigin type, std::uint64_t id);
+bool ParseHQSubID(const std::string& text, HQOrigin& type, std::uint64_t& id);
 
 class CSubscriptionMgr final
 {

@@ -23,7 +23,7 @@ public:
 	void Disable();
 
 private:
-	_TyStrategyId m_strategyId{ 0 };
+	_TyStrategyId m_id{ 0 };
 	CStrategyService* m_pStrategyService{ nullptr };
 	_TyAccount m_account{};
 	CTradeService* m_pSnapshotProvider{ nullptr };

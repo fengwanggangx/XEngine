@@ -24,7 +24,7 @@ class CMovingAverageStrategy final : public IStrategy
 
 	private:
 	IStrategyContext* m_pContext{ nullptr };
-	_TyStrategyId m_strategyId{ 0 };
+	_TyStrategyId m_id{ 0 };
 	std::deque<std::int64_t> m_prices;
 	std::size_t m_shortWindow{ 5 };
 	std::size_t m_longWindow{ 20 };

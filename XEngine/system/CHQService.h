@@ -12,53 +12,52 @@
 class CSession;
 enum class SessionState;
 
+struct CPendingQueryClient
+{
+	net::_TyConnectionId m_routerId{ -1 };
+	_TyRequestId m_requestId{ 0 };
+};
+
+struct CPendingQuery
+{
+	_TyRequestId m_routerId{ 0 };
+	std::string m_strKey;
+	_TyRequest m_type{ _TyRequest::UNKNOWN };
+	std::chrono::steady_clock::time_point m_deadline;
+	std::vector<CPendingQueryClient> m_clients;
+};
+
+struct CPendingSubscriptionBatch
+{
+	CPendingQueryClient m_client;
+	_TyRequest m_type{ _TyRequest::UNKNOWN };
+	std::chrono::steady_clock::time_point m_deadline;
+	std::vector<CQuoteInfo> m_requested;
+	std::vector<CQuoteInfo> m_changed;
+	std::string m_strError;
+};
+struct CUpstreamSubscription
+{
+	CQuoteInfo m_quote;
+	_TyRequestId m_requestId{ 0 };
+	_TyRequest m_type{ _TyRequest::UNKNOWN };
+	bool m_bConfirmed{ false };
+	std::chrono::steady_clock::time_point m_deadline;
+	bool m_bUncertain{ false };
+};
+
 class CHQService final
 {
 	friend class CServiceRoutingTests;
 	friend class CMarketSubscriptionTests;
-
-private:
-	struct CPendingQueryClient
-	{
-		net::_TyConnectionId m_routerId{ -1 };
-		_TyRequestId m_requestId{ 0 };
-	};
-
-	struct CPendingSubscriptionBatch
-	{
-		CPendingQueryClient m_client;
-		_TyRequest m_type{ _TyRequest::UNKNOWN };
-		std::chrono::steady_clock::time_point m_deadline;
-		std::vector<CQuoteInfo> m_requested;
-		std::vector<CQuoteInfo> m_changed;
-		std::string m_strError;
-	};
-	struct CUpstreamSubscription
-	{
-		CQuoteInfo m_quote;
-		_TyRequestId m_requestId{ 0 };
-		_TyRequest m_type{ _TyRequest::UNKNOWN };
-		bool m_bConfirmed{ false };
-		std::chrono::steady_clock::time_point m_deadline;
-		bool m_bUncertain{ false };
-	};
-
-	struct CPendingQuery
-	{
-		_TyRequestId m_routerId{ 0 };
-		std::string m_strKey;
-		_TyRequest m_type{ _TyRequest::UNKNOWN };
-		std::chrono::steady_clock::time_point m_deadline;
-		std::vector<CPendingQueryClient> m_clients;
-	};
 
 public:
 	explicit CHQService(CSession* pSession);
 	CHQService(const CHQService& arg) = delete;
 	CHQService& operator=(const CHQService& arg) = delete;
 
-	void Release(const std::string& id);
-	void Subscribe(const std::string& id, const std::vector<CQuoteInfo>& quotes);
+	void Release(HQOrigin type, std::uint64_t id);
+	void Subscribe(HQOrigin type, std::uint64_t id, const std::vector<CQuoteInfo>& quotes);
 
 	bool OnReply(const CRequest& req);
 	bool OnRequest(const CRequest& req);
@@ -81,10 +80,12 @@ private:
 	void FailPendingQueries(const std::string& strReason);
 	std::string GetMarketResponseKey(const CRequest& req) const;
 	void FailPendingSubscriptions(const std::string& strReason);
-	bool HandleSubscription(net::_TyConnectionId id, const CRequest& req);
+	bool OnSubscriptionRequest(net::_TyConnectionId id, const CRequest& req);
 	bool HandleQueryHQRequest(net::_TyConnectionId id, const CRequest& req);
 	void SendQueryError(const CPendingQueryClient& client, _TyRequest type, int nErrorCode, const std::string& strMessage) const;
 	void SendSubscriptionResponse(net::_TyConnectionId id, _TyRequestId requestId, bool bAccepted, const std::string& strReason, _TyRequest type = _TyRequest::MARKET_SUBSCRIBE, const std::vector<CQuoteInfo>& subscriptions = {}) const;
+
+private:
 	std::mutex m_mtx_state;
 	CSubscriptionMgr m_subscriptions;
 	std::mutex m_mtx_subscriptions;
