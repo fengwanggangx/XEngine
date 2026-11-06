@@ -1,0 +1,793 @@
+/* TA-LIB Copyright (c) 1999-2026, Mario Fortier
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or
+ * without modification, are permitted provided that the following
+ * conditions are met:
+ *
+ * - Redistributions of source code must retain the above copyright
+ *   notice, this list of conditions and the following disclaimer.
+ *
+ * - Redistributions in binary form must reproduce the above copyright
+ *   notice, this list of conditions and the following disclaimer in
+ *   the documentation and/or other materials provided with the
+ *   distribution.
+ *
+ * - Neither name of author nor the names of its contributors
+ *   may be used to endorse or promote products derived from this
+ *   software without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ * ``AS IS'' AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+ * FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
+ * REGENTS OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+ * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+ * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+ * OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+ * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
+ * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
+ * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+
+/*********************************************************************
+ * This file contains only TA functions starting with the letter 'A' *
+ *********************************************************************/
+#include <stddef.h>
+#include "ta_abstract.h"
+#include "ta_def_ui.h"
+
+/* AC BEGIN */
+static const TA_OptInputParameterInfo TA_DEF_UI_D_AC_FastPeriod =
+{
+   TA_OptInput_IntegerRange,
+   "optInFastPeriod",
+   0,
+
+   "Fast Period",
+   (const void *)&TA_DEF_TimePeriod_Positive_Minimum2,
+   5,
+   "Period of the fast MA",
+
+   NULL
+};
+
+static const TA_OptInputParameterInfo TA_DEF_UI_D_AC_SlowPeriod =
+{
+   TA_OptInput_IntegerRange,
+   "optInSlowPeriod",
+   0,
+
+   "Slow Period",
+   (const void *)&TA_DEF_TimePeriod_Positive_Minimum2,
+   34,
+   "Period of the slow MA",
+
+   NULL
+};
+
+static const TA_OptInputParameterInfo TA_DEF_UI_D_AC_SignalPeriod =
+{
+   TA_OptInput_IntegerRange,
+   "optInSignalPeriod",
+   0,
+
+   "Signal Period",
+   (const void *)&TA_DEF_TimePeriod_Positive_Minimum2,
+   5,
+   "Smoothing for the signal line (period length)",
+
+   NULL
+};
+
+const TA_OutputParameterInfo TA_DEF_UI_Output_Real_AC_Default =
+                               { TA_Output_Real, "outReal", TA_OUT_HISTO };
+
+static const TA_InputParameterInfo    *TA_AC_Inputs[]    =
+{
+  &TA_DEF_UI_Input_Price_HL,
+  NULL
+};
+
+static const TA_OutputParameterInfo   *TA_AC_Outputs[]   =
+{
+  &TA_DEF_UI_Output_Real_AC_Default,
+  NULL
+};
+
+static const TA_OptInputParameterInfo *TA_AC_OptInputs[] =
+{ &TA_DEF_UI_D_AC_FastPeriod,
+  &TA_DEF_UI_D_AC_SlowPeriod,
+  &TA_DEF_UI_D_AC_SignalPeriod,
+  NULL
+};
+
+DEF_FUNCTION( AC,
+              TA_GroupId_MomentumIndicators,
+              "Accelerator/Decelerator Oscillator",
+              TA_FUNC_FLG_STREAM
+             );
+/* AC END */
+
+/* ACCBANDS BEGIN */
+const TA_OutputParameterInfo TA_DEF_UI_Output_Real_ACCBANDS_UpperBand =
+                               { TA_Output_Real, "outRealUpperBand", TA_OUT_UPPER_LIMIT };
+
+const TA_OutputParameterInfo TA_DEF_UI_Output_Real_ACCBANDS_MiddleBand =
+                               { TA_Output_Real, "outRealMiddleBand", TA_OUT_LINE };
+
+const TA_OutputParameterInfo TA_DEF_UI_Output_Real_ACCBANDS_LowerBand =
+                               { TA_Output_Real, "outRealLowerBand", TA_OUT_LOWER_LIMIT };
+
+static const TA_InputParameterInfo    *TA_ACCBANDS_Inputs[]    =
+{
+  &TA_DEF_UI_Input_Price_HLC,
+  NULL
+};
+
+static const TA_OutputParameterInfo   *TA_ACCBANDS_Outputs[]   =
+{
+  &TA_DEF_UI_Output_Real_ACCBANDS_UpperBand,
+  &TA_DEF_UI_Output_Real_ACCBANDS_MiddleBand,
+  &TA_DEF_UI_Output_Real_ACCBANDS_LowerBand,
+  NULL
+};
+
+static const TA_OptInputParameterInfo *TA_ACCBANDS_OptInputs[] =
+{ &TA_DEF_UI_TimePeriod_20_MINIMUM2,
+  NULL
+};
+
+DEF_FUNCTION( ACCBANDS,
+              TA_GroupId_OverlapStudies,
+              "Acceleration Bands",
+              TA_FUNC_FLG_OVERLAP | TA_FUNC_FLG_STREAM
+             );
+/* ACCBANDS END */
+
+/* ACOS BEGIN */
+static const TA_InputParameterInfo    *TA_ACOS_Inputs[]    =
+{
+  &TA_DEF_UI_Input_Real,
+  NULL
+};
+
+static const TA_OutputParameterInfo   *TA_ACOS_Outputs[]   =
+{
+  &TA_DEF_UI_Output_Real,
+  NULL
+};
+
+static const TA_OptInputParameterInfo *TA_ACOS_OptInputs[] =
+{ NULL };
+
+DEF_FUNCTION( ACOS,
+              TA_GroupId_MathTransform,
+              "Vector Trigonometric ACos",
+              TA_FUNC_FLG_STREAM | TA_FUNC_FLG_NAN_INF_OUT | TA_FUNC_FLG_USES_TRANSCENDENTAL
+             );
+/* ACOS END */
+
+/* AD BEGIN */
+static const TA_InputParameterInfo    *TA_AD_Inputs[]    =
+{
+  &TA_DEF_UI_Input_Price_HLCV,
+  NULL
+};
+
+static const TA_OutputParameterInfo   *TA_AD_Outputs[]   =
+{
+  &TA_DEF_UI_Output_Real,
+  NULL
+};
+
+static const TA_OptInputParameterInfo *TA_AD_OptInputs[] =
+{ NULL };
+
+DEF_FUNCTION( AD,
+              TA_GroupId_VolumeIndicators,
+              "Chaikin A/D Line",
+              TA_FUNC_FLG_STREAM | TA_FUNC_FLG_PATH_DEP
+             );
+/* AD END */
+
+/* ADD BEGIN */
+static const TA_InputParameterInfo    *TA_ADD_Inputs[]    =
+{
+  &TA_DEF_UI_Input_Real0,
+  &TA_DEF_UI_Input_Real1,
+  NULL
+};
+
+static const TA_OutputParameterInfo   *TA_ADD_Outputs[]   =
+{
+  &TA_DEF_UI_Output_Real,
+  NULL
+};
+
+static const TA_OptInputParameterInfo *TA_ADD_OptInputs[] =
+{ NULL };
+
+DEF_FUNCTION( ADD,
+              TA_GroupId_MathOperators,
+              "Vector Arithmetic Add",
+              TA_FUNC_FLG_STREAM
+             );
+/* ADD END */
+
+/* ADOSC BEGIN */
+static const TA_OptInputParameterInfo TA_DEF_UI_D_ADOSC_FastPeriod =
+{
+   TA_OptInput_IntegerRange,
+   "optInFastPeriod",
+   0,
+
+   "Fast Period",
+   (const void *)&TA_DEF_TimePeriod_Positive_Minimum2,
+   3,
+   "Period of the fast MA",
+
+   NULL
+};
+
+static const TA_OptInputParameterInfo TA_DEF_UI_D_ADOSC_SlowPeriod =
+{
+   TA_OptInput_IntegerRange,
+   "optInSlowPeriod",
+   0,
+
+   "Slow Period",
+   (const void *)&TA_DEF_TimePeriod_Positive_Minimum2,
+   10,
+   "Period of the slow MA",
+
+   NULL
+};
+
+static const TA_InputParameterInfo    *TA_ADOSC_Inputs[]    =
+{
+  &TA_DEF_UI_Input_Price_HLCV,
+  NULL
+};
+
+static const TA_OutputParameterInfo   *TA_ADOSC_Outputs[]   =
+{
+  &TA_DEF_UI_Output_Real,
+  NULL
+};
+
+static const TA_OptInputParameterInfo *TA_ADOSC_OptInputs[] =
+{ &TA_DEF_UI_D_ADOSC_FastPeriod,
+  &TA_DEF_UI_D_ADOSC_SlowPeriod,
+  NULL
+};
+
+DEF_FUNCTION( ADOSC,
+              TA_GroupId_VolumeIndicators,
+              "Chaikin A/D Oscillator",
+              TA_FUNC_FLG_STREAM
+             );
+/* ADOSC END */
+
+/* ADR BEGIN */
+static const TA_InputParameterInfo    *TA_ADR_Inputs[]    =
+{
+  &TA_DEF_UI_Input_Price_HL,
+  NULL
+};
+
+static const TA_OutputParameterInfo   *TA_ADR_Outputs[]   =
+{
+  &TA_DEF_UI_Output_Real,
+  NULL
+};
+
+static const TA_OptInputParameterInfo *TA_ADR_OptInputs[] =
+{ &TA_DEF_UI_TimePeriod_14,
+  NULL
+};
+
+DEF_FUNCTION( ADR,
+              TA_GroupId_VolatilityIndicators,
+              "Average Day Range",
+              TA_FUNC_FLG_STREAM
+             );
+/* ADR END */
+
+/* ADX BEGIN */
+static const TA_InputParameterInfo    *TA_ADX_Inputs[]    =
+{
+  &TA_DEF_UI_Input_Price_HLC,
+  NULL
+};
+
+static const TA_OutputParameterInfo   *TA_ADX_Outputs[]   =
+{
+  &TA_DEF_UI_Output_Real,
+  NULL
+};
+
+static const TA_OptInputParameterInfo *TA_ADX_OptInputs[] =
+{ &TA_DEF_UI_TimePeriod_14_MINIMUM2,
+  NULL
+};
+
+DEF_FUNCTION( ADX,
+              TA_GroupId_MomentumIndicators,
+              "Average Directional Movement Index",
+              TA_FUNC_FLG_UNST_PER | TA_FUNC_FLG_STREAM
+             );
+/* ADX END */
+
+/* ADXR BEGIN */
+static const TA_InputParameterInfo    *TA_ADXR_Inputs[]    =
+{
+  &TA_DEF_UI_Input_Price_HLC,
+  NULL
+};
+
+static const TA_OutputParameterInfo   *TA_ADXR_Outputs[]   =
+{
+  &TA_DEF_UI_Output_Real,
+  NULL
+};
+
+static const TA_OptInputParameterInfo *TA_ADXR_OptInputs[] =
+{ &TA_DEF_UI_TimePeriod_14_MINIMUM2,
+  NULL
+};
+
+DEF_FUNCTION( ADXR,
+              TA_GroupId_MomentumIndicators,
+              "Average Directional Movement Index Rating",
+              TA_FUNC_FLG_STREAM
+             );
+/* ADXR END */
+
+/* ALMA BEGIN */
+static const TA_OptInputParameterInfo TA_DEF_UI_D_ALMA_TimePeriod =
+{
+   TA_OptInput_IntegerRange,
+   "optInTimePeriod",
+   0,
+
+   "Time Period",
+   (const void *)&TA_DEF_TimePeriod_Positive,
+   9,
+   "Time period",
+
+   NULL
+};
+
+static const TA_RealRange TA_DEF_ALMA_Sigma =
+{
+   0.01,
+   TA_REAL_MAX,
+   2,
+   1.0,
+   20.0,
+   0.5
+};
+
+static const TA_OptInputParameterInfo TA_DEF_UI_D_ALMA_Sigma =
+{
+   TA_OptInput_RealRange,
+   "optInSigma",
+   0,
+
+   "Sigma",
+   (const void *)&TA_DEF_ALMA_Sigma,
+   6.0,
+   "Gaussian width divisor",
+
+   NULL
+};
+
+static const TA_RealRange TA_DEF_ALMA_Offset =
+{
+   0.0,
+   1.0,
+   2,
+   0.0,
+   1.0,
+   0.05
+};
+
+static const TA_OptInputParameterInfo TA_DEF_UI_D_ALMA_Offset =
+{
+   TA_OptInput_RealRange,
+   "optInOffset",
+   0,
+
+   "Offset",
+   (const void *)&TA_DEF_ALMA_Offset,
+   0.85,
+   "Position of the peak weight",
+
+   NULL
+};
+
+static const TA_InputParameterInfo    *TA_ALMA_Inputs[]    =
+{
+  &TA_DEF_UI_Input_Real,
+  NULL
+};
+
+static const TA_OutputParameterInfo   *TA_ALMA_Outputs[]   =
+{
+  &TA_DEF_UI_Output_Real,
+  NULL
+};
+
+static const TA_OptInputParameterInfo *TA_ALMA_OptInputs[] =
+{ &TA_DEF_UI_D_ALMA_TimePeriod,
+  &TA_DEF_UI_D_ALMA_Sigma,
+  &TA_DEF_UI_D_ALMA_Offset,
+  NULL
+};
+
+DEF_FUNCTION( ALMA,
+              TA_GroupId_OverlapStudies,
+              "Arnaud Legoux Moving Average",
+              TA_FUNC_FLG_OVERLAP | TA_FUNC_FLG_STREAM | TA_FUNC_FLG_PERIOD1_IDENTITY | TA_FUNC_FLG_USES_TRANSCENDENTAL
+             );
+/* ALMA END */
+
+/* AO BEGIN */
+static const TA_OptInputParameterInfo TA_DEF_UI_D_AO_FastPeriod =
+{
+   TA_OptInput_IntegerRange,
+   "optInFastPeriod",
+   0,
+
+   "Fast Period",
+   (const void *)&TA_DEF_TimePeriod_Positive_Minimum2,
+   5,
+   "Period of the fast MA",
+
+   NULL
+};
+
+static const TA_OptInputParameterInfo TA_DEF_UI_D_AO_SlowPeriod =
+{
+   TA_OptInput_IntegerRange,
+   "optInSlowPeriod",
+   0,
+
+   "Slow Period",
+   (const void *)&TA_DEF_TimePeriod_Positive_Minimum2,
+   34,
+   "Period of the slow MA",
+
+   NULL
+};
+
+const TA_OutputParameterInfo TA_DEF_UI_Output_Real_AO_Default =
+                               { TA_Output_Real, "outReal", TA_OUT_HISTO };
+
+static const TA_InputParameterInfo    *TA_AO_Inputs[]    =
+{
+  &TA_DEF_UI_Input_Price_HL,
+  NULL
+};
+
+static const TA_OutputParameterInfo   *TA_AO_Outputs[]   =
+{
+  &TA_DEF_UI_Output_Real_AO_Default,
+  NULL
+};
+
+static const TA_OptInputParameterInfo *TA_AO_OptInputs[] =
+{ &TA_DEF_UI_D_AO_FastPeriod,
+  &TA_DEF_UI_D_AO_SlowPeriod,
+  NULL
+};
+
+DEF_FUNCTION( AO,
+              TA_GroupId_MomentumIndicators,
+              "Awesome Oscillator",
+              TA_FUNC_FLG_STREAM
+             );
+/* AO END */
+
+/* APO BEGIN */
+const TA_OptInputParameterInfo TA_DEF_UI_D_APO_MAType =
+{
+   TA_OptInput_IntegerList,
+   "optInMAType",
+   0,
+
+   "MA Type",
+   (const void *)&TA_MA_TypeList,
+   1,
+   "Type of Moving Average",
+
+   NULL
+};
+
+static const TA_InputParameterInfo    *TA_APO_Inputs[]    =
+{
+  &TA_DEF_UI_Input_Real,
+  NULL
+};
+
+static const TA_OutputParameterInfo   *TA_APO_Outputs[]   =
+{
+  &TA_DEF_UI_Output_Real,
+  NULL
+};
+
+static const TA_OptInputParameterInfo *TA_APO_OptInputs[] =
+{ &TA_DEF_UI_Fast_Period,
+  &TA_DEF_UI_Slow_Period,
+  &TA_DEF_UI_D_APO_MAType,
+  NULL
+};
+
+DEF_FUNCTION( APO,
+              TA_GroupId_MomentumIndicators,
+              "Absolute Price Oscillator",
+              TA_FUNC_FLG_STREAM
+             );
+/* APO END */
+
+/* AROON BEGIN */
+const TA_OutputParameterInfo TA_DEF_UI_Output_Real_AROON_outAroonDown =
+                               { TA_Output_Real, "outAroonDown", TA_OUT_DASH_LINE };
+
+const TA_OutputParameterInfo TA_DEF_UI_Output_Real_AROON_outAroonUp =
+                               { TA_Output_Real, "outAroonUp", TA_OUT_LINE };
+
+static const TA_InputParameterInfo    *TA_AROON_Inputs[]    =
+{
+  &TA_DEF_UI_Input_Price_HL,
+  NULL
+};
+
+static const TA_OutputParameterInfo   *TA_AROON_Outputs[]   =
+{
+  &TA_DEF_UI_Output_Real_AROON_outAroonDown,
+  &TA_DEF_UI_Output_Real_AROON_outAroonUp,
+  NULL
+};
+
+static const TA_OptInputParameterInfo *TA_AROON_OptInputs[] =
+{ &TA_DEF_UI_TimePeriod_14_MINIMUM2,
+  NULL
+};
+
+DEF_FUNCTION( AROON,
+              TA_GroupId_MomentumIndicators,
+              "Aroon",
+              TA_FUNC_FLG_STREAM
+             );
+/* AROON END */
+
+/* AROONOSC BEGIN */
+static const TA_InputParameterInfo    *TA_AROONOSC_Inputs[]    =
+{
+  &TA_DEF_UI_Input_Price_HL,
+  NULL
+};
+
+static const TA_OutputParameterInfo   *TA_AROONOSC_Outputs[]   =
+{
+  &TA_DEF_UI_Output_Real,
+  NULL
+};
+
+static const TA_OptInputParameterInfo *TA_AROONOSC_OptInputs[] =
+{ &TA_DEF_UI_TimePeriod_14_MINIMUM2,
+  NULL
+};
+
+DEF_FUNCTION( AROONOSC,
+              TA_GroupId_MomentumIndicators,
+              "Aroon Oscillator",
+              TA_FUNC_FLG_STREAM
+             );
+/* AROONOSC END */
+
+/* ASI BEGIN */
+static const TA_RealRange TA_DEF_ASI_LimitMove =
+{
+   0.00000001,
+   TA_REAL_MAX,
+   4,
+   0.5,
+   30.0,
+   0.5
+};
+
+static const TA_OptInputParameterInfo TA_DEF_UI_D_ASI_LimitMove =
+{
+   TA_OptInput_RealRange,
+   "optInLimitMove",
+   0,
+
+   "Limit Move",
+   (const void *)&TA_DEF_ASI_LimitMove,
+   3.0,
+   "Largest one-bar price move the index is scaled against, in price units",
+
+   NULL
+};
+
+static const TA_InputParameterInfo    *TA_ASI_Inputs[]    =
+{
+  &TA_DEF_UI_Input_Price_OHLC,
+  NULL
+};
+
+static const TA_OutputParameterInfo   *TA_ASI_Outputs[]   =
+{
+  &TA_DEF_UI_Output_Real,
+  NULL
+};
+
+static const TA_OptInputParameterInfo *TA_ASI_OptInputs[] =
+{ &TA_DEF_UI_D_ASI_LimitMove,
+  NULL
+};
+
+DEF_FUNCTION( ASI,
+              TA_GroupId_MomentumIndicators,
+              "Wilder Accumulative Swing Index",
+              TA_FUNC_FLG_STREAM | TA_FUNC_FLG_PATH_DEP
+             );
+/* ASI END */
+
+/* ASIN BEGIN */
+static const TA_InputParameterInfo    *TA_ASIN_Inputs[]    =
+{
+  &TA_DEF_UI_Input_Real,
+  NULL
+};
+
+static const TA_OutputParameterInfo   *TA_ASIN_Outputs[]   =
+{
+  &TA_DEF_UI_Output_Real,
+  NULL
+};
+
+static const TA_OptInputParameterInfo *TA_ASIN_OptInputs[] =
+{ NULL };
+
+DEF_FUNCTION( ASIN,
+              TA_GroupId_MathTransform,
+              "Vector Trigonometric ASin",
+              TA_FUNC_FLG_STREAM | TA_FUNC_FLG_NAN_INF_OUT | TA_FUNC_FLG_USES_TRANSCENDENTAL
+             );
+/* ASIN END */
+
+/* ATAN BEGIN */
+static const TA_InputParameterInfo    *TA_ATAN_Inputs[]    =
+{
+  &TA_DEF_UI_Input_Real,
+  NULL
+};
+
+static const TA_OutputParameterInfo   *TA_ATAN_Outputs[]   =
+{
+  &TA_DEF_UI_Output_Real,
+  NULL
+};
+
+static const TA_OptInputParameterInfo *TA_ATAN_OptInputs[] =
+{ NULL };
+
+DEF_FUNCTION( ATAN,
+              TA_GroupId_MathTransform,
+              "Vector Trigonometric ATan",
+              TA_FUNC_FLG_STREAM | TA_FUNC_FLG_USES_TRANSCENDENTAL
+             );
+/* ATAN END */
+
+/* ATR BEGIN */
+static const TA_InputParameterInfo    *TA_ATR_Inputs[]    =
+{
+  &TA_DEF_UI_Input_Price_HLC,
+  NULL
+};
+
+static const TA_OutputParameterInfo   *TA_ATR_Outputs[]   =
+{
+  &TA_DEF_UI_Output_Real,
+  NULL
+};
+
+static const TA_OptInputParameterInfo *TA_ATR_OptInputs[] =
+{ &TA_DEF_UI_TimePeriod_14,
+  NULL
+};
+
+DEF_FUNCTION( ATR,
+              TA_GroupId_VolatilityIndicators,
+              "Average True Range",
+              TA_FUNC_FLG_UNST_PER | TA_FUNC_FLG_STREAM
+             );
+/* ATR END */
+
+/* AVGDEV BEGIN */
+static const TA_InputParameterInfo    *TA_AVGDEV_Inputs[]    =
+{
+  &TA_DEF_UI_Input_Real,
+  NULL
+};
+
+static const TA_OutputParameterInfo   *TA_AVGDEV_Outputs[]   =
+{
+  &TA_DEF_UI_Output_Real,
+  NULL
+};
+
+static const TA_OptInputParameterInfo *TA_AVGDEV_OptInputs[] =
+{ &TA_DEF_UI_TimePeriod_14_MINIMUM2,
+  NULL
+};
+
+DEF_FUNCTION( AVGDEV,
+              TA_GroupId_PriceTransform,
+              "Average Deviation",
+              TA_FUNC_FLG_OVERLAP | TA_FUNC_FLG_STREAM
+             );
+/* AVGDEV END */
+
+/* AVGPRICE BEGIN */
+static const TA_InputParameterInfo    *TA_AVGPRICE_Inputs[]    =
+{
+  &TA_DEF_UI_Input_Price_OHLC,
+  NULL
+};
+
+static const TA_OutputParameterInfo   *TA_AVGPRICE_Outputs[]   =
+{
+  &TA_DEF_UI_Output_Real,
+  NULL
+};
+
+static const TA_OptInputParameterInfo *TA_AVGPRICE_OptInputs[] =
+{ NULL };
+
+DEF_FUNCTION( AVGPRICE,
+              TA_GroupId_PriceTransform,
+              "Average Price",
+              TA_FUNC_FLG_OVERLAP | TA_FUNC_FLG_STREAM
+             );
+/* AVGPRICE END */
+
+/****************************************************************************
+ * Step 2 - Add your TA function to the table.
+ *          Keep in alphabetical order. Must be NULL terminated.
+ ****************************************************************************/
+const TA_FuncDef *TA_DEF_TableA[] =
+{
+   ADD_TO_TABLE(AC),
+   ADD_TO_TABLE(ACCBANDS),
+   ADD_TO_TABLE(ACOS),
+   ADD_TO_TABLE(AD),
+   ADD_TO_TABLE(ADD),
+   ADD_TO_TABLE(ADOSC),
+   ADD_TO_TABLE(ADR),
+   ADD_TO_TABLE(ADX),
+   ADD_TO_TABLE(ADXR),
+   ADD_TO_TABLE(ALMA),
+   ADD_TO_TABLE(AO),
+   ADD_TO_TABLE(APO),
+   ADD_TO_TABLE(AROON),
+   ADD_TO_TABLE(AROONOSC),
+   ADD_TO_TABLE(ASI),
+   ADD_TO_TABLE(ASIN),
+   ADD_TO_TABLE(ATAN),
+   ADD_TO_TABLE(ATR),
+   ADD_TO_TABLE(AVGDEV),
+   ADD_TO_TABLE(AVGPRICE),
+   NULL
+};
+
+
+/* Do not modify the following line. */
+const unsigned int TA_DEF_TableASize =
+              ((sizeof(TA_DEF_TableA)/sizeof(TA_FuncDef *))-1);
+

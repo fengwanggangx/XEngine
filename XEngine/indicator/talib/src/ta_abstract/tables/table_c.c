@@ -1,0 +1,2401 @@
+/* TA-LIB Copyright (c) 1999-2026, Mario Fortier
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or
+ * without modification, are permitted provided that the following
+ * conditions are met:
+ *
+ * - Redistributions of source code must retain the above copyright
+ *   notice, this list of conditions and the following disclaimer.
+ *
+ * - Redistributions in binary form must reproduce the above copyright
+ *   notice, this list of conditions and the following disclaimer in
+ *   the documentation and/or other materials provided with the
+ *   distribution.
+ *
+ * - Neither name of author nor the names of its contributors
+ *   may be used to endorse or promote products derived from this
+ *   software without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ * ``AS IS'' AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+ * FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
+ * REGENTS OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+ * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+ * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+ * OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+ * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
+ * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
+ * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+
+/*********************************************************************
+ * This file contains only TA functions starting with the letter 'C' *
+ *********************************************************************/
+#include <stddef.h>
+#include "ta_abstract.h"
+#include "ta_def_ui.h"
+
+/* CCI BEGIN */
+static const TA_InputParameterInfo    *TA_CCI_Inputs[]    =
+{
+  &TA_DEF_UI_Input_Price_HLC,
+  NULL
+};
+
+static const TA_OutputParameterInfo   *TA_CCI_Outputs[]   =
+{
+  &TA_DEF_UI_Output_Real,
+  NULL
+};
+
+static const TA_OptInputParameterInfo *TA_CCI_OptInputs[] =
+{ &TA_DEF_UI_TimePeriod_14_MINIMUM2,
+  NULL
+};
+
+DEF_FUNCTION( CCI,
+              TA_GroupId_MomentumIndicators,
+              "Commodity Channel Index",
+              TA_FUNC_FLG_STREAM
+             );
+/* CCI END */
+
+/* CDL2CROWS BEGIN */
+const TA_OutputParameterInfo TA_DEF_UI_Output_Integer_CDL2CROWS_Default =
+                               { TA_Output_Integer, "outInteger", TA_OUT_LINE | TA_OUT_PATTERN_BULL_BEAR | TA_OUT_ZERO | TA_OUT_NEGATIVE };
+
+static const TA_InputParameterInfo    *TA_CDL2CROWS_Inputs[]    =
+{
+  &TA_DEF_UI_Input_Price_OHLC,
+  NULL
+};
+
+static const TA_OutputParameterInfo   *TA_CDL2CROWS_Outputs[]   =
+{
+  &TA_DEF_UI_Output_Integer_CDL2CROWS_Default,
+  NULL
+};
+
+static const TA_OptInputParameterInfo *TA_CDL2CROWS_OptInputs[] =
+{ NULL };
+
+DEF_FUNCTION( CDL2CROWS,
+              TA_GroupId_PatternRecognition,
+              "Two Crows",
+              TA_FUNC_FLG_CANDLESTICK | TA_FUNC_FLG_STREAM
+             );
+/* CDL2CROWS END */
+
+/* CDL3BLACKCROWS BEGIN */
+const TA_OutputParameterInfo TA_DEF_UI_Output_Integer_CDL3BLACKCROWS_Default =
+                               { TA_Output_Integer, "outInteger", TA_OUT_LINE | TA_OUT_PATTERN_BULL_BEAR | TA_OUT_ZERO | TA_OUT_NEGATIVE };
+
+static const TA_InputParameterInfo    *TA_CDL3BLACKCROWS_Inputs[]    =
+{
+  &TA_DEF_UI_Input_Price_OHLC,
+  NULL
+};
+
+static const TA_OutputParameterInfo   *TA_CDL3BLACKCROWS_Outputs[]   =
+{
+  &TA_DEF_UI_Output_Integer_CDL3BLACKCROWS_Default,
+  NULL
+};
+
+static const TA_OptInputParameterInfo *TA_CDL3BLACKCROWS_OptInputs[] =
+{ NULL };
+
+DEF_FUNCTION( CDL3BLACKCROWS,
+              TA_GroupId_PatternRecognition,
+              "Three Black Crows",
+              TA_FUNC_FLG_CANDLESTICK | TA_FUNC_FLG_STREAM
+             );
+/* CDL3BLACKCROWS END */
+
+/* CDL3INSIDE BEGIN */
+const TA_OutputParameterInfo TA_DEF_UI_Output_Integer_CDL3INSIDE_Default =
+                               { TA_Output_Integer, "outInteger", TA_OUT_LINE | TA_OUT_PATTERN_BULL_BEAR | TA_OUT_ZERO | TA_OUT_POSITIVE | TA_OUT_NEGATIVE };
+
+static const TA_InputParameterInfo    *TA_CDL3INSIDE_Inputs[]    =
+{
+  &TA_DEF_UI_Input_Price_OHLC,
+  NULL
+};
+
+static const TA_OutputParameterInfo   *TA_CDL3INSIDE_Outputs[]   =
+{
+  &TA_DEF_UI_Output_Integer_CDL3INSIDE_Default,
+  NULL
+};
+
+static const TA_OptInputParameterInfo *TA_CDL3INSIDE_OptInputs[] =
+{ NULL };
+
+DEF_FUNCTION( CDL3INSIDE,
+              TA_GroupId_PatternRecognition,
+              "Three Inside Up/Down",
+              TA_FUNC_FLG_CANDLESTICK | TA_FUNC_FLG_STREAM
+             );
+/* CDL3INSIDE END */
+
+/* CDL3LINESTRIKE BEGIN */
+const TA_OutputParameterInfo TA_DEF_UI_Output_Integer_CDL3LINESTRIKE_Default =
+                               { TA_Output_Integer, "outInteger", TA_OUT_LINE | TA_OUT_PATTERN_BULL_BEAR | TA_OUT_ZERO | TA_OUT_POSITIVE | TA_OUT_NEGATIVE };
+
+static const TA_InputParameterInfo    *TA_CDL3LINESTRIKE_Inputs[]    =
+{
+  &TA_DEF_UI_Input_Price_OHLC,
+  NULL
+};
+
+static const TA_OutputParameterInfo   *TA_CDL3LINESTRIKE_Outputs[]   =
+{
+  &TA_DEF_UI_Output_Integer_CDL3LINESTRIKE_Default,
+  NULL
+};
+
+static const TA_OptInputParameterInfo *TA_CDL3LINESTRIKE_OptInputs[] =
+{ NULL };
+
+DEF_FUNCTION( CDL3LINESTRIKE,
+              TA_GroupId_PatternRecognition,
+              "Three-Line Strike",
+              TA_FUNC_FLG_CANDLESTICK | TA_FUNC_FLG_STREAM
+             );
+/* CDL3LINESTRIKE END */
+
+/* CDL3OUTSIDE BEGIN */
+const TA_OutputParameterInfo TA_DEF_UI_Output_Integer_CDL3OUTSIDE_Default =
+                               { TA_Output_Integer, "outInteger", TA_OUT_LINE | TA_OUT_PATTERN_BULL_BEAR | TA_OUT_ZERO | TA_OUT_POSITIVE | TA_OUT_NEGATIVE };
+
+static const TA_InputParameterInfo    *TA_CDL3OUTSIDE_Inputs[]    =
+{
+  &TA_DEF_UI_Input_Price_OHLC,
+  NULL
+};
+
+static const TA_OutputParameterInfo   *TA_CDL3OUTSIDE_Outputs[]   =
+{
+  &TA_DEF_UI_Output_Integer_CDL3OUTSIDE_Default,
+  NULL
+};
+
+static const TA_OptInputParameterInfo *TA_CDL3OUTSIDE_OptInputs[] =
+{ NULL };
+
+DEF_FUNCTION( CDL3OUTSIDE,
+              TA_GroupId_PatternRecognition,
+              "Three Outside Up/Down",
+              TA_FUNC_FLG_CANDLESTICK | TA_FUNC_FLG_STREAM
+             );
+/* CDL3OUTSIDE END */
+
+/* CDL3STARSINSOUTH BEGIN */
+const TA_OutputParameterInfo TA_DEF_UI_Output_Integer_CDL3STARSINSOUTH_Default =
+                               { TA_Output_Integer, "outInteger", TA_OUT_LINE | TA_OUT_PATTERN_BULL_BEAR | TA_OUT_ZERO | TA_OUT_POSITIVE };
+
+static const TA_InputParameterInfo    *TA_CDL3STARSINSOUTH_Inputs[]    =
+{
+  &TA_DEF_UI_Input_Price_OHLC,
+  NULL
+};
+
+static const TA_OutputParameterInfo   *TA_CDL3STARSINSOUTH_Outputs[]   =
+{
+  &TA_DEF_UI_Output_Integer_CDL3STARSINSOUTH_Default,
+  NULL
+};
+
+static const TA_OptInputParameterInfo *TA_CDL3STARSINSOUTH_OptInputs[] =
+{ NULL };
+
+DEF_FUNCTION( CDL3STARSINSOUTH,
+              TA_GroupId_PatternRecognition,
+              "Three Stars In The South",
+              TA_FUNC_FLG_CANDLESTICK | TA_FUNC_FLG_STREAM
+             );
+/* CDL3STARSINSOUTH END */
+
+/* CDL3WHITESOLDIERS BEGIN */
+const TA_OutputParameterInfo TA_DEF_UI_Output_Integer_CDL3WHITESOLDIERS_Default =
+                               { TA_Output_Integer, "outInteger", TA_OUT_LINE | TA_OUT_PATTERN_BULL_BEAR | TA_OUT_ZERO | TA_OUT_POSITIVE };
+
+static const TA_InputParameterInfo    *TA_CDL3WHITESOLDIERS_Inputs[]    =
+{
+  &TA_DEF_UI_Input_Price_OHLC,
+  NULL
+};
+
+static const TA_OutputParameterInfo   *TA_CDL3WHITESOLDIERS_Outputs[]   =
+{
+  &TA_DEF_UI_Output_Integer_CDL3WHITESOLDIERS_Default,
+  NULL
+};
+
+static const TA_OptInputParameterInfo *TA_CDL3WHITESOLDIERS_OptInputs[] =
+{ NULL };
+
+DEF_FUNCTION( CDL3WHITESOLDIERS,
+              TA_GroupId_PatternRecognition,
+              "Three Advancing White Soldiers",
+              TA_FUNC_FLG_CANDLESTICK | TA_FUNC_FLG_STREAM
+             );
+/* CDL3WHITESOLDIERS END */
+
+/* CDLABANDONEDBABY BEGIN */
+const TA_OutputParameterInfo TA_DEF_UI_Output_Integer_CDLABANDONEDBABY_Default =
+                               { TA_Output_Integer, "outInteger", TA_OUT_LINE | TA_OUT_PATTERN_BULL_BEAR | TA_OUT_ZERO | TA_OUT_POSITIVE | TA_OUT_NEGATIVE };
+
+static const TA_InputParameterInfo    *TA_CDLABANDONEDBABY_Inputs[]    =
+{
+  &TA_DEF_UI_Input_Price_OHLC,
+  NULL
+};
+
+static const TA_OutputParameterInfo   *TA_CDLABANDONEDBABY_Outputs[]   =
+{
+  &TA_DEF_UI_Output_Integer_CDLABANDONEDBABY_Default,
+  NULL
+};
+
+static const TA_OptInputParameterInfo *TA_CDLABANDONEDBABY_OptInputs[] =
+{ &TA_DEF_UI_Penetration_30,
+  NULL
+};
+
+DEF_FUNCTION( CDLABANDONEDBABY,
+              TA_GroupId_PatternRecognition,
+              "Abandoned Baby",
+              TA_FUNC_FLG_CANDLESTICK | TA_FUNC_FLG_STREAM
+             );
+/* CDLABANDONEDBABY END */
+
+/* CDLADVANCEBLOCK BEGIN */
+const TA_OutputParameterInfo TA_DEF_UI_Output_Integer_CDLADVANCEBLOCK_Default =
+                               { TA_Output_Integer, "outInteger", TA_OUT_LINE | TA_OUT_PATTERN_BULL_BEAR | TA_OUT_ZERO | TA_OUT_NEGATIVE };
+
+static const TA_InputParameterInfo    *TA_CDLADVANCEBLOCK_Inputs[]    =
+{
+  &TA_DEF_UI_Input_Price_OHLC,
+  NULL
+};
+
+static const TA_OutputParameterInfo   *TA_CDLADVANCEBLOCK_Outputs[]   =
+{
+  &TA_DEF_UI_Output_Integer_CDLADVANCEBLOCK_Default,
+  NULL
+};
+
+static const TA_OptInputParameterInfo *TA_CDLADVANCEBLOCK_OptInputs[] =
+{ NULL };
+
+DEF_FUNCTION( CDLADVANCEBLOCK,
+              TA_GroupId_PatternRecognition,
+              "Advance Block",
+              TA_FUNC_FLG_CANDLESTICK | TA_FUNC_FLG_STREAM
+             );
+/* CDLADVANCEBLOCK END */
+
+/* CDLBELTHOLD BEGIN */
+const TA_OutputParameterInfo TA_DEF_UI_Output_Integer_CDLBELTHOLD_Default =
+                               { TA_Output_Integer, "outInteger", TA_OUT_LINE | TA_OUT_PATTERN_BULL_BEAR | TA_OUT_ZERO | TA_OUT_POSITIVE | TA_OUT_NEGATIVE };
+
+static const TA_InputParameterInfo    *TA_CDLBELTHOLD_Inputs[]    =
+{
+  &TA_DEF_UI_Input_Price_OHLC,
+  NULL
+};
+
+static const TA_OutputParameterInfo   *TA_CDLBELTHOLD_Outputs[]   =
+{
+  &TA_DEF_UI_Output_Integer_CDLBELTHOLD_Default,
+  NULL
+};
+
+static const TA_OptInputParameterInfo *TA_CDLBELTHOLD_OptInputs[] =
+{ NULL };
+
+DEF_FUNCTION( CDLBELTHOLD,
+              TA_GroupId_PatternRecognition,
+              "Belt-hold",
+              TA_FUNC_FLG_CANDLESTICK | TA_FUNC_FLG_STREAM
+             );
+/* CDLBELTHOLD END */
+
+/* CDLBREAKAWAY BEGIN */
+const TA_OutputParameterInfo TA_DEF_UI_Output_Integer_CDLBREAKAWAY_Default =
+                               { TA_Output_Integer, "outInteger", TA_OUT_LINE | TA_OUT_PATTERN_BULL_BEAR | TA_OUT_ZERO | TA_OUT_POSITIVE | TA_OUT_NEGATIVE };
+
+static const TA_InputParameterInfo    *TA_CDLBREAKAWAY_Inputs[]    =
+{
+  &TA_DEF_UI_Input_Price_OHLC,
+  NULL
+};
+
+static const TA_OutputParameterInfo   *TA_CDLBREAKAWAY_Outputs[]   =
+{
+  &TA_DEF_UI_Output_Integer_CDLBREAKAWAY_Default,
+  NULL
+};
+
+static const TA_OptInputParameterInfo *TA_CDLBREAKAWAY_OptInputs[] =
+{ NULL };
+
+DEF_FUNCTION( CDLBREAKAWAY,
+              TA_GroupId_PatternRecognition,
+              "Breakaway",
+              TA_FUNC_FLG_CANDLESTICK | TA_FUNC_FLG_STREAM
+             );
+/* CDLBREAKAWAY END */
+
+/* CDLCLOSINGMARUBOZU BEGIN */
+const TA_OutputParameterInfo TA_DEF_UI_Output_Integer_CDLCLOSINGMARUBOZU_Default =
+                               { TA_Output_Integer, "outInteger", TA_OUT_LINE | TA_OUT_PATTERN_BULL_BEAR | TA_OUT_ZERO | TA_OUT_POSITIVE | TA_OUT_NEGATIVE };
+
+static const TA_InputParameterInfo    *TA_CDLCLOSINGMARUBOZU_Inputs[]    =
+{
+  &TA_DEF_UI_Input_Price_OHLC,
+  NULL
+};
+
+static const TA_OutputParameterInfo   *TA_CDLCLOSINGMARUBOZU_Outputs[]   =
+{
+  &TA_DEF_UI_Output_Integer_CDLCLOSINGMARUBOZU_Default,
+  NULL
+};
+
+static const TA_OptInputParameterInfo *TA_CDLCLOSINGMARUBOZU_OptInputs[] =
+{ NULL };
+
+DEF_FUNCTION( CDLCLOSINGMARUBOZU,
+              TA_GroupId_PatternRecognition,
+              "Closing Marubozu",
+              TA_FUNC_FLG_CANDLESTICK | TA_FUNC_FLG_STREAM
+             );
+/* CDLCLOSINGMARUBOZU END */
+
+/* CDLCONCEALBABYSWALL BEGIN */
+const TA_OutputParameterInfo TA_DEF_UI_Output_Integer_CDLCONCEALBABYSWALL_Default =
+                               { TA_Output_Integer, "outInteger", TA_OUT_LINE | TA_OUT_PATTERN_BULL_BEAR | TA_OUT_ZERO | TA_OUT_POSITIVE };
+
+static const TA_InputParameterInfo    *TA_CDLCONCEALBABYSWALL_Inputs[]    =
+{
+  &TA_DEF_UI_Input_Price_OHLC,
+  NULL
+};
+
+static const TA_OutputParameterInfo   *TA_CDLCONCEALBABYSWALL_Outputs[]   =
+{
+  &TA_DEF_UI_Output_Integer_CDLCONCEALBABYSWALL_Default,
+  NULL
+};
+
+static const TA_OptInputParameterInfo *TA_CDLCONCEALBABYSWALL_OptInputs[] =
+{ NULL };
+
+DEF_FUNCTION( CDLCONCEALBABYSWALL,
+              TA_GroupId_PatternRecognition,
+              "Concealing Baby Swallow",
+              TA_FUNC_FLG_CANDLESTICK | TA_FUNC_FLG_STREAM
+             );
+/* CDLCONCEALBABYSWALL END */
+
+/* CDLCOUNTERATTACK BEGIN */
+const TA_OutputParameterInfo TA_DEF_UI_Output_Integer_CDLCOUNTERATTACK_Default =
+                               { TA_Output_Integer, "outInteger", TA_OUT_LINE | TA_OUT_PATTERN_BULL_BEAR | TA_OUT_ZERO | TA_OUT_POSITIVE | TA_OUT_NEGATIVE };
+
+static const TA_InputParameterInfo    *TA_CDLCOUNTERATTACK_Inputs[]    =
+{
+  &TA_DEF_UI_Input_Price_OHLC,
+  NULL
+};
+
+static const TA_OutputParameterInfo   *TA_CDLCOUNTERATTACK_Outputs[]   =
+{
+  &TA_DEF_UI_Output_Integer_CDLCOUNTERATTACK_Default,
+  NULL
+};
+
+static const TA_OptInputParameterInfo *TA_CDLCOUNTERATTACK_OptInputs[] =
+{ NULL };
+
+DEF_FUNCTION( CDLCOUNTERATTACK,
+              TA_GroupId_PatternRecognition,
+              "Counterattack",
+              TA_FUNC_FLG_CANDLESTICK | TA_FUNC_FLG_STREAM
+             );
+/* CDLCOUNTERATTACK END */
+
+/* CDLDARKCLOUDCOVER BEGIN */
+const TA_OutputParameterInfo TA_DEF_UI_Output_Integer_CDLDARKCLOUDCOVER_Default =
+                               { TA_Output_Integer, "outInteger", TA_OUT_LINE | TA_OUT_PATTERN_BULL_BEAR | TA_OUT_ZERO | TA_OUT_NEGATIVE };
+
+static const TA_InputParameterInfo    *TA_CDLDARKCLOUDCOVER_Inputs[]    =
+{
+  &TA_DEF_UI_Input_Price_OHLC,
+  NULL
+};
+
+static const TA_OutputParameterInfo   *TA_CDLDARKCLOUDCOVER_Outputs[]   =
+{
+  &TA_DEF_UI_Output_Integer_CDLDARKCLOUDCOVER_Default,
+  NULL
+};
+
+static const TA_OptInputParameterInfo *TA_CDLDARKCLOUDCOVER_OptInputs[] =
+{ &TA_DEF_UI_Penetration_50,
+  NULL
+};
+
+DEF_FUNCTION( CDLDARKCLOUDCOVER,
+              TA_GroupId_PatternRecognition,
+              "Dark Cloud Cover",
+              TA_FUNC_FLG_CANDLESTICK | TA_FUNC_FLG_STREAM
+             );
+/* CDLDARKCLOUDCOVER END */
+
+/* CDLDOJI BEGIN */
+const TA_OutputParameterInfo TA_DEF_UI_Output_Integer_CDLDOJI_Default =
+                               { TA_Output_Integer, "outInteger", TA_OUT_LINE | TA_OUT_PATTERN_BOOL | TA_OUT_ZERO | TA_OUT_POSITIVE };
+
+static const TA_InputParameterInfo    *TA_CDLDOJI_Inputs[]    =
+{
+  &TA_DEF_UI_Input_Price_OHLC,
+  NULL
+};
+
+static const TA_OutputParameterInfo   *TA_CDLDOJI_Outputs[]   =
+{
+  &TA_DEF_UI_Output_Integer_CDLDOJI_Default,
+  NULL
+};
+
+static const TA_OptInputParameterInfo *TA_CDLDOJI_OptInputs[] =
+{ NULL };
+
+DEF_FUNCTION( CDLDOJI,
+              TA_GroupId_PatternRecognition,
+              "Doji",
+              TA_FUNC_FLG_CANDLESTICK | TA_FUNC_FLG_STREAM
+             );
+/* CDLDOJI END */
+
+/* CDLDOJISTAR BEGIN */
+const TA_OutputParameterInfo TA_DEF_UI_Output_Integer_CDLDOJISTAR_Default =
+                               { TA_Output_Integer, "outInteger", TA_OUT_LINE | TA_OUT_PATTERN_BULL_BEAR | TA_OUT_ZERO | TA_OUT_POSITIVE | TA_OUT_NEGATIVE };
+
+static const TA_InputParameterInfo    *TA_CDLDOJISTAR_Inputs[]    =
+{
+  &TA_DEF_UI_Input_Price_OHLC,
+  NULL
+};
+
+static const TA_OutputParameterInfo   *TA_CDLDOJISTAR_Outputs[]   =
+{
+  &TA_DEF_UI_Output_Integer_CDLDOJISTAR_Default,
+  NULL
+};
+
+static const TA_OptInputParameterInfo *TA_CDLDOJISTAR_OptInputs[] =
+{ NULL };
+
+DEF_FUNCTION( CDLDOJISTAR,
+              TA_GroupId_PatternRecognition,
+              "Doji Star",
+              TA_FUNC_FLG_CANDLESTICK | TA_FUNC_FLG_STREAM
+             );
+/* CDLDOJISTAR END */
+
+/* CDLDRAGONFLYDOJI BEGIN */
+const TA_OutputParameterInfo TA_DEF_UI_Output_Integer_CDLDRAGONFLYDOJI_Default =
+                               { TA_Output_Integer, "outInteger", TA_OUT_LINE | TA_OUT_PATTERN_BOOL | TA_OUT_ZERO | TA_OUT_POSITIVE };
+
+static const TA_InputParameterInfo    *TA_CDLDRAGONFLYDOJI_Inputs[]    =
+{
+  &TA_DEF_UI_Input_Price_OHLC,
+  NULL
+};
+
+static const TA_OutputParameterInfo   *TA_CDLDRAGONFLYDOJI_Outputs[]   =
+{
+  &TA_DEF_UI_Output_Integer_CDLDRAGONFLYDOJI_Default,
+  NULL
+};
+
+static const TA_OptInputParameterInfo *TA_CDLDRAGONFLYDOJI_OptInputs[] =
+{ NULL };
+
+DEF_FUNCTION( CDLDRAGONFLYDOJI,
+              TA_GroupId_PatternRecognition,
+              "Dragonfly Doji",
+              TA_FUNC_FLG_CANDLESTICK | TA_FUNC_FLG_STREAM
+             );
+/* CDLDRAGONFLYDOJI END */
+
+/* CDLENGULFING BEGIN */
+const TA_OutputParameterInfo TA_DEF_UI_Output_Integer_CDLENGULFING_Default =
+                               { TA_Output_Integer, "outInteger", TA_OUT_LINE | TA_OUT_PATTERN_BULL_BEAR | TA_OUT_ZERO | TA_OUT_POSITIVE | TA_OUT_NEGATIVE | TA_OUT_PATTERN_WEAK };
+
+static const TA_InputParameterInfo    *TA_CDLENGULFING_Inputs[]    =
+{
+  &TA_DEF_UI_Input_Price_OHLC,
+  NULL
+};
+
+static const TA_OutputParameterInfo   *TA_CDLENGULFING_Outputs[]   =
+{
+  &TA_DEF_UI_Output_Integer_CDLENGULFING_Default,
+  NULL
+};
+
+static const TA_OptInputParameterInfo *TA_CDLENGULFING_OptInputs[] =
+{ NULL };
+
+DEF_FUNCTION( CDLENGULFING,
+              TA_GroupId_PatternRecognition,
+              "Engulfing Pattern",
+              TA_FUNC_FLG_CANDLESTICK | TA_FUNC_FLG_STREAM
+             );
+/* CDLENGULFING END */
+
+/* CDLEVENINGDOJISTAR BEGIN */
+const TA_OutputParameterInfo TA_DEF_UI_Output_Integer_CDLEVENINGDOJISTAR_Default =
+                               { TA_Output_Integer, "outInteger", TA_OUT_LINE | TA_OUT_PATTERN_BULL_BEAR | TA_OUT_ZERO | TA_OUT_NEGATIVE };
+
+static const TA_InputParameterInfo    *TA_CDLEVENINGDOJISTAR_Inputs[]    =
+{
+  &TA_DEF_UI_Input_Price_OHLC,
+  NULL
+};
+
+static const TA_OutputParameterInfo   *TA_CDLEVENINGDOJISTAR_Outputs[]   =
+{
+  &TA_DEF_UI_Output_Integer_CDLEVENINGDOJISTAR_Default,
+  NULL
+};
+
+static const TA_OptInputParameterInfo *TA_CDLEVENINGDOJISTAR_OptInputs[] =
+{ &TA_DEF_UI_Penetration_30,
+  NULL
+};
+
+DEF_FUNCTION( CDLEVENINGDOJISTAR,
+              TA_GroupId_PatternRecognition,
+              "Evening Doji Star",
+              TA_FUNC_FLG_CANDLESTICK | TA_FUNC_FLG_STREAM
+             );
+/* CDLEVENINGDOJISTAR END */
+
+/* CDLEVENINGSTAR BEGIN */
+const TA_OutputParameterInfo TA_DEF_UI_Output_Integer_CDLEVENINGSTAR_Default =
+                               { TA_Output_Integer, "outInteger", TA_OUT_LINE | TA_OUT_PATTERN_BULL_BEAR | TA_OUT_ZERO | TA_OUT_NEGATIVE };
+
+static const TA_InputParameterInfo    *TA_CDLEVENINGSTAR_Inputs[]    =
+{
+  &TA_DEF_UI_Input_Price_OHLC,
+  NULL
+};
+
+static const TA_OutputParameterInfo   *TA_CDLEVENINGSTAR_Outputs[]   =
+{
+  &TA_DEF_UI_Output_Integer_CDLEVENINGSTAR_Default,
+  NULL
+};
+
+static const TA_OptInputParameterInfo *TA_CDLEVENINGSTAR_OptInputs[] =
+{ &TA_DEF_UI_Penetration_30,
+  NULL
+};
+
+DEF_FUNCTION( CDLEVENINGSTAR,
+              TA_GroupId_PatternRecognition,
+              "Evening Star",
+              TA_FUNC_FLG_CANDLESTICK | TA_FUNC_FLG_STREAM
+             );
+/* CDLEVENINGSTAR END */
+
+/* CDLGAPSIDESIDEWHITE BEGIN */
+const TA_OutputParameterInfo TA_DEF_UI_Output_Integer_CDLGAPSIDESIDEWHITE_Default =
+                               { TA_Output_Integer, "outInteger", TA_OUT_LINE | TA_OUT_PATTERN_BULL_BEAR | TA_OUT_ZERO | TA_OUT_POSITIVE | TA_OUT_NEGATIVE };
+
+static const TA_InputParameterInfo    *TA_CDLGAPSIDESIDEWHITE_Inputs[]    =
+{
+  &TA_DEF_UI_Input_Price_OHLC,
+  NULL
+};
+
+static const TA_OutputParameterInfo   *TA_CDLGAPSIDESIDEWHITE_Outputs[]   =
+{
+  &TA_DEF_UI_Output_Integer_CDLGAPSIDESIDEWHITE_Default,
+  NULL
+};
+
+static const TA_OptInputParameterInfo *TA_CDLGAPSIDESIDEWHITE_OptInputs[] =
+{ NULL };
+
+DEF_FUNCTION( CDLGAPSIDESIDEWHITE,
+              TA_GroupId_PatternRecognition,
+              "Up/Down-gap side-by-side white lines",
+              TA_FUNC_FLG_CANDLESTICK | TA_FUNC_FLG_STREAM
+             );
+/* CDLGAPSIDESIDEWHITE END */
+
+/* CDLGRAVESTONEDOJI BEGIN */
+const TA_OutputParameterInfo TA_DEF_UI_Output_Integer_CDLGRAVESTONEDOJI_Default =
+                               { TA_Output_Integer, "outInteger", TA_OUT_LINE | TA_OUT_PATTERN_BOOL | TA_OUT_ZERO | TA_OUT_POSITIVE };
+
+static const TA_InputParameterInfo    *TA_CDLGRAVESTONEDOJI_Inputs[]    =
+{
+  &TA_DEF_UI_Input_Price_OHLC,
+  NULL
+};
+
+static const TA_OutputParameterInfo   *TA_CDLGRAVESTONEDOJI_Outputs[]   =
+{
+  &TA_DEF_UI_Output_Integer_CDLGRAVESTONEDOJI_Default,
+  NULL
+};
+
+static const TA_OptInputParameterInfo *TA_CDLGRAVESTONEDOJI_OptInputs[] =
+{ NULL };
+
+DEF_FUNCTION( CDLGRAVESTONEDOJI,
+              TA_GroupId_PatternRecognition,
+              "Gravestone Doji",
+              TA_FUNC_FLG_CANDLESTICK | TA_FUNC_FLG_STREAM
+             );
+/* CDLGRAVESTONEDOJI END */
+
+/* CDLHAMMER BEGIN */
+const TA_OutputParameterInfo TA_DEF_UI_Output_Integer_CDLHAMMER_Default =
+                               { TA_Output_Integer, "outInteger", TA_OUT_LINE | TA_OUT_PATTERN_BULL_BEAR | TA_OUT_ZERO | TA_OUT_POSITIVE };
+
+static const TA_InputParameterInfo    *TA_CDLHAMMER_Inputs[]    =
+{
+  &TA_DEF_UI_Input_Price_OHLC,
+  NULL
+};
+
+static const TA_OutputParameterInfo   *TA_CDLHAMMER_Outputs[]   =
+{
+  &TA_DEF_UI_Output_Integer_CDLHAMMER_Default,
+  NULL
+};
+
+static const TA_OptInputParameterInfo *TA_CDLHAMMER_OptInputs[] =
+{ NULL };
+
+DEF_FUNCTION( CDLHAMMER,
+              TA_GroupId_PatternRecognition,
+              "Hammer",
+              TA_FUNC_FLG_CANDLESTICK | TA_FUNC_FLG_STREAM
+             );
+/* CDLHAMMER END */
+
+/* CDLHANGINGMAN BEGIN */
+const TA_OutputParameterInfo TA_DEF_UI_Output_Integer_CDLHANGINGMAN_Default =
+                               { TA_Output_Integer, "outInteger", TA_OUT_LINE | TA_OUT_PATTERN_BULL_BEAR | TA_OUT_ZERO | TA_OUT_NEGATIVE };
+
+static const TA_InputParameterInfo    *TA_CDLHANGINGMAN_Inputs[]    =
+{
+  &TA_DEF_UI_Input_Price_OHLC,
+  NULL
+};
+
+static const TA_OutputParameterInfo   *TA_CDLHANGINGMAN_Outputs[]   =
+{
+  &TA_DEF_UI_Output_Integer_CDLHANGINGMAN_Default,
+  NULL
+};
+
+static const TA_OptInputParameterInfo *TA_CDLHANGINGMAN_OptInputs[] =
+{ NULL };
+
+DEF_FUNCTION( CDLHANGINGMAN,
+              TA_GroupId_PatternRecognition,
+              "Hanging Man",
+              TA_FUNC_FLG_CANDLESTICK | TA_FUNC_FLG_STREAM
+             );
+/* CDLHANGINGMAN END */
+
+/* CDLHARAMI BEGIN */
+const TA_OutputParameterInfo TA_DEF_UI_Output_Integer_CDLHARAMI_Default =
+                               { TA_Output_Integer, "outInteger", TA_OUT_LINE | TA_OUT_PATTERN_BULL_BEAR | TA_OUT_ZERO | TA_OUT_POSITIVE | TA_OUT_NEGATIVE | TA_OUT_PATTERN_WEAK };
+
+static const TA_InputParameterInfo    *TA_CDLHARAMI_Inputs[]    =
+{
+  &TA_DEF_UI_Input_Price_OHLC,
+  NULL
+};
+
+static const TA_OutputParameterInfo   *TA_CDLHARAMI_Outputs[]   =
+{
+  &TA_DEF_UI_Output_Integer_CDLHARAMI_Default,
+  NULL
+};
+
+static const TA_OptInputParameterInfo *TA_CDLHARAMI_OptInputs[] =
+{ NULL };
+
+DEF_FUNCTION( CDLHARAMI,
+              TA_GroupId_PatternRecognition,
+              "Harami Pattern",
+              TA_FUNC_FLG_CANDLESTICK | TA_FUNC_FLG_STREAM
+             );
+/* CDLHARAMI END */
+
+/* CDLHARAMICROSS BEGIN */
+const TA_OutputParameterInfo TA_DEF_UI_Output_Integer_CDLHARAMICROSS_Default =
+                               { TA_Output_Integer, "outInteger", TA_OUT_LINE | TA_OUT_PATTERN_BULL_BEAR | TA_OUT_ZERO | TA_OUT_POSITIVE | TA_OUT_NEGATIVE | TA_OUT_PATTERN_WEAK };
+
+static const TA_InputParameterInfo    *TA_CDLHARAMICROSS_Inputs[]    =
+{
+  &TA_DEF_UI_Input_Price_OHLC,
+  NULL
+};
+
+static const TA_OutputParameterInfo   *TA_CDLHARAMICROSS_Outputs[]   =
+{
+  &TA_DEF_UI_Output_Integer_CDLHARAMICROSS_Default,
+  NULL
+};
+
+static const TA_OptInputParameterInfo *TA_CDLHARAMICROSS_OptInputs[] =
+{ NULL };
+
+DEF_FUNCTION( CDLHARAMICROSS,
+              TA_GroupId_PatternRecognition,
+              "Harami Cross Pattern",
+              TA_FUNC_FLG_CANDLESTICK | TA_FUNC_FLG_STREAM
+             );
+/* CDLHARAMICROSS END */
+
+/* CDLHIGHWAVE BEGIN */
+const TA_OutputParameterInfo TA_DEF_UI_Output_Integer_CDLHIGHWAVE_Default =
+                               { TA_Output_Integer, "outInteger", TA_OUT_LINE | TA_OUT_ZERO | TA_OUT_POSITIVE | TA_OUT_NEGATIVE };
+
+static const TA_InputParameterInfo    *TA_CDLHIGHWAVE_Inputs[]    =
+{
+  &TA_DEF_UI_Input_Price_OHLC,
+  NULL
+};
+
+static const TA_OutputParameterInfo   *TA_CDLHIGHWAVE_Outputs[]   =
+{
+  &TA_DEF_UI_Output_Integer_CDLHIGHWAVE_Default,
+  NULL
+};
+
+static const TA_OptInputParameterInfo *TA_CDLHIGHWAVE_OptInputs[] =
+{ NULL };
+
+DEF_FUNCTION( CDLHIGHWAVE,
+              TA_GroupId_PatternRecognition,
+              "High-Wave Candle",
+              TA_FUNC_FLG_CANDLESTICK | TA_FUNC_FLG_STREAM
+             );
+/* CDLHIGHWAVE END */
+
+/* CDLHIKKAKE BEGIN */
+const TA_OutputParameterInfo TA_DEF_UI_Output_Integer_CDLHIKKAKE_Default =
+                               { TA_Output_Integer, "outInteger", TA_OUT_LINE | TA_OUT_PATTERN_BULL_BEAR | TA_OUT_ZERO | TA_OUT_POSITIVE | TA_OUT_NEGATIVE | TA_OUT_PATTERN_CONFIRM };
+
+static const TA_InputParameterInfo    *TA_CDLHIKKAKE_Inputs[]    =
+{
+  &TA_DEF_UI_Input_Price_OHLC,
+  NULL
+};
+
+static const TA_OutputParameterInfo   *TA_CDLHIKKAKE_Outputs[]   =
+{
+  &TA_DEF_UI_Output_Integer_CDLHIKKAKE_Default,
+  NULL
+};
+
+static const TA_OptInputParameterInfo *TA_CDLHIKKAKE_OptInputs[] =
+{ NULL };
+
+DEF_FUNCTION( CDLHIKKAKE,
+              TA_GroupId_PatternRecognition,
+              "Hikkake Pattern",
+              TA_FUNC_FLG_CANDLESTICK | TA_FUNC_FLG_STREAM
+             );
+/* CDLHIKKAKE END */
+
+/* CDLHIKKAKEMOD BEGIN */
+const TA_OutputParameterInfo TA_DEF_UI_Output_Integer_CDLHIKKAKEMOD_Default =
+                               { TA_Output_Integer, "outInteger", TA_OUT_LINE | TA_OUT_PATTERN_BULL_BEAR | TA_OUT_ZERO | TA_OUT_POSITIVE | TA_OUT_NEGATIVE | TA_OUT_PATTERN_CONFIRM };
+
+static const TA_InputParameterInfo    *TA_CDLHIKKAKEMOD_Inputs[]    =
+{
+  &TA_DEF_UI_Input_Price_OHLC,
+  NULL
+};
+
+static const TA_OutputParameterInfo   *TA_CDLHIKKAKEMOD_Outputs[]   =
+{
+  &TA_DEF_UI_Output_Integer_CDLHIKKAKEMOD_Default,
+  NULL
+};
+
+static const TA_OptInputParameterInfo *TA_CDLHIKKAKEMOD_OptInputs[] =
+{ NULL };
+
+DEF_FUNCTION( CDLHIKKAKEMOD,
+              TA_GroupId_PatternRecognition,
+              "Modified Hikkake Pattern",
+              TA_FUNC_FLG_CANDLESTICK | TA_FUNC_FLG_STREAM
+             );
+/* CDLHIKKAKEMOD END */
+
+/* CDLHOMINGPIGEON BEGIN */
+const TA_OutputParameterInfo TA_DEF_UI_Output_Integer_CDLHOMINGPIGEON_Default =
+                               { TA_Output_Integer, "outInteger", TA_OUT_LINE | TA_OUT_PATTERN_BULL_BEAR | TA_OUT_ZERO | TA_OUT_POSITIVE };
+
+static const TA_InputParameterInfo    *TA_CDLHOMINGPIGEON_Inputs[]    =
+{
+  &TA_DEF_UI_Input_Price_OHLC,
+  NULL
+};
+
+static const TA_OutputParameterInfo   *TA_CDLHOMINGPIGEON_Outputs[]   =
+{
+  &TA_DEF_UI_Output_Integer_CDLHOMINGPIGEON_Default,
+  NULL
+};
+
+static const TA_OptInputParameterInfo *TA_CDLHOMINGPIGEON_OptInputs[] =
+{ NULL };
+
+DEF_FUNCTION( CDLHOMINGPIGEON,
+              TA_GroupId_PatternRecognition,
+              "Homing Pigeon",
+              TA_FUNC_FLG_CANDLESTICK | TA_FUNC_FLG_STREAM
+             );
+/* CDLHOMINGPIGEON END */
+
+/* CDLIDENTICAL3CROWS BEGIN */
+const TA_OutputParameterInfo TA_DEF_UI_Output_Integer_CDLIDENTICAL3CROWS_Default =
+                               { TA_Output_Integer, "outInteger", TA_OUT_LINE | TA_OUT_PATTERN_BULL_BEAR | TA_OUT_ZERO | TA_OUT_NEGATIVE };
+
+static const TA_InputParameterInfo    *TA_CDLIDENTICAL3CROWS_Inputs[]    =
+{
+  &TA_DEF_UI_Input_Price_OHLC,
+  NULL
+};
+
+static const TA_OutputParameterInfo   *TA_CDLIDENTICAL3CROWS_Outputs[]   =
+{
+  &TA_DEF_UI_Output_Integer_CDLIDENTICAL3CROWS_Default,
+  NULL
+};
+
+static const TA_OptInputParameterInfo *TA_CDLIDENTICAL3CROWS_OptInputs[] =
+{ NULL };
+
+DEF_FUNCTION( CDLIDENTICAL3CROWS,
+              TA_GroupId_PatternRecognition,
+              "Identical Three Crows",
+              TA_FUNC_FLG_CANDLESTICK | TA_FUNC_FLG_STREAM
+             );
+/* CDLIDENTICAL3CROWS END */
+
+/* CDLINNECK BEGIN */
+const TA_OutputParameterInfo TA_DEF_UI_Output_Integer_CDLINNECK_Default =
+                               { TA_Output_Integer, "outInteger", TA_OUT_LINE | TA_OUT_PATTERN_BULL_BEAR | TA_OUT_ZERO | TA_OUT_NEGATIVE };
+
+static const TA_InputParameterInfo    *TA_CDLINNECK_Inputs[]    =
+{
+  &TA_DEF_UI_Input_Price_OHLC,
+  NULL
+};
+
+static const TA_OutputParameterInfo   *TA_CDLINNECK_Outputs[]   =
+{
+  &TA_DEF_UI_Output_Integer_CDLINNECK_Default,
+  NULL
+};
+
+static const TA_OptInputParameterInfo *TA_CDLINNECK_OptInputs[] =
+{ NULL };
+
+DEF_FUNCTION( CDLINNECK,
+              TA_GroupId_PatternRecognition,
+              "In-Neck Pattern",
+              TA_FUNC_FLG_CANDLESTICK | TA_FUNC_FLG_STREAM
+             );
+/* CDLINNECK END */
+
+/* CDLINVERTEDHAMMER BEGIN */
+const TA_OutputParameterInfo TA_DEF_UI_Output_Integer_CDLINVERTEDHAMMER_Default =
+                               { TA_Output_Integer, "outInteger", TA_OUT_LINE | TA_OUT_PATTERN_BULL_BEAR | TA_OUT_ZERO | TA_OUT_POSITIVE };
+
+static const TA_InputParameterInfo    *TA_CDLINVERTEDHAMMER_Inputs[]    =
+{
+  &TA_DEF_UI_Input_Price_OHLC,
+  NULL
+};
+
+static const TA_OutputParameterInfo   *TA_CDLINVERTEDHAMMER_Outputs[]   =
+{
+  &TA_DEF_UI_Output_Integer_CDLINVERTEDHAMMER_Default,
+  NULL
+};
+
+static const TA_OptInputParameterInfo *TA_CDLINVERTEDHAMMER_OptInputs[] =
+{ NULL };
+
+DEF_FUNCTION( CDLINVERTEDHAMMER,
+              TA_GroupId_PatternRecognition,
+              "Inverted Hammer",
+              TA_FUNC_FLG_CANDLESTICK | TA_FUNC_FLG_STREAM
+             );
+/* CDLINVERTEDHAMMER END */
+
+/* CDLKICKING BEGIN */
+const TA_OutputParameterInfo TA_DEF_UI_Output_Integer_CDLKICKING_Default =
+                               { TA_Output_Integer, "outInteger", TA_OUT_LINE | TA_OUT_PATTERN_BULL_BEAR | TA_OUT_ZERO | TA_OUT_POSITIVE | TA_OUT_NEGATIVE };
+
+static const TA_InputParameterInfo    *TA_CDLKICKING_Inputs[]    =
+{
+  &TA_DEF_UI_Input_Price_OHLC,
+  NULL
+};
+
+static const TA_OutputParameterInfo   *TA_CDLKICKING_Outputs[]   =
+{
+  &TA_DEF_UI_Output_Integer_CDLKICKING_Default,
+  NULL
+};
+
+static const TA_OptInputParameterInfo *TA_CDLKICKING_OptInputs[] =
+{ NULL };
+
+DEF_FUNCTION( CDLKICKING,
+              TA_GroupId_PatternRecognition,
+              "Kicking",
+              TA_FUNC_FLG_CANDLESTICK | TA_FUNC_FLG_STREAM
+             );
+/* CDLKICKING END */
+
+/* CDLKICKINGBYLENGTH BEGIN */
+const TA_OutputParameterInfo TA_DEF_UI_Output_Integer_CDLKICKINGBYLENGTH_Default =
+                               { TA_Output_Integer, "outInteger", TA_OUT_LINE | TA_OUT_PATTERN_BULL_BEAR | TA_OUT_ZERO | TA_OUT_POSITIVE | TA_OUT_NEGATIVE };
+
+static const TA_InputParameterInfo    *TA_CDLKICKINGBYLENGTH_Inputs[]    =
+{
+  &TA_DEF_UI_Input_Price_OHLC,
+  NULL
+};
+
+static const TA_OutputParameterInfo   *TA_CDLKICKINGBYLENGTH_Outputs[]   =
+{
+  &TA_DEF_UI_Output_Integer_CDLKICKINGBYLENGTH_Default,
+  NULL
+};
+
+static const TA_OptInputParameterInfo *TA_CDLKICKINGBYLENGTH_OptInputs[] =
+{ NULL };
+
+DEF_FUNCTION( CDLKICKINGBYLENGTH,
+              TA_GroupId_PatternRecognition,
+              "Kicking - bull/bear determined by the longer marubozu",
+              TA_FUNC_FLG_CANDLESTICK | TA_FUNC_FLG_STREAM
+             );
+/* CDLKICKINGBYLENGTH END */
+
+/* CDLLADDERBOTTOM BEGIN */
+const TA_OutputParameterInfo TA_DEF_UI_Output_Integer_CDLLADDERBOTTOM_Default =
+                               { TA_Output_Integer, "outInteger", TA_OUT_LINE | TA_OUT_PATTERN_BULL_BEAR | TA_OUT_ZERO | TA_OUT_POSITIVE };
+
+static const TA_InputParameterInfo    *TA_CDLLADDERBOTTOM_Inputs[]    =
+{
+  &TA_DEF_UI_Input_Price_OHLC,
+  NULL
+};
+
+static const TA_OutputParameterInfo   *TA_CDLLADDERBOTTOM_Outputs[]   =
+{
+  &TA_DEF_UI_Output_Integer_CDLLADDERBOTTOM_Default,
+  NULL
+};
+
+static const TA_OptInputParameterInfo *TA_CDLLADDERBOTTOM_OptInputs[] =
+{ NULL };
+
+DEF_FUNCTION( CDLLADDERBOTTOM,
+              TA_GroupId_PatternRecognition,
+              "Ladder Bottom",
+              TA_FUNC_FLG_CANDLESTICK | TA_FUNC_FLG_STREAM
+             );
+/* CDLLADDERBOTTOM END */
+
+/* CDLLONGLEGGEDDOJI BEGIN */
+const TA_OutputParameterInfo TA_DEF_UI_Output_Integer_CDLLONGLEGGEDDOJI_Default =
+                               { TA_Output_Integer, "outInteger", TA_OUT_LINE | TA_OUT_PATTERN_BOOL | TA_OUT_ZERO | TA_OUT_POSITIVE };
+
+static const TA_InputParameterInfo    *TA_CDLLONGLEGGEDDOJI_Inputs[]    =
+{
+  &TA_DEF_UI_Input_Price_OHLC,
+  NULL
+};
+
+static const TA_OutputParameterInfo   *TA_CDLLONGLEGGEDDOJI_Outputs[]   =
+{
+  &TA_DEF_UI_Output_Integer_CDLLONGLEGGEDDOJI_Default,
+  NULL
+};
+
+static const TA_OptInputParameterInfo *TA_CDLLONGLEGGEDDOJI_OptInputs[] =
+{ NULL };
+
+DEF_FUNCTION( CDLLONGLEGGEDDOJI,
+              TA_GroupId_PatternRecognition,
+              "Long Legged Doji",
+              TA_FUNC_FLG_CANDLESTICK | TA_FUNC_FLG_STREAM
+             );
+/* CDLLONGLEGGEDDOJI END */
+
+/* CDLLONGLINE BEGIN */
+const TA_OutputParameterInfo TA_DEF_UI_Output_Integer_CDLLONGLINE_Default =
+                               { TA_Output_Integer, "outInteger", TA_OUT_LINE | TA_OUT_PATTERN_BULL_BEAR | TA_OUT_ZERO | TA_OUT_POSITIVE | TA_OUT_NEGATIVE };
+
+static const TA_InputParameterInfo    *TA_CDLLONGLINE_Inputs[]    =
+{
+  &TA_DEF_UI_Input_Price_OHLC,
+  NULL
+};
+
+static const TA_OutputParameterInfo   *TA_CDLLONGLINE_Outputs[]   =
+{
+  &TA_DEF_UI_Output_Integer_CDLLONGLINE_Default,
+  NULL
+};
+
+static const TA_OptInputParameterInfo *TA_CDLLONGLINE_OptInputs[] =
+{ NULL };
+
+DEF_FUNCTION( CDLLONGLINE,
+              TA_GroupId_PatternRecognition,
+              "Long Line Candle",
+              TA_FUNC_FLG_CANDLESTICK | TA_FUNC_FLG_STREAM
+             );
+/* CDLLONGLINE END */
+
+/* CDLMARUBOZU BEGIN */
+const TA_OutputParameterInfo TA_DEF_UI_Output_Integer_CDLMARUBOZU_Default =
+                               { TA_Output_Integer, "outInteger", TA_OUT_LINE | TA_OUT_PATTERN_BULL_BEAR | TA_OUT_ZERO | TA_OUT_POSITIVE | TA_OUT_NEGATIVE };
+
+static const TA_InputParameterInfo    *TA_CDLMARUBOZU_Inputs[]    =
+{
+  &TA_DEF_UI_Input_Price_OHLC,
+  NULL
+};
+
+static const TA_OutputParameterInfo   *TA_CDLMARUBOZU_Outputs[]   =
+{
+  &TA_DEF_UI_Output_Integer_CDLMARUBOZU_Default,
+  NULL
+};
+
+static const TA_OptInputParameterInfo *TA_CDLMARUBOZU_OptInputs[] =
+{ NULL };
+
+DEF_FUNCTION( CDLMARUBOZU,
+              TA_GroupId_PatternRecognition,
+              "Marubozu",
+              TA_FUNC_FLG_CANDLESTICK | TA_FUNC_FLG_STREAM
+             );
+/* CDLMARUBOZU END */
+
+/* CDLMATCHINGLOW BEGIN */
+const TA_OutputParameterInfo TA_DEF_UI_Output_Integer_CDLMATCHINGLOW_Default =
+                               { TA_Output_Integer, "outInteger", TA_OUT_LINE | TA_OUT_PATTERN_BULL_BEAR | TA_OUT_ZERO | TA_OUT_POSITIVE };
+
+static const TA_InputParameterInfo    *TA_CDLMATCHINGLOW_Inputs[]    =
+{
+  &TA_DEF_UI_Input_Price_OHLC,
+  NULL
+};
+
+static const TA_OutputParameterInfo   *TA_CDLMATCHINGLOW_Outputs[]   =
+{
+  &TA_DEF_UI_Output_Integer_CDLMATCHINGLOW_Default,
+  NULL
+};
+
+static const TA_OptInputParameterInfo *TA_CDLMATCHINGLOW_OptInputs[] =
+{ NULL };
+
+DEF_FUNCTION( CDLMATCHINGLOW,
+              TA_GroupId_PatternRecognition,
+              "Matching Low",
+              TA_FUNC_FLG_CANDLESTICK | TA_FUNC_FLG_STREAM
+             );
+/* CDLMATCHINGLOW END */
+
+/* CDLMATHOLD BEGIN */
+const TA_OutputParameterInfo TA_DEF_UI_Output_Integer_CDLMATHOLD_Default =
+                               { TA_Output_Integer, "outInteger", TA_OUT_LINE | TA_OUT_PATTERN_BULL_BEAR | TA_OUT_ZERO | TA_OUT_POSITIVE };
+
+static const TA_InputParameterInfo    *TA_CDLMATHOLD_Inputs[]    =
+{
+  &TA_DEF_UI_Input_Price_OHLC,
+  NULL
+};
+
+static const TA_OutputParameterInfo   *TA_CDLMATHOLD_Outputs[]   =
+{
+  &TA_DEF_UI_Output_Integer_CDLMATHOLD_Default,
+  NULL
+};
+
+static const TA_OptInputParameterInfo *TA_CDLMATHOLD_OptInputs[] =
+{ &TA_DEF_UI_Penetration_50,
+  NULL
+};
+
+DEF_FUNCTION( CDLMATHOLD,
+              TA_GroupId_PatternRecognition,
+              "Mat Hold",
+              TA_FUNC_FLG_CANDLESTICK | TA_FUNC_FLG_STREAM
+             );
+/* CDLMATHOLD END */
+
+/* CDLMORNINGDOJISTAR BEGIN */
+const TA_OutputParameterInfo TA_DEF_UI_Output_Integer_CDLMORNINGDOJISTAR_Default =
+                               { TA_Output_Integer, "outInteger", TA_OUT_LINE | TA_OUT_PATTERN_BULL_BEAR | TA_OUT_ZERO | TA_OUT_POSITIVE };
+
+static const TA_InputParameterInfo    *TA_CDLMORNINGDOJISTAR_Inputs[]    =
+{
+  &TA_DEF_UI_Input_Price_OHLC,
+  NULL
+};
+
+static const TA_OutputParameterInfo   *TA_CDLMORNINGDOJISTAR_Outputs[]   =
+{
+  &TA_DEF_UI_Output_Integer_CDLMORNINGDOJISTAR_Default,
+  NULL
+};
+
+static const TA_OptInputParameterInfo *TA_CDLMORNINGDOJISTAR_OptInputs[] =
+{ &TA_DEF_UI_Penetration_30,
+  NULL
+};
+
+DEF_FUNCTION( CDLMORNINGDOJISTAR,
+              TA_GroupId_PatternRecognition,
+              "Morning Doji Star",
+              TA_FUNC_FLG_CANDLESTICK | TA_FUNC_FLG_STREAM
+             );
+/* CDLMORNINGDOJISTAR END */
+
+/* CDLMORNINGSTAR BEGIN */
+const TA_OutputParameterInfo TA_DEF_UI_Output_Integer_CDLMORNINGSTAR_Default =
+                               { TA_Output_Integer, "outInteger", TA_OUT_LINE | TA_OUT_PATTERN_BULL_BEAR | TA_OUT_ZERO | TA_OUT_POSITIVE };
+
+static const TA_InputParameterInfo    *TA_CDLMORNINGSTAR_Inputs[]    =
+{
+  &TA_DEF_UI_Input_Price_OHLC,
+  NULL
+};
+
+static const TA_OutputParameterInfo   *TA_CDLMORNINGSTAR_Outputs[]   =
+{
+  &TA_DEF_UI_Output_Integer_CDLMORNINGSTAR_Default,
+  NULL
+};
+
+static const TA_OptInputParameterInfo *TA_CDLMORNINGSTAR_OptInputs[] =
+{ &TA_DEF_UI_Penetration_30,
+  NULL
+};
+
+DEF_FUNCTION( CDLMORNINGSTAR,
+              TA_GroupId_PatternRecognition,
+              "Morning Star",
+              TA_FUNC_FLG_CANDLESTICK | TA_FUNC_FLG_STREAM
+             );
+/* CDLMORNINGSTAR END */
+
+/* CDLONNECK BEGIN */
+const TA_OutputParameterInfo TA_DEF_UI_Output_Integer_CDLONNECK_Default =
+                               { TA_Output_Integer, "outInteger", TA_OUT_LINE | TA_OUT_PATTERN_BULL_BEAR | TA_OUT_ZERO | TA_OUT_NEGATIVE };
+
+static const TA_InputParameterInfo    *TA_CDLONNECK_Inputs[]    =
+{
+  &TA_DEF_UI_Input_Price_OHLC,
+  NULL
+};
+
+static const TA_OutputParameterInfo   *TA_CDLONNECK_Outputs[]   =
+{
+  &TA_DEF_UI_Output_Integer_CDLONNECK_Default,
+  NULL
+};
+
+static const TA_OptInputParameterInfo *TA_CDLONNECK_OptInputs[] =
+{ NULL };
+
+DEF_FUNCTION( CDLONNECK,
+              TA_GroupId_PatternRecognition,
+              "On-Neck Pattern",
+              TA_FUNC_FLG_CANDLESTICK | TA_FUNC_FLG_STREAM
+             );
+/* CDLONNECK END */
+
+/* CDLPIERCING BEGIN */
+const TA_OutputParameterInfo TA_DEF_UI_Output_Integer_CDLPIERCING_Default =
+                               { TA_Output_Integer, "outInteger", TA_OUT_LINE | TA_OUT_PATTERN_BULL_BEAR | TA_OUT_ZERO | TA_OUT_POSITIVE };
+
+static const TA_InputParameterInfo    *TA_CDLPIERCING_Inputs[]    =
+{
+  &TA_DEF_UI_Input_Price_OHLC,
+  NULL
+};
+
+static const TA_OutputParameterInfo   *TA_CDLPIERCING_Outputs[]   =
+{
+  &TA_DEF_UI_Output_Integer_CDLPIERCING_Default,
+  NULL
+};
+
+static const TA_OptInputParameterInfo *TA_CDLPIERCING_OptInputs[] =
+{ NULL };
+
+DEF_FUNCTION( CDLPIERCING,
+              TA_GroupId_PatternRecognition,
+              "Piercing Pattern",
+              TA_FUNC_FLG_CANDLESTICK | TA_FUNC_FLG_STREAM
+             );
+/* CDLPIERCING END */
+
+/* CDLRICKSHAWMAN BEGIN */
+const TA_OutputParameterInfo TA_DEF_UI_Output_Integer_CDLRICKSHAWMAN_Default =
+                               { TA_Output_Integer, "outInteger", TA_OUT_LINE | TA_OUT_PATTERN_BOOL | TA_OUT_ZERO | TA_OUT_POSITIVE };
+
+static const TA_InputParameterInfo    *TA_CDLRICKSHAWMAN_Inputs[]    =
+{
+  &TA_DEF_UI_Input_Price_OHLC,
+  NULL
+};
+
+static const TA_OutputParameterInfo   *TA_CDLRICKSHAWMAN_Outputs[]   =
+{
+  &TA_DEF_UI_Output_Integer_CDLRICKSHAWMAN_Default,
+  NULL
+};
+
+static const TA_OptInputParameterInfo *TA_CDLRICKSHAWMAN_OptInputs[] =
+{ NULL };
+
+DEF_FUNCTION( CDLRICKSHAWMAN,
+              TA_GroupId_PatternRecognition,
+              "Rickshaw Man",
+              TA_FUNC_FLG_CANDLESTICK | TA_FUNC_FLG_STREAM
+             );
+/* CDLRICKSHAWMAN END */
+
+/* CDLRISEFALL3METHODS BEGIN */
+const TA_OutputParameterInfo TA_DEF_UI_Output_Integer_CDLRISEFALL3METHODS_Default =
+                               { TA_Output_Integer, "outInteger", TA_OUT_LINE | TA_OUT_PATTERN_BULL_BEAR | TA_OUT_ZERO | TA_OUT_POSITIVE | TA_OUT_NEGATIVE };
+
+static const TA_InputParameterInfo    *TA_CDLRISEFALL3METHODS_Inputs[]    =
+{
+  &TA_DEF_UI_Input_Price_OHLC,
+  NULL
+};
+
+static const TA_OutputParameterInfo   *TA_CDLRISEFALL3METHODS_Outputs[]   =
+{
+  &TA_DEF_UI_Output_Integer_CDLRISEFALL3METHODS_Default,
+  NULL
+};
+
+static const TA_OptInputParameterInfo *TA_CDLRISEFALL3METHODS_OptInputs[] =
+{ NULL };
+
+DEF_FUNCTION( CDLRISEFALL3METHODS,
+              TA_GroupId_PatternRecognition,
+              "Rising/Falling Three Methods",
+              TA_FUNC_FLG_CANDLESTICK | TA_FUNC_FLG_STREAM
+             );
+/* CDLRISEFALL3METHODS END */
+
+/* CDLSEPARATINGLINES BEGIN */
+const TA_OutputParameterInfo TA_DEF_UI_Output_Integer_CDLSEPARATINGLINES_Default =
+                               { TA_Output_Integer, "outInteger", TA_OUT_LINE | TA_OUT_PATTERN_BULL_BEAR | TA_OUT_ZERO | TA_OUT_POSITIVE | TA_OUT_NEGATIVE };
+
+static const TA_InputParameterInfo    *TA_CDLSEPARATINGLINES_Inputs[]    =
+{
+  &TA_DEF_UI_Input_Price_OHLC,
+  NULL
+};
+
+static const TA_OutputParameterInfo   *TA_CDLSEPARATINGLINES_Outputs[]   =
+{
+  &TA_DEF_UI_Output_Integer_CDLSEPARATINGLINES_Default,
+  NULL
+};
+
+static const TA_OptInputParameterInfo *TA_CDLSEPARATINGLINES_OptInputs[] =
+{ NULL };
+
+DEF_FUNCTION( CDLSEPARATINGLINES,
+              TA_GroupId_PatternRecognition,
+              "Separating Lines",
+              TA_FUNC_FLG_CANDLESTICK | TA_FUNC_FLG_STREAM
+             );
+/* CDLSEPARATINGLINES END */
+
+/* CDLSHOOTINGSTAR BEGIN */
+const TA_OutputParameterInfo TA_DEF_UI_Output_Integer_CDLSHOOTINGSTAR_Default =
+                               { TA_Output_Integer, "outInteger", TA_OUT_LINE | TA_OUT_PATTERN_BULL_BEAR | TA_OUT_ZERO | TA_OUT_NEGATIVE };
+
+static const TA_InputParameterInfo    *TA_CDLSHOOTINGSTAR_Inputs[]    =
+{
+  &TA_DEF_UI_Input_Price_OHLC,
+  NULL
+};
+
+static const TA_OutputParameterInfo   *TA_CDLSHOOTINGSTAR_Outputs[]   =
+{
+  &TA_DEF_UI_Output_Integer_CDLSHOOTINGSTAR_Default,
+  NULL
+};
+
+static const TA_OptInputParameterInfo *TA_CDLSHOOTINGSTAR_OptInputs[] =
+{ NULL };
+
+DEF_FUNCTION( CDLSHOOTINGSTAR,
+              TA_GroupId_PatternRecognition,
+              "Shooting Star",
+              TA_FUNC_FLG_CANDLESTICK | TA_FUNC_FLG_STREAM
+             );
+/* CDLSHOOTINGSTAR END */
+
+/* CDLSHORTLINE BEGIN */
+const TA_OutputParameterInfo TA_DEF_UI_Output_Integer_CDLSHORTLINE_Default =
+                               { TA_Output_Integer, "outInteger", TA_OUT_LINE | TA_OUT_ZERO | TA_OUT_POSITIVE | TA_OUT_NEGATIVE };
+
+static const TA_InputParameterInfo    *TA_CDLSHORTLINE_Inputs[]    =
+{
+  &TA_DEF_UI_Input_Price_OHLC,
+  NULL
+};
+
+static const TA_OutputParameterInfo   *TA_CDLSHORTLINE_Outputs[]   =
+{
+  &TA_DEF_UI_Output_Integer_CDLSHORTLINE_Default,
+  NULL
+};
+
+static const TA_OptInputParameterInfo *TA_CDLSHORTLINE_OptInputs[] =
+{ NULL };
+
+DEF_FUNCTION( CDLSHORTLINE,
+              TA_GroupId_PatternRecognition,
+              "Short Line Candle",
+              TA_FUNC_FLG_CANDLESTICK | TA_FUNC_FLG_STREAM
+             );
+/* CDLSHORTLINE END */
+
+/* CDLSPINNINGTOP BEGIN */
+const TA_OutputParameterInfo TA_DEF_UI_Output_Integer_CDLSPINNINGTOP_Default =
+                               { TA_Output_Integer, "outInteger", TA_OUT_LINE | TA_OUT_ZERO | TA_OUT_POSITIVE | TA_OUT_NEGATIVE };
+
+static const TA_InputParameterInfo    *TA_CDLSPINNINGTOP_Inputs[]    =
+{
+  &TA_DEF_UI_Input_Price_OHLC,
+  NULL
+};
+
+static const TA_OutputParameterInfo   *TA_CDLSPINNINGTOP_Outputs[]   =
+{
+  &TA_DEF_UI_Output_Integer_CDLSPINNINGTOP_Default,
+  NULL
+};
+
+static const TA_OptInputParameterInfo *TA_CDLSPINNINGTOP_OptInputs[] =
+{ NULL };
+
+DEF_FUNCTION( CDLSPINNINGTOP,
+              TA_GroupId_PatternRecognition,
+              "Spinning Top",
+              TA_FUNC_FLG_CANDLESTICK | TA_FUNC_FLG_STREAM
+             );
+/* CDLSPINNINGTOP END */
+
+/* CDLSTALLEDPATTERN BEGIN */
+const TA_OutputParameterInfo TA_DEF_UI_Output_Integer_CDLSTALLEDPATTERN_Default =
+                               { TA_Output_Integer, "outInteger", TA_OUT_LINE | TA_OUT_PATTERN_BULL_BEAR | TA_OUT_ZERO | TA_OUT_NEGATIVE };
+
+static const TA_InputParameterInfo    *TA_CDLSTALLEDPATTERN_Inputs[]    =
+{
+  &TA_DEF_UI_Input_Price_OHLC,
+  NULL
+};
+
+static const TA_OutputParameterInfo   *TA_CDLSTALLEDPATTERN_Outputs[]   =
+{
+  &TA_DEF_UI_Output_Integer_CDLSTALLEDPATTERN_Default,
+  NULL
+};
+
+static const TA_OptInputParameterInfo *TA_CDLSTALLEDPATTERN_OptInputs[] =
+{ NULL };
+
+DEF_FUNCTION( CDLSTALLEDPATTERN,
+              TA_GroupId_PatternRecognition,
+              "Stalled Pattern",
+              TA_FUNC_FLG_CANDLESTICK | TA_FUNC_FLG_STREAM
+             );
+/* CDLSTALLEDPATTERN END */
+
+/* CDLSTICKSANDWICH BEGIN */
+const TA_OutputParameterInfo TA_DEF_UI_Output_Integer_CDLSTICKSANDWICH_Default =
+                               { TA_Output_Integer, "outInteger", TA_OUT_LINE | TA_OUT_PATTERN_BULL_BEAR | TA_OUT_ZERO | TA_OUT_POSITIVE };
+
+static const TA_InputParameterInfo    *TA_CDLSTICKSANDWICH_Inputs[]    =
+{
+  &TA_DEF_UI_Input_Price_OHLC,
+  NULL
+};
+
+static const TA_OutputParameterInfo   *TA_CDLSTICKSANDWICH_Outputs[]   =
+{
+  &TA_DEF_UI_Output_Integer_CDLSTICKSANDWICH_Default,
+  NULL
+};
+
+static const TA_OptInputParameterInfo *TA_CDLSTICKSANDWICH_OptInputs[] =
+{ NULL };
+
+DEF_FUNCTION( CDLSTICKSANDWICH,
+              TA_GroupId_PatternRecognition,
+              "Stick Sandwich",
+              TA_FUNC_FLG_CANDLESTICK | TA_FUNC_FLG_STREAM
+             );
+/* CDLSTICKSANDWICH END */
+
+/* CDLTAKURI BEGIN */
+const TA_OutputParameterInfo TA_DEF_UI_Output_Integer_CDLTAKURI_Default =
+                               { TA_Output_Integer, "outInteger", TA_OUT_LINE | TA_OUT_PATTERN_BOOL | TA_OUT_ZERO | TA_OUT_POSITIVE };
+
+static const TA_InputParameterInfo    *TA_CDLTAKURI_Inputs[]    =
+{
+  &TA_DEF_UI_Input_Price_OHLC,
+  NULL
+};
+
+static const TA_OutputParameterInfo   *TA_CDLTAKURI_Outputs[]   =
+{
+  &TA_DEF_UI_Output_Integer_CDLTAKURI_Default,
+  NULL
+};
+
+static const TA_OptInputParameterInfo *TA_CDLTAKURI_OptInputs[] =
+{ NULL };
+
+DEF_FUNCTION( CDLTAKURI,
+              TA_GroupId_PatternRecognition,
+              "Takuri (Dragonfly Doji with very long lower shadow)",
+              TA_FUNC_FLG_CANDLESTICK | TA_FUNC_FLG_STREAM
+             );
+/* CDLTAKURI END */
+
+/* CDLTASUKIGAP BEGIN */
+const TA_OutputParameterInfo TA_DEF_UI_Output_Integer_CDLTASUKIGAP_Default =
+                               { TA_Output_Integer, "outInteger", TA_OUT_LINE | TA_OUT_PATTERN_BULL_BEAR | TA_OUT_ZERO | TA_OUT_POSITIVE | TA_OUT_NEGATIVE };
+
+static const TA_InputParameterInfo    *TA_CDLTASUKIGAP_Inputs[]    =
+{
+  &TA_DEF_UI_Input_Price_OHLC,
+  NULL
+};
+
+static const TA_OutputParameterInfo   *TA_CDLTASUKIGAP_Outputs[]   =
+{
+  &TA_DEF_UI_Output_Integer_CDLTASUKIGAP_Default,
+  NULL
+};
+
+static const TA_OptInputParameterInfo *TA_CDLTASUKIGAP_OptInputs[] =
+{ NULL };
+
+DEF_FUNCTION( CDLTASUKIGAP,
+              TA_GroupId_PatternRecognition,
+              "Tasuki Gap",
+              TA_FUNC_FLG_CANDLESTICK | TA_FUNC_FLG_STREAM
+             );
+/* CDLTASUKIGAP END */
+
+/* CDLTHRUSTING BEGIN */
+const TA_OutputParameterInfo TA_DEF_UI_Output_Integer_CDLTHRUSTING_Default =
+                               { TA_Output_Integer, "outInteger", TA_OUT_LINE | TA_OUT_PATTERN_BULL_BEAR | TA_OUT_ZERO | TA_OUT_NEGATIVE };
+
+static const TA_InputParameterInfo    *TA_CDLTHRUSTING_Inputs[]    =
+{
+  &TA_DEF_UI_Input_Price_OHLC,
+  NULL
+};
+
+static const TA_OutputParameterInfo   *TA_CDLTHRUSTING_Outputs[]   =
+{
+  &TA_DEF_UI_Output_Integer_CDLTHRUSTING_Default,
+  NULL
+};
+
+static const TA_OptInputParameterInfo *TA_CDLTHRUSTING_OptInputs[] =
+{ NULL };
+
+DEF_FUNCTION( CDLTHRUSTING,
+              TA_GroupId_PatternRecognition,
+              "Thrusting Pattern",
+              TA_FUNC_FLG_CANDLESTICK | TA_FUNC_FLG_STREAM
+             );
+/* CDLTHRUSTING END */
+
+/* CDLTRISTAR BEGIN */
+const TA_OutputParameterInfo TA_DEF_UI_Output_Integer_CDLTRISTAR_Default =
+                               { TA_Output_Integer, "outInteger", TA_OUT_LINE | TA_OUT_PATTERN_BULL_BEAR | TA_OUT_ZERO | TA_OUT_POSITIVE | TA_OUT_NEGATIVE };
+
+static const TA_InputParameterInfo    *TA_CDLTRISTAR_Inputs[]    =
+{
+  &TA_DEF_UI_Input_Price_OHLC,
+  NULL
+};
+
+static const TA_OutputParameterInfo   *TA_CDLTRISTAR_Outputs[]   =
+{
+  &TA_DEF_UI_Output_Integer_CDLTRISTAR_Default,
+  NULL
+};
+
+static const TA_OptInputParameterInfo *TA_CDLTRISTAR_OptInputs[] =
+{ NULL };
+
+DEF_FUNCTION( CDLTRISTAR,
+              TA_GroupId_PatternRecognition,
+              "Tristar Pattern",
+              TA_FUNC_FLG_CANDLESTICK | TA_FUNC_FLG_STREAM
+             );
+/* CDLTRISTAR END */
+
+/* CDLUNIQUE3RIVER BEGIN */
+const TA_OutputParameterInfo TA_DEF_UI_Output_Integer_CDLUNIQUE3RIVER_Default =
+                               { TA_Output_Integer, "outInteger", TA_OUT_LINE | TA_OUT_PATTERN_BULL_BEAR | TA_OUT_ZERO | TA_OUT_POSITIVE };
+
+static const TA_InputParameterInfo    *TA_CDLUNIQUE3RIVER_Inputs[]    =
+{
+  &TA_DEF_UI_Input_Price_OHLC,
+  NULL
+};
+
+static const TA_OutputParameterInfo   *TA_CDLUNIQUE3RIVER_Outputs[]   =
+{
+  &TA_DEF_UI_Output_Integer_CDLUNIQUE3RIVER_Default,
+  NULL
+};
+
+static const TA_OptInputParameterInfo *TA_CDLUNIQUE3RIVER_OptInputs[] =
+{ NULL };
+
+DEF_FUNCTION( CDLUNIQUE3RIVER,
+              TA_GroupId_PatternRecognition,
+              "Unique 3 River",
+              TA_FUNC_FLG_CANDLESTICK | TA_FUNC_FLG_STREAM
+             );
+/* CDLUNIQUE3RIVER END */
+
+/* CDLUPSIDEGAP2CROWS BEGIN */
+const TA_OutputParameterInfo TA_DEF_UI_Output_Integer_CDLUPSIDEGAP2CROWS_Default =
+                               { TA_Output_Integer, "outInteger", TA_OUT_LINE | TA_OUT_PATTERN_BULL_BEAR | TA_OUT_ZERO | TA_OUT_NEGATIVE };
+
+static const TA_InputParameterInfo    *TA_CDLUPSIDEGAP2CROWS_Inputs[]    =
+{
+  &TA_DEF_UI_Input_Price_OHLC,
+  NULL
+};
+
+static const TA_OutputParameterInfo   *TA_CDLUPSIDEGAP2CROWS_Outputs[]   =
+{
+  &TA_DEF_UI_Output_Integer_CDLUPSIDEGAP2CROWS_Default,
+  NULL
+};
+
+static const TA_OptInputParameterInfo *TA_CDLUPSIDEGAP2CROWS_OptInputs[] =
+{ NULL };
+
+DEF_FUNCTION( CDLUPSIDEGAP2CROWS,
+              TA_GroupId_PatternRecognition,
+              "Upside Gap Two Crows",
+              TA_FUNC_FLG_CANDLESTICK | TA_FUNC_FLG_STREAM
+             );
+/* CDLUPSIDEGAP2CROWS END */
+
+/* CDLXSIDEGAP3METHODS BEGIN */
+const TA_OutputParameterInfo TA_DEF_UI_Output_Integer_CDLXSIDEGAP3METHODS_Default =
+                               { TA_Output_Integer, "outInteger", TA_OUT_LINE | TA_OUT_PATTERN_BULL_BEAR | TA_OUT_ZERO | TA_OUT_POSITIVE | TA_OUT_NEGATIVE };
+
+static const TA_InputParameterInfo    *TA_CDLXSIDEGAP3METHODS_Inputs[]    =
+{
+  &TA_DEF_UI_Input_Price_OHLC,
+  NULL
+};
+
+static const TA_OutputParameterInfo   *TA_CDLXSIDEGAP3METHODS_Outputs[]   =
+{
+  &TA_DEF_UI_Output_Integer_CDLXSIDEGAP3METHODS_Default,
+  NULL
+};
+
+static const TA_OptInputParameterInfo *TA_CDLXSIDEGAP3METHODS_OptInputs[] =
+{ NULL };
+
+DEF_FUNCTION( CDLXSIDEGAP3METHODS,
+              TA_GroupId_PatternRecognition,
+              "Upside/Downside Gap Three Methods",
+              TA_FUNC_FLG_CANDLESTICK | TA_FUNC_FLG_STREAM
+             );
+/* CDLXSIDEGAP3METHODS END */
+
+/* CEIL BEGIN */
+static const TA_InputParameterInfo    *TA_CEIL_Inputs[]    =
+{
+  &TA_DEF_UI_Input_Real,
+  NULL
+};
+
+static const TA_OutputParameterInfo   *TA_CEIL_Outputs[]   =
+{
+  &TA_DEF_UI_Output_Real,
+  NULL
+};
+
+static const TA_OptInputParameterInfo *TA_CEIL_OptInputs[] =
+{ NULL };
+
+DEF_FUNCTION( CEIL,
+              TA_GroupId_MathTransform,
+              "Vector Ceil",
+              TA_FUNC_FLG_STREAM
+             );
+/* CEIL END */
+
+/* CG BEGIN */
+static const TA_OptInputParameterInfo TA_DEF_UI_D_CG_TimePeriod =
+{
+   TA_OptInput_IntegerRange,
+   "optInTimePeriod",
+   0,
+
+   "Time Period",
+   (const void *)&TA_DEF_TimePeriod_Positive_Minimum2,
+   10,
+   "Number of bars in the window",
+
+   NULL
+};
+
+static const TA_InputParameterInfo    *TA_CG_Inputs[]    =
+{
+  &TA_DEF_UI_Input_Real,
+  NULL
+};
+
+static const TA_OutputParameterInfo   *TA_CG_Outputs[]   =
+{
+  &TA_DEF_UI_Output_Real,
+  NULL
+};
+
+static const TA_OptInputParameterInfo *TA_CG_OptInputs[] =
+{ &TA_DEF_UI_D_CG_TimePeriod,
+  NULL
+};
+
+DEF_FUNCTION( CG,
+              TA_GroupId_MomentumIndicators,
+              "Center of Gravity Oscillator",
+              TA_FUNC_FLG_STREAM | TA_FUNC_FLG_POSITIVE_INPUT
+             );
+/* CG END */
+
+/* CHOP BEGIN */
+static const TA_InputParameterInfo    *TA_CHOP_Inputs[]    =
+{
+  &TA_DEF_UI_Input_Price_HLC,
+  NULL
+};
+
+static const TA_OutputParameterInfo   *TA_CHOP_Outputs[]   =
+{
+  &TA_DEF_UI_Output_Real,
+  NULL
+};
+
+static const TA_OptInputParameterInfo *TA_CHOP_OptInputs[] =
+{ &TA_DEF_UI_TimePeriod_14_MINIMUM2,
+  NULL
+};
+
+DEF_FUNCTION( CHOP,
+              TA_GroupId_MomentumIndicators,
+              "Choppiness Index",
+              TA_FUNC_FLG_STREAM | TA_FUNC_FLG_USES_TRANSCENDENTAL
+             );
+/* CHOP END */
+
+/* CHOPTR BEGIN */
+static const TA_InputParameterInfo    *TA_CHOPTR_Inputs[]    =
+{
+  &TA_DEF_UI_Input_Price_HLC,
+  NULL
+};
+
+static const TA_OutputParameterInfo   *TA_CHOPTR_Outputs[]   =
+{
+  &TA_DEF_UI_Output_Real,
+  NULL
+};
+
+static const TA_OptInputParameterInfo *TA_CHOPTR_OptInputs[] =
+{ &TA_DEF_UI_TimePeriod_14_MINIMUM2,
+  NULL
+};
+
+DEF_FUNCTION( CHOPTR,
+              TA_GroupId_MomentumIndicators,
+              "Choppiness Index (True Range Box)",
+              TA_FUNC_FLG_STREAM | TA_FUNC_FLG_USES_TRANSCENDENTAL
+             );
+/* CHOPTR END */
+
+/* CKSP BEGIN */
+static const TA_OptInputParameterInfo TA_DEF_UI_D_CKSP_TimePeriod =
+{
+   TA_OptInput_IntegerRange,
+   "optInTimePeriod",
+   0,
+
+   "Time Period",
+   (const void *)&TA_DEF_TimePeriod_Positive_Minimum2,
+   10,
+   "ATR and extreme window",
+
+   NULL
+};
+
+static const TA_RealRange TA_DEF_CKSP_Multiplier =
+{
+   0.0,
+   TA_REAL_MAX,
+   2,
+   0.5,
+   5.0,
+   0.5
+};
+
+static const TA_OptInputParameterInfo TA_DEF_UI_D_CKSP_Multiplier =
+{
+   TA_OptInput_RealRange,
+   "optInMultiplier",
+   0,
+
+   "Multiplier",
+   (const void *)&TA_DEF_CKSP_Multiplier,
+   1.0,
+   "ATR multiplier",
+
+   NULL
+};
+
+static const TA_OptInputParameterInfo TA_DEF_UI_D_CKSP_StopPeriod =
+{
+   TA_OptInput_IntegerRange,
+   "optInStopPeriod",
+   0,
+
+   "Stop Period",
+   (const void *)&TA_DEF_TimePeriod_Positive,
+   9,
+   "Stop window",
+
+   NULL
+};
+
+const TA_OutputParameterInfo TA_DEF_UI_Output_Real_CKSP_outHighStop =
+                               { TA_Output_Real, "outHighStop", TA_OUT_LINE };
+
+const TA_OutputParameterInfo TA_DEF_UI_Output_Real_CKSP_outLowStop =
+                               { TA_Output_Real, "outLowStop", TA_OUT_LINE };
+
+static const TA_InputParameterInfo    *TA_CKSP_Inputs[]    =
+{
+  &TA_DEF_UI_Input_Price_HLC,
+  NULL
+};
+
+static const TA_OutputParameterInfo   *TA_CKSP_Outputs[]   =
+{
+  &TA_DEF_UI_Output_Real_CKSP_outHighStop,
+  &TA_DEF_UI_Output_Real_CKSP_outLowStop,
+  NULL
+};
+
+static const TA_OptInputParameterInfo *TA_CKSP_OptInputs[] =
+{ &TA_DEF_UI_D_CKSP_TimePeriod,
+  &TA_DEF_UI_D_CKSP_Multiplier,
+  &TA_DEF_UI_D_CKSP_StopPeriod,
+  NULL
+};
+
+DEF_FUNCTION( CKSP,
+              TA_GroupId_OverlapStudies,
+              "Chande Kroll Stop",
+              TA_FUNC_FLG_OVERLAP | TA_FUNC_FLG_STREAM
+             );
+/* CKSP END */
+
+/* CMF BEGIN */
+static const TA_InputParameterInfo    *TA_CMF_Inputs[]    =
+{
+  &TA_DEF_UI_Input_Price_HLCV,
+  NULL
+};
+
+static const TA_OutputParameterInfo   *TA_CMF_Outputs[]   =
+{
+  &TA_DEF_UI_Output_Real,
+  NULL
+};
+
+static const TA_OptInputParameterInfo *TA_CMF_OptInputs[] =
+{ &TA_DEF_UI_TimePeriod_20_MINIMUM2,
+  NULL
+};
+
+DEF_FUNCTION( CMF,
+              TA_GroupId_VolumeIndicators,
+              "Chaikin Money Flow",
+              TA_FUNC_FLG_STREAM
+             );
+/* CMF END */
+
+/* CMO BEGIN */
+static const TA_InputParameterInfo    *TA_CMO_Inputs[]    =
+{
+  &TA_DEF_UI_Input_Real,
+  NULL
+};
+
+static const TA_OutputParameterInfo   *TA_CMO_Outputs[]   =
+{
+  &TA_DEF_UI_Output_Real,
+  NULL
+};
+
+static const TA_OptInputParameterInfo *TA_CMO_OptInputs[] =
+{ &TA_DEF_UI_TimePeriod_14_MINIMUM2,
+  NULL
+};
+
+DEF_FUNCTION( CMO,
+              TA_GroupId_MomentumIndicators,
+              "Chande Momentum Oscillator",
+              TA_FUNC_FLG_UNST_PER | TA_FUNC_FLG_STREAM
+             );
+/* CMO END */
+
+/* CMOU BEGIN */
+static const TA_InputParameterInfo    *TA_CMOU_Inputs[]    =
+{
+  &TA_DEF_UI_Input_Real,
+  NULL
+};
+
+static const TA_OutputParameterInfo   *TA_CMOU_Outputs[]   =
+{
+  &TA_DEF_UI_Output_Real,
+  NULL
+};
+
+static const TA_OptInputParameterInfo *TA_CMOU_OptInputs[] =
+{ &TA_DEF_UI_TimePeriod_14_MINIMUM2,
+  NULL
+};
+
+DEF_FUNCTION( CMOU,
+              TA_GroupId_MomentumIndicators,
+              "Chande Momentum Oscillator (Unsmoothed)",
+              TA_FUNC_FLG_STREAM
+             );
+/* CMOU END */
+
+/* COPPOCK BEGIN */
+static const TA_OptInputParameterInfo TA_DEF_UI_D_COPPOCK_WMAPeriod =
+{
+   TA_OptInput_IntegerRange,
+   "optInWMAPeriod",
+   0,
+
+   "WMA Period",
+   (const void *)&TA_DEF_TimePeriod_Positive,
+   10,
+   "Smoothing period for the ROC sum",
+
+   NULL
+};
+
+static const TA_OptInputParameterInfo TA_DEF_UI_D_COPPOCK_ROC1Period =
+{
+   TA_OptInput_IntegerRange,
+   "optInROC1Period",
+   0,
+
+   "ROC-1 Period",
+   (const void *)&TA_DEF_TimePeriod_Positive,
+   11,
+   "Short rate-of-change period",
+
+   NULL
+};
+
+static const TA_OptInputParameterInfo TA_DEF_UI_D_COPPOCK_ROC2Period =
+{
+   TA_OptInput_IntegerRange,
+   "optInROC2Period",
+   0,
+
+   "ROC-2 Period",
+   (const void *)&TA_DEF_TimePeriod_Positive,
+   14,
+   "Long rate-of-change period",
+
+   NULL
+};
+
+static const TA_InputParameterInfo    *TA_COPPOCK_Inputs[]    =
+{
+  &TA_DEF_UI_Input_Real,
+  NULL
+};
+
+static const TA_OutputParameterInfo   *TA_COPPOCK_Outputs[]   =
+{
+  &TA_DEF_UI_Output_Real,
+  NULL
+};
+
+static const TA_OptInputParameterInfo *TA_COPPOCK_OptInputs[] =
+{ &TA_DEF_UI_D_COPPOCK_WMAPeriod,
+  &TA_DEF_UI_D_COPPOCK_ROC1Period,
+  &TA_DEF_UI_D_COPPOCK_ROC2Period,
+  NULL
+};
+
+DEF_FUNCTION( COPPOCK,
+              TA_GroupId_MomentumIndicators,
+              "Coppock Curve",
+              TA_FUNC_FLG_STREAM | TA_FUNC_FLG_POSITIVE_INPUT
+             );
+/* COPPOCK END */
+
+/* CORREL BEGIN */
+static const TA_InputParameterInfo    *TA_CORREL_Inputs[]    =
+{
+  &TA_DEF_UI_Input_Real0,
+  &TA_DEF_UI_Input_Real1,
+  NULL
+};
+
+static const TA_OutputParameterInfo   *TA_CORREL_Outputs[]   =
+{
+  &TA_DEF_UI_Output_Real,
+  NULL
+};
+
+static const TA_OptInputParameterInfo *TA_CORREL_OptInputs[] =
+{ &TA_DEF_UI_TimePeriod_30,
+  NULL
+};
+
+DEF_FUNCTION( CORREL,
+              TA_GroupId_Statistic,
+              "Pearson's Correlation Coefficient (r)",
+              TA_FUNC_FLG_STREAM
+             );
+/* CORREL END */
+
+/* COS BEGIN */
+static const TA_InputParameterInfo    *TA_COS_Inputs[]    =
+{
+  &TA_DEF_UI_Input_Real,
+  NULL
+};
+
+static const TA_OutputParameterInfo   *TA_COS_Outputs[]   =
+{
+  &TA_DEF_UI_Output_Real,
+  NULL
+};
+
+static const TA_OptInputParameterInfo *TA_COS_OptInputs[] =
+{ NULL };
+
+DEF_FUNCTION( COS,
+              TA_GroupId_MathTransform,
+              "Vector Trigonometric Cos",
+              TA_FUNC_FLG_STREAM | TA_FUNC_FLG_USES_TRANSCENDENTAL
+             );
+/* COS END */
+
+/* COSH BEGIN */
+static const TA_InputParameterInfo    *TA_COSH_Inputs[]    =
+{
+  &TA_DEF_UI_Input_Real,
+  NULL
+};
+
+static const TA_OutputParameterInfo   *TA_COSH_Outputs[]   =
+{
+  &TA_DEF_UI_Output_Real,
+  NULL
+};
+
+static const TA_OptInputParameterInfo *TA_COSH_OptInputs[] =
+{ NULL };
+
+DEF_FUNCTION( COSH,
+              TA_GroupId_MathTransform,
+              "Vector Trigonometric Cosh",
+              TA_FUNC_FLG_STREAM | TA_FUNC_FLG_NAN_INF_OUT | TA_FUNC_FLG_USES_TRANSCENDENTAL
+             );
+/* COSH END */
+
+/* CRSI BEGIN */
+static const TA_IntegerRange TA_DEF_CRSI_TimePeriod =
+{
+   2,
+   100000,
+   2,
+   20,
+   1
+};
+
+static const TA_OptInputParameterInfo TA_DEF_UI_D_CRSI_TimePeriod =
+{
+   TA_OptInput_IntegerRange,
+   "optInTimePeriod",
+   0,
+
+   "Time Period",
+   (const void *)&TA_DEF_CRSI_TimePeriod,
+   3,
+   "Time period",
+
+   NULL
+};
+
+static const TA_IntegerRange TA_DEF_CRSI_StreakPeriod =
+{
+   2,
+   100000,
+   2,
+   20,
+   1
+};
+
+static const TA_OptInputParameterInfo TA_DEF_UI_D_CRSI_StreakPeriod =
+{
+   TA_OptInput_IntegerRange,
+   "optInStreakPeriod",
+   0,
+
+   "Streak Period",
+   (const void *)&TA_DEF_CRSI_StreakPeriod,
+   2,
+   "Time period of the RSI of the up/down streak",
+
+   NULL
+};
+
+static const TA_IntegerRange TA_DEF_CRSI_RankPeriod =
+{
+   2,
+   10000,
+   20,
+   200,
+   20
+};
+
+static const TA_OptInputParameterInfo TA_DEF_UI_D_CRSI_RankPeriod =
+{
+   TA_OptInput_IntegerRange,
+   "optInRankPeriod",
+   0,
+
+   "Rank Period",
+   (const void *)&TA_DEF_CRSI_RankPeriod,
+   100,
+   "Number of previous one-bar returns the current one is ranked against",
+
+   NULL
+};
+
+static const TA_InputParameterInfo    *TA_CRSI_Inputs[]    =
+{
+  &TA_DEF_UI_Input_Real,
+  NULL
+};
+
+static const TA_OutputParameterInfo   *TA_CRSI_Outputs[]   =
+{
+  &TA_DEF_UI_Output_Real,
+  NULL
+};
+
+static const TA_OptInputParameterInfo *TA_CRSI_OptInputs[] =
+{ &TA_DEF_UI_D_CRSI_TimePeriod,
+  &TA_DEF_UI_D_CRSI_StreakPeriod,
+  &TA_DEF_UI_D_CRSI_RankPeriod,
+  NULL
+};
+
+DEF_FUNCTION( CRSI,
+              TA_GroupId_MomentumIndicators,
+              "Connors Relative Strength Index",
+              TA_FUNC_FLG_STREAM
+             );
+/* CRSI END */
+
+/* CTI BEGIN */
+static const TA_IntegerRange TA_DEF_CTI_TimePeriod =
+{
+   2,
+   100000,
+   5,
+   50,
+   1
+};
+
+static const TA_OptInputParameterInfo TA_DEF_UI_D_CTI_TimePeriod =
+{
+   TA_OptInput_IntegerRange,
+   "optInTimePeriod",
+   0,
+
+   "Time Period",
+   (const void *)&TA_DEF_CTI_TimePeriod,
+   20,
+   "Number of bars correlated against the ramp",
+
+   NULL
+};
+
+static const TA_InputParameterInfo    *TA_CTI_Inputs[]    =
+{
+  &TA_DEF_UI_Input_Real,
+  NULL
+};
+
+static const TA_OutputParameterInfo   *TA_CTI_Outputs[]   =
+{
+  &TA_DEF_UI_Output_Real,
+  NULL
+};
+
+static const TA_OptInputParameterInfo *TA_CTI_OptInputs[] =
+{ &TA_DEF_UI_D_CTI_TimePeriod,
+  NULL
+};
+
+DEF_FUNCTION( CTI,
+              TA_GroupId_MomentumIndicators,
+              "Correlation Trend Indicator",
+              TA_FUNC_FLG_STREAM
+             );
+/* CTI END */
+
+/* CUMSUM BEGIN */
+static const TA_InputParameterInfo    *TA_CUMSUM_Inputs[]    =
+{
+  &TA_DEF_UI_Input_Real,
+  NULL
+};
+
+static const TA_OutputParameterInfo   *TA_CUMSUM_Outputs[]   =
+{
+  &TA_DEF_UI_Output_Real,
+  NULL
+};
+
+static const TA_OptInputParameterInfo *TA_CUMSUM_OptInputs[] =
+{ NULL };
+
+DEF_FUNCTION( CUMSUM,
+              TA_GroupId_MathOperators,
+              "Cumulative Sum",
+              TA_FUNC_FLG_STREAM | TA_FUNC_FLG_PATH_DEP
+             );
+/* CUMSUM END */
+
+/* CVI BEGIN */
+static const TA_OptInputParameterInfo TA_DEF_UI_D_CVI_TimePeriod =
+{
+   TA_OptInput_IntegerRange,
+   "optInTimePeriod",
+   0,
+
+   "Time Period",
+   (const void *)&TA_DEF_TimePeriod_Positive_Minimum2,
+   10,
+   "Period of the EMA smoothing the high-low spread",
+
+   NULL
+};
+
+static const TA_IntegerRange TA_DEF_CVI_ROCPeriod =
+{
+   1,
+   100000,
+   4,
+   200,
+   1
+};
+
+static const TA_OptInputParameterInfo TA_DEF_UI_D_CVI_ROCPeriod =
+{
+   TA_OptInput_IntegerRange,
+   "optInROCPeriod",
+   0,
+
+   "ROC Period",
+   (const void *)&TA_DEF_CVI_ROCPeriod,
+   10,
+   "Number of bars the rate of change reaches back",
+
+   NULL
+};
+
+static const TA_InputParameterInfo    *TA_CVI_Inputs[]    =
+{
+  &TA_DEF_UI_Input_Price_HL,
+  NULL
+};
+
+static const TA_OutputParameterInfo   *TA_CVI_Outputs[]   =
+{
+  &TA_DEF_UI_Output_Real,
+  NULL
+};
+
+static const TA_OptInputParameterInfo *TA_CVI_OptInputs[] =
+{ &TA_DEF_UI_D_CVI_TimePeriod,
+  &TA_DEF_UI_D_CVI_ROCPeriod,
+  NULL
+};
+
+DEF_FUNCTION( CVI,
+              TA_GroupId_VolatilityIndicators,
+              "Chaikin's Volatility",
+              TA_FUNC_FLG_STREAM
+             );
+/* CVI END */
+
+/****************************************************************************
+ * Step 2 - Add your TA function to the table.
+ *          Keep in alphabetical order. Must be NULL terminated.
+ ****************************************************************************/
+const TA_FuncDef *TA_DEF_TableC[] =
+{
+   ADD_TO_TABLE(CCI),
+   ADD_TO_TABLE(CDL2CROWS),
+   ADD_TO_TABLE(CDL3BLACKCROWS),
+   ADD_TO_TABLE(CDL3INSIDE),
+   ADD_TO_TABLE(CDL3LINESTRIKE),
+   ADD_TO_TABLE(CDL3OUTSIDE),
+   ADD_TO_TABLE(CDL3STARSINSOUTH),
+   ADD_TO_TABLE(CDL3WHITESOLDIERS),
+   ADD_TO_TABLE(CDLABANDONEDBABY),
+   ADD_TO_TABLE(CDLADVANCEBLOCK),
+   ADD_TO_TABLE(CDLBELTHOLD),
+   ADD_TO_TABLE(CDLBREAKAWAY),
+   ADD_TO_TABLE(CDLCLOSINGMARUBOZU),
+   ADD_TO_TABLE(CDLCONCEALBABYSWALL),
+   ADD_TO_TABLE(CDLCOUNTERATTACK),
+   ADD_TO_TABLE(CDLDARKCLOUDCOVER),
+   ADD_TO_TABLE(CDLDOJI),
+   ADD_TO_TABLE(CDLDOJISTAR),
+   ADD_TO_TABLE(CDLDRAGONFLYDOJI),
+   ADD_TO_TABLE(CDLENGULFING),
+   ADD_TO_TABLE(CDLEVENINGDOJISTAR),
+   ADD_TO_TABLE(CDLEVENINGSTAR),
+   ADD_TO_TABLE(CDLGAPSIDESIDEWHITE),
+   ADD_TO_TABLE(CDLGRAVESTONEDOJI),
+   ADD_TO_TABLE(CDLHAMMER),
+   ADD_TO_TABLE(CDLHANGINGMAN),
+   ADD_TO_TABLE(CDLHARAMI),
+   ADD_TO_TABLE(CDLHARAMICROSS),
+   ADD_TO_TABLE(CDLHIGHWAVE),
+   ADD_TO_TABLE(CDLHIKKAKE),
+   ADD_TO_TABLE(CDLHIKKAKEMOD),
+   ADD_TO_TABLE(CDLHOMINGPIGEON),
+   ADD_TO_TABLE(CDLIDENTICAL3CROWS),
+   ADD_TO_TABLE(CDLINNECK),
+   ADD_TO_TABLE(CDLINVERTEDHAMMER),
+   ADD_TO_TABLE(CDLKICKING),
+   ADD_TO_TABLE(CDLKICKINGBYLENGTH),
+   ADD_TO_TABLE(CDLLADDERBOTTOM),
+   ADD_TO_TABLE(CDLLONGLEGGEDDOJI),
+   ADD_TO_TABLE(CDLLONGLINE),
+   ADD_TO_TABLE(CDLMARUBOZU),
+   ADD_TO_TABLE(CDLMATCHINGLOW),
+   ADD_TO_TABLE(CDLMATHOLD),
+   ADD_TO_TABLE(CDLMORNINGDOJISTAR),
+   ADD_TO_TABLE(CDLMORNINGSTAR),
+   ADD_TO_TABLE(CDLONNECK),
+   ADD_TO_TABLE(CDLPIERCING),
+   ADD_TO_TABLE(CDLRICKSHAWMAN),
+   ADD_TO_TABLE(CDLRISEFALL3METHODS),
+   ADD_TO_TABLE(CDLSEPARATINGLINES),
+   ADD_TO_TABLE(CDLSHOOTINGSTAR),
+   ADD_TO_TABLE(CDLSHORTLINE),
+   ADD_TO_TABLE(CDLSPINNINGTOP),
+   ADD_TO_TABLE(CDLSTALLEDPATTERN),
+   ADD_TO_TABLE(CDLSTICKSANDWICH),
+   ADD_TO_TABLE(CDLTAKURI),
+   ADD_TO_TABLE(CDLTASUKIGAP),
+   ADD_TO_TABLE(CDLTHRUSTING),
+   ADD_TO_TABLE(CDLTRISTAR),
+   ADD_TO_TABLE(CDLUNIQUE3RIVER),
+   ADD_TO_TABLE(CDLUPSIDEGAP2CROWS),
+   ADD_TO_TABLE(CDLXSIDEGAP3METHODS),
+   ADD_TO_TABLE(CEIL),
+   ADD_TO_TABLE(CG),
+   ADD_TO_TABLE(CHOP),
+   ADD_TO_TABLE(CHOPTR),
+   ADD_TO_TABLE(CKSP),
+   ADD_TO_TABLE(CMF),
+   ADD_TO_TABLE(CMO),
+   ADD_TO_TABLE(CMOU),
+   ADD_TO_TABLE(COPPOCK),
+   ADD_TO_TABLE(CORREL),
+   ADD_TO_TABLE(COS),
+   ADD_TO_TABLE(COSH),
+   ADD_TO_TABLE(CRSI),
+   ADD_TO_TABLE(CTI),
+   ADD_TO_TABLE(CUMSUM),
+   ADD_TO_TABLE(CVI),
+   NULL
+};
+
+
+/* Do not modify the following line. */
+const unsigned int TA_DEF_TableCSize =
+              ((sizeof(TA_DEF_TableC)/sizeof(TA_FuncDef *))-1);
+

@@ -1,0 +1,148 @@
+#ifndef TA_GLOBAL_H
+#define TA_GLOBAL_H
+
+#ifndef TA_COMMON_H
+   #include "ta_common.h"
+#endif
+
+#ifndef TA_FUNC_H
+   #include "ta_func.h"
+#endif
+
+/* TA_CandleSetting is the one setting struct */
+typedef struct {
+    TA_CandleSettingType    settingType;
+    TA_RangeType            rangeType;
+    int                     avgPeriod;
+    double                  factor;
+} TA_CandleSetting;
+
+/* This interface is used exclusively INTERNALY to the TA-LIB.
+ * There is nothing for the end-user here ;->
+ */
+
+/* Provides functionality for managing global ressource
+ * throughout the TA-LIB.
+ *
+ * Since not all module are used/link in the application,
+ * the ta_common simply provides the mechanism for the module
+ * to optionnaly "register" its initialization/shutdown
+ * function.
+ *
+ * A function shall access its global variable by calling 
+ * TA_GetGlobal. This function will appropriatly call the 
+ * initialization function if its global are not yet initialized.
+ * 
+ * The call of the init and shutdown function are guaranteed
+ * to be multithread protected. It is also guarantee that
+ * these function will always get called in alternance (in
+ * other word, following an initialization only a shutdown
+ * can get called).
+ */
+
+typedef enum
+{
+   /* Module will be shutdown in the order specified here. */
+   	
+   TA_ABSTRACTION_GLOBAL_ID,
+   TA_FUNC_GLOBAL_ID,
+   TA_MEMORY_GLOBAL_ID, /* Must be last.        */
+   TA_NB_GLOBAL_ID
+} TA_GlobalModuleId;
+
+typedef TA_RetCode (*TA_GlobalInitFunc)    ( void **globalToAlloc );
+typedef TA_RetCode (*TA_GlobalShutdownFunc)( void *globalAllocated );
+
+typedef struct
+{
+   const TA_GlobalModuleId     id;
+   const TA_GlobalInitFunc     init;
+   const TA_GlobalShutdownFunc shutdown;
+} TA_GlobalControl;
+
+TA_RetCode TA_GetGlobal( const TA_GlobalControl * const control,
+                         void **global );
+
+/* Occasionaly, code tracing must be disable.
+ * Example:
+ *  - The memory module needs to know if the tracing is
+ *    still enabled or not when freeing memory on shutdown.
+ *  - We do not want to recursively trace while the tracing
+ *    function themselves gets called ;->
+ */
+int  TA_IsTraceEnabled( void );
+void TA_TraceEnable   ( void );
+void TA_TraceDisable  ( void );
+
+/* If enabled by the user, use a local drive
+ * for configuration and/or temporary file.
+ * TA-LIB must NEVER assume such local drive 
+ * is available.
+ */
+const char *TA_GetLocalCachePath( void );
+
+typedef struct
+{
+  unsigned int initialize;
+  const TA_GlobalControl * control;
+  void *global;
+} TA_ModuleControl;
+
+/* Settings in candleSettings[], indexed by TA_CandleSettingType. Excludes
+ * TA_AllCandleSettings, which is a pinned selector, not a count. */
+#define TA_NB_CANDLE_SETTING 11
+
+/* This is the hidden implementation of TA_Libc. */
+typedef struct
+{
+   TA_ModuleControl moduleControl[TA_NB_GLOBAL_ID];
+
+   unsigned int traceEnabled;
+   unsigned int stdioEnabled;
+   FILE *stdioFile;
+
+   const char *localCachePath;
+
+   /* For handling the unstable period of some TA function. */
+   unsigned int unstablePeriod[TA_FUNC_UNST_COUNT];
+
+   /* For handling the candlestick global settings */
+   TA_CandleSetting candleSettings[TA_NB_CANDLE_SETTING];
+
+} TA_LibcPriv;
+
+/* The following global is used all over the place 
+ * and is the entry point for all other globals.
+ */
+
+/* Exported from the ELF/Mach-O library although no installed header declares
+ * it: the library builds hidden-by-default, and ta_regtest reaches this to poke
+ * state no public entry point can. Un-export it and the autotools ta_regtest
+ * stops linking -- which is Homebrew's and Debian's build, not just ours.
+ * Never __declspec(dllexport): the Windows DLL has never carried it, and the
+ * static library the Windows tools link does not need it.
+ */
+#if !defined(_WIN32) && defined(__GNUC__) && __GNUC__ >= 4
+  #define TA_LIB_INTERNAL_EXPORT __attribute__ ((visibility("default")))
+#else
+  #define TA_LIB_INTERNAL_EXPORT
+#endif
+
+extern TA_LIB_INTERNAL_EXPORT TA_LibcPriv *TA_Globals;
+
+/* TA_VMATH_KERNEL - whether the batch loop of the functions that are one
+ * math-library call per element calls a platform kernel (TA_VMATH_MAP in
+ * ta_func/ta_utility.h). The condition uses only macros the compiler predefines,
+ * and is true for macOS alone among Apple's systems. Always defined, 1 or 0: test
+ * its value, never defined().
+ */
+#if defined( __APPLE__ ) && defined( __aarch64__ ) && defined( __ENVIRONMENT_MAC_OS_X_VERSION_MIN_REQUIRED__ )
+   #define TA_VMATH_KERNEL 1
+   typedef void (*TA_VMathRoutine)( double *out, const double *in, const int *count );
+   TA_VMathRoutine TA_VMathBind( const char *symbol );
+   void TA_VMathUnbound( double *out, const double *in, const int *count );
+#else
+   #define TA_VMATH_KERNEL 0
+#endif
+
+#endif

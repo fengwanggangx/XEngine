@@ -1,0 +1,673 @@
+/* TA-LIB Copyright (c) 1999-2026, Mario Fortier
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or
+ * without modification, are permitted provided that the following
+ * conditions are met:
+ *
+ * - Redistributions of source code must retain the above copyright
+ *   notice, this list of conditions and the following disclaimer.
+ *
+ * - Redistributions in binary form must reproduce the above copyright
+ *   notice, this list of conditions and the following disclaimer in
+ *   the documentation and/or other materials provided with the
+ *   distribution.
+ *
+ * - Neither name of author nor the names of its contributors
+ *   may be used to endorse or promote products derived from this
+ *   software without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ * ``AS IS'' AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+ * FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
+ * REGENTS OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+ * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+ * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+ * OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+ * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
+ * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
+ * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+
+#ifndef TA_ABSTRACT_H
+#define TA_ABSTRACT_H
+
+#ifndef TA_COMMON_H
+    #include "ta_common.h"
+#endif
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+/* This file defines the interface for calling all the TA functions without
+ * knowing at priori the parameters.
+ *
+ * This capability is particularly useful for an application who needs
+ * to support the complete list of TA functions without having to
+ * re-write new code each time a new function is added to TA-Lib.
+ *
+ * Example 1:
+ *        Lets say you are doing a charting software. When the user select
+ *        a price bar, a side list offers blindly all the TA functions
+ *        that could be applied to a price bar. The user selects one of
+ *        these, then a dialog open for allowing to adjust some parameter
+ *        (TA-LIB will tell your software which parameter are needed and the
+ *        valid range for each). Once all the parameter are set, you can
+ *        call blindly the corresponding TA function. The returned
+ *        information can then also blindly be drawn on the chart (some
+ *        output flags allows to get some hint about how the data shall be
+ *        displayed).
+ *        The same "abstract" logic apply to all the TA functions.
+ *        Some TA Functions works only on volume, or can work indiferently
+ *        with any time serie data (the open, close, another indicator...).
+ *        All the applicable functions to the currently selected/available
+ *        data can be determined through this "virtual" interface.
+ *
+ * Example 2:
+ *        Let's say you do not like the direct interface for
+ *        calling the TA Functions, you can write a code that
+ *        re-generate a different interface. This is already
+ *        done even for the 'C' interface (ta_func.h is generated).
+ *
+ * Example 3:
+ *        With the abstract interface you can easily generate
+ *        glue code. Like generating an interface that integrates
+ *        well within Perl... see the project SWIG if you are
+ *        interested by such things.
+ *
+ * The abstract interface is used within TA-Lib to perform at least
+ * the following:
+ *   - used by ta_codegen to generate all the glue code.
+ *   - used to generate a XML representation of the TA functions.
+ */
+
+/* The following functions are used to obtain the name of all the
+ * TA function groups ("Market Strength", "Trend Indicator" etc...).
+ *
+ * On success, it becomes the responsibility of the caller to
+ * call TA_GroupTableFree once the 'table' is no longuer needed.
+ *
+ * Example:
+ * This code snippet will print out the name of all the supported
+ * function group available:
+ *
+ *   TA_StringTable *table;
+ *   TA_RetCode retCode;
+ *   int i;
+ *
+ *   retCode = TA_GroupTableAlloc( &table );
+ *
+ *   if( retCode == TA_SUCCESS )
+ *   {
+ *      for( i=0; i < table->size; i++ )
+ *         printf( "%s\n", table->string[i] );
+ *
+ *      TA_GroupTableFree( table );
+ *   }
+ */
+TA_LIB_API TA_RetCode TA_GroupTableAlloc( TA_StringTable **table );
+TA_LIB_API TA_RetCode TA_GroupTableFree ( TA_StringTable *table );
+
+/* The following functions are used to obtain the name of all the
+ * function provided in a certain group.
+ *
+ * On success, it becomes the responsibility of the caller to
+ * call TA_FuncTableFree once the 'table' is no longuer needed.
+ *
+ * Example:
+ * This code snippet will print out the name of all the supported
+ * function in the "market strength" category:
+ *
+ *   TA_StringTable *table;
+ *   TA_RetCode retCode;
+ *   int i;
+ *
+ *   retCode = TA_FuncTableAlloc( "Market Strength", &table );
+ *
+ *   if( retCode == TA_SUCCESS )
+ *   {
+ *      for( i=0; i < table->size; i++ )
+ *         printf( "%s\n", table->string[i] );
+ *
+ *      TA_FuncTableFree( table );
+ *   }
+ */
+TA_LIB_API TA_RetCode TA_FuncTableAlloc( const char *group, TA_StringTable **table );
+TA_LIB_API TA_RetCode TA_FuncTableFree ( TA_StringTable *table );
+
+/* Using the name, you can obtain an handle unique to this function.
+ * This handle is further used for obtaining information on the
+ * parameters needed and also for potentially calling this TA function.
+ *
+ * The name is matched without regard to case, under an ASCII fold and not
+ * the caller's locale: "SMA", "sma" and "Sma" all resolve to the same
+ * function. Only the match is folded -- the name reported back through
+ * TA_FuncInfo stays the canonical upper-case "SMA".
+ *
+ * For convenience, this handle can also be found in
+ * the TA_FuncInfo structure (see below).
+ */
+typedef unsigned int TA_FuncHandle;
+TA_LIB_API TA_RetCode TA_GetFuncHandle( const char *name,
+                                        const TA_FuncHandle **handle );
+
+/* Get some basic information about a function.
+ *
+ * A const pointer will be set on the corresponding TA_FuncInfo structure.
+ * The whole structure are hard coded constants and it can be assumed they
+ * will not change at runtime.
+ *
+ * Example:
+ *   Print the number of inputs used by the MA (moving average) function.
+ *
+ *   TA_RetCode retCode;
+ *   const TA_FuncHandle *handle;
+ *   const TA_FuncInfo *theInfo;
+ *
+ *   retCode = TA_GetFuncHandle( "MA", &handle );
+ *
+ *   if( retCode == TA_SUCCESS )
+ *   {
+ *      retCode = TA_GetFuncInfo( handle, &theInfo );
+ *      if( retCode == TA_SUCCESS )
+ *         printf( "Nb Input = %d\n", theInfo->nbInput );
+ *   }
+ *
+ */
+typedef int TA_FuncFlags;
+#define TA_FUNC_FLG_OVERLAP   0x01000000 /* Output scale same as input data. */
+#define TA_FUNC_FLG_STREAM    0x02000000 /* Function also has a streaming API:
+                                          * TA_<FUNC>_Open/Update/Peek/Close,
+                                          * incremental per-bar evaluation of
+                                          * the batch function's values.
+                                          */
+#define TA_FUNC_FLG_VOLUME    0x04000000 /* Output shall be over the volume data. */
+#define TA_FUNC_FLG_UNST_PER  0x08000000 /* Indicate if this function have an unstable
+                                          * initial period. Some additional code exist
+                                          * for these functions for allowing to set that
+                                          * unstable period. See Documentation.
+                                          */
+#define TA_FUNC_FLG_CANDLESTICK 0x10000000 /* A candlestick pattern function (CDL*): every
+                                          * integer output is a pattern output. */
+#define TA_FUNC_FLG_PATH_DEP  0x20000000 /* Output value is path-dependent: built
+                                          * up from the first bar (a running
+                                          * accumulation seeded there, or a
+                                          * path-dependent state machine), so it
+                                          * depends on the requested startIdx and
+                                          * may never converge across ranges -- the
+                                          * same bar computed from a different
+                                          * startIdx can differ.
+                                          * e.g. AD, OBV, NVI, PVI, SAR, SAREXT.
+                                          */
+#define TA_FUNC_FLG_NAN_INF_OUT 0x40000000 /* Some inputs of ordinary
+                                          * magnitude have no finite result, so
+                                          * a successful call can write NaN or
+                                          * +/-Inf (e.g. ACOS outside [-1,1],
+                                          * LN of a negative value or of zero,
+                                          * 0/0, x/0). Not set where a
+                                          * non-finite value needs magnitudes
+                                          * large enough to overflow the
+                                          * intermediate arithmetic (~1e160 and
+                                          * up), which no flag describes. The
+                                          * function's page on ta-lib.org says
+                                          * when. ta_regtest holds every
+                                          * function WITHOUT this flag to
+                                          * finite output.
+                                          */
+/* The 0x01000000-and-up run above is the historical allocation and now has one
+ * slot left, 0x80000000 -- the sign bit of the signed TA_FuncFlags, which is
+ * deliberately left unused. Further flags continue from the low end, where all
+ * 24 remaining bits are free (the TA_IN_/TA_OPTIN_/TA_OUT_ flags below live in
+ * their own fields and do not compete for these).
+ */
+#define TA_FUNC_FLG_PERIOD1_IDENTITY 0x00000001
+                                         /* A period of 1 performs no smoothing:
+                                          * every output value is a bit-exact
+                                          * copy of its input value.
+                                          * Declared by the function rather than
+                                          * inferred, because the two cases are
+                                          * indistinguishable in the source:
+                                          * SMA's window math is already exact at
+                                          * a period of 1, while EMA's recurrence
+                                          * needs an explicit arm to be. e.g.
+                                          * SMA, EMA, VWMA.
+                                          * NOT set on MACD/MACDFIX: only their
+                                          * signal stage degenerates, the MACD
+                                          * line is still computed.
+                                          * ta_regtest sweeps every function
+                                          * carrying this flag and holds it to the
+                                          * copy on every API tier.
+                                          */
+#define TA_FUNC_FLG_DISPLAY_SHIFT 0x00000002
+                                         /* At least one output carries
+                                          * TA_OUT_DISPLAY_SHIFT: a chart draws it
+                                          * ahead of or behind the bar that
+                                          * computed it. Without this flag every
+                                          * output's display shift is 0. e.g. DPO.
+                                          */
+#define TA_FUNC_FLG_USES_TRANSCENDENTAL 0x00000004
+                                         /* The function calls a transcendental
+                                          * math function (exp, log, log10,
+                                          * trigonometric, inverse trigonometric
+                                          * or hyperbolic), so a value may differ
+                                          * slightly between languages, between a
+                                          * stream and a batch call, and between
+                                          * machines. Not set on a function that
+                                          * reaches one only when an MA-type
+                                          * parameter selects MAMA or ALMA.
+                                          * e.g. SIN, LN, HT_SINE.
+                                          */
+#define TA_FUNC_FLG_POSITIVE_INPUT 0x00000008
+                                         /* The function assumes its input is
+                                          * positive: it divides by the input,
+                                          * takes its logarithm or root, or
+                                          * measures a percent of it. A series
+                                          * that reaches or crosses zero, such
+                                          * as an oscillator or a spread, gets
+                                          * TA_SUCCESS and an output that may
+                                          * have no meaning. Declaration only:
+                                          * the data is not checked. The
+                                          * function's page on ta-lib.org says
+                                          * what a zero or a negative value does.
+                                          * e.g. ROC, NATR, ZIGZAG, LN.
+                                          */
+
+typedef struct TA_FuncInfo
+{
+   /* Constant information about the function. The
+    * information found in this structure is guarantee
+    * to not change at runtime.
+    */
+   const char * name;
+   const char * group;
+
+   const char * hint;
+   TA_FuncFlags flags;
+
+   unsigned int nbInput;
+   unsigned int nbOptInput;
+   unsigned int nbOutput;
+
+   const TA_FuncHandle *handle;
+} TA_FuncInfo;
+
+TA_LIB_API TA_RetCode TA_GetFuncInfo( const TA_FuncHandle *handle,
+                                      const TA_FuncInfo **funcInfo );
+
+
+/* An alternate way to access all the functions is through the
+ * use of the TA_ForEachFunc(). You can setup a function to be
+ * call back for each TA function in the TA-Lib.
+ *
+ * Example:
+ *  This code will print the group and name of all available functions.
+ *
+ *  void printFuncInfo( const TA_FuncInfo *funcInfo, void *opaqueData )
+ *  {
+ *     printf( "Group=%s Name=%s\n", funcInfo->group, funcInfo->name );
+ *  }
+ *
+ *  void displayListOfTAFunctions( void )
+ *  {
+ *     TA_ForEachFunc( printFuncInfo, NULL );
+ *  }
+ */
+typedef void (*TA_CallForEachFunc)(const TA_FuncInfo *funcInfo, void *opaqueData );
+
+TA_LIB_API TA_RetCode TA_ForEachFunc( TA_CallForEachFunc functionToCall, void *opaqueData );
+
+/* The next section includes the data structures and function allowing to
+ * proceed with the call of a Tech. Analysis function.
+ *
+ * At first, it may seems a little bit complicated, but it is worth to take the
+ * effort to learn about it. Once you succeed to interface with TA-Abstract you get
+ * access to the complete library of TA functions at once without further effort.
+ */
+
+/* Structures representing extended information on a parameter. */
+
+typedef struct TA_RealRange
+{
+   TA_Real     min;
+   TA_Real     max;
+   TA_Integer  precision; /* nb of digit after the '.' */
+
+   /* The following suggested value are used by Tech. Analysis software
+    * doing parameter "optimization". Can be ignored by most user.
+    */
+   TA_Real     suggested_start;
+   TA_Real     suggested_end;
+   TA_Real     suggested_increment;
+} TA_RealRange;
+
+typedef struct TA_IntegerRange
+{
+   TA_Integer  min;
+   TA_Integer  max;
+
+   /* The following suggested value are used by Tech. Analysis software
+    * doing parameter "optimization". Can be ignored by most user.
+    */
+   TA_Integer  suggested_start;
+   TA_Integer  suggested_end;
+   TA_Integer  suggested_increment;
+} TA_IntegerRange;
+
+typedef struct TA_RealDataPair
+{
+   /* A TA_Real value and the corresponding string. */
+   TA_Real     value;
+   const char *string;
+} TA_RealDataPair;
+
+typedef struct TA_IntegerDataPair
+{
+   /* A TA_Integer value and the corresponding string. */
+   TA_Integer  value;
+   const char *string;
+} TA_IntegerDataPair;
+
+typedef struct TA_RealList
+{
+   const TA_RealDataPair *data;
+   unsigned int nbElement;
+} TA_RealList;
+
+typedef struct TA_IntegerList
+{
+   const TA_IntegerDataPair *data;
+   unsigned int nbElement;
+} TA_IntegerList;
+
+typedef enum
+{
+   TA_Input_Price,
+   TA_Input_Real,
+   TA_Input_Integer
+} TA_InputParameterType;
+
+typedef enum
+{
+   TA_OptInput_RealRange,
+   TA_OptInput_RealList,
+   TA_OptInput_IntegerRange,
+   TA_OptInput_IntegerList
+} TA_OptInputParameterType;
+
+typedef enum
+{
+   TA_Output_Real,
+   TA_Output_Integer
+} TA_OutputParameterType;
+
+/* When the input is a TA_Input_Price, the following
+ * TA_InputFlags indicates the required components.
+ * These can be combined for functions requiring more
+ * than one component.
+ *
+ * Example:
+ *   (TA_IN_PRICE_OPEN|TA_IN_PRICE_HIGH)
+ *   Indicates that the functions requires two inputs
+ *   that must be specifically the open and the high.
+ */
+typedef int TA_InputFlags;
+#define TA_IN_PRICE_OPEN         0x00000001
+#define TA_IN_PRICE_HIGH         0x00000002
+#define TA_IN_PRICE_LOW          0x00000004
+#define TA_IN_PRICE_CLOSE        0x00000008
+#define TA_IN_PRICE_VOLUME       0x00000010
+#define TA_IN_PRICE_OPENINTEREST 0x00000020
+#define TA_IN_PRICE_TIMESTAMP    0x00000040
+
+/* The following are flags for optional inputs.
+ *
+ * TA_OPTIN_IS_PERCENT:  Input is a percentage.
+ *
+ * TA_OPTIN_IS_DEGREE:   Input is a degree (0-360).
+ *
+ * TA_OPTIN_IS_CURRENCY: Input is a currency.
+ *
+ * TA_OPTIN_ADVANCED:
+ *    Used for parameters who are rarely changed.
+ *    Most application can hide these advanced optional inputs to their
+ *    end-user (or make it harder to change).
+ */
+typedef int TA_OptInputFlags;
+#define TA_OPTIN_IS_PERCENT   0x00100000 /* Input is a percentage.  */
+#define TA_OPTIN_IS_DEGREE    0x00200000 /* Input is a degree (0-360). */
+#define TA_OPTIN_IS_CURRENCY  0x00400000 /* Input is a currency. */
+#define TA_OPTIN_ADVANCED     0x01000000
+
+
+/* The following are flags giving hint on what
+ * could be done with the output.
+ *
+ * A pattern output writes 0 or sign x level: the sign flags say which signs
+ * occur and whether 0 does, and the level flags which levels occur besides 100.
+ * Reading them: rule rW7 of the TA-Lib specification.
+ */
+typedef int TA_OutputFlags;
+#define TA_OUT_LINE              0x00000001 /* Suggest to display as a connected line. */
+#define TA_OUT_DOT_LINE          0x00000002 /* Suggest to display as a 'dotted' line. */
+#define TA_OUT_DASH_LINE         0x00000004 /* Suggest to display as a 'dashed' line. */
+#define TA_OUT_DOT               0x00000008 /* Suggest to display with dots only. */
+#define TA_OUT_HISTO             0x00000010 /* Suggest to display as an histogram. */
+#define TA_OUT_PATTERN_BOOL      0x00000020 /* Two states: 0 = no pattern, non-zero = pattern. */
+#define TA_OUT_PATTERN_BULL_BEAR 0x00000040 /* The sign is a call: + bullish, - bearish. */
+#define TA_OUT_PATTERN_CONFIRM   0x00000080 /* Level 200 occurs too: this bar confirms the
+                                             * output's most recent earlier pattern. */
+#define TA_OUT_PATTERN_STRENGTH  TA_OUT_PATTERN_CONFIRM /* Deprecated name. */
+#define TA_OUT_POSITIVE          0x00000100 /* Positive values occur. */
+#define TA_OUT_NEGATIVE          0x00000200 /* Negative values occur. */
+#define TA_OUT_ZERO              0x00000400 /* 0 occurs; on a pattern output, no pattern on
+                                             * this bar. An output setting any of these three
+                                             * declares all its signs; one setting none, nothing. */
+#define TA_OUT_UPPER_LIMIT       0x00000800 /* Indicates that the values represent an upper limit. */
+#define TA_OUT_LOWER_LIMIT       0x00001000 /* Indicates that the values represent a lower limit. */
+#define TA_OUT_NULLABLE          0x00002000 /* Deprecated: never set; every output is required. */
+#define TA_OUT_DISPLAY_SHIFT     0x00004000 /* A chart draws this output ahead of or behind the bar
+                                             * that computed it, by the number of bars
+                                             * TA_GetDisplayShift reports. The values themselves are
+                                             * never shifted. */
+#define TA_OUT_PATTERN_WEAK      0x00008000 /* Level 80 occurs too: a weaker form of the pattern,
+                                             * on the same bar. */
+
+
+/* The following 3 structures will exist for each input, optional
+ * input and output.
+ *
+ * These structures tells you everything you need to know for identifying
+ * the parameters applicable to the function.
+ */
+typedef struct TA_InputParameterInfo
+{
+   TA_InputParameterType type;
+   const char           *paramName;
+   TA_InputFlags         flags;
+
+} TA_InputParameterInfo;
+
+typedef struct TA_OptInputParameterInfo
+{
+   TA_OptInputParameterType type;
+   const char              *paramName;
+   TA_OptInputFlags         flags;
+
+   const char *displayName;
+   const void *dataSet;
+   TA_Real     defaultValue;
+   const char *hint;
+   const char *helpFile;
+
+} TA_OptInputParameterInfo;
+
+typedef struct TA_OutputParameterInfo
+{
+   TA_OutputParameterType type;
+   const char            *paramName;
+   TA_OutputFlags         flags;
+
+} TA_OutputParameterInfo;
+
+/* Functions to get a const ptr on the "TA_XXXXXXParameterInfo".
+ * Max value for the 'paramIndex' can be found in the TA_FuncInfo structure.
+ * The 'handle' can be obtained from TA_GetFuncHandle or from a TA_FuncInfo.
+ *
+ * Short example:
+ *
+ * void displayInputType( const TA_FuncInfo *funcInfo )
+ * {
+ *    unsigned int i;
+ *    const TA_InputParameterInfo *paramInfo;
+ *
+ *    for( i=0; i < funcInfo->nbInput; i++ )
+ *    {
+ *       TA_GetInputParameterInfo( funcInfo->handle, i, &paramInfo );
+ *       switch( paramInfo->type )
+ *       {
+ *       case TA_Input_Price:
+ *          printf( "This function needs price bars as input\n" );
+ *          break;
+ *       case TA_Input_Real:
+ *          printf( "This function needs an array of floats as input\n" );
+ *          break;
+ *        (... etc. ...)
+ *       }
+ *    }
+ * }
+ */
+TA_LIB_API TA_RetCode TA_GetInputParameterInfo( const TA_FuncHandle *handle,
+                                                unsigned int paramIndex,
+                                                const TA_InputParameterInfo **info );
+
+TA_LIB_API TA_RetCode TA_GetOptInputParameterInfo( const TA_FuncHandle *handle,
+                                                   unsigned int paramIndex,
+                                                   const TA_OptInputParameterInfo **info );
+
+TA_LIB_API TA_RetCode TA_GetOutputParameterInfo( const TA_FuncHandle *handle,
+                                                 unsigned int paramIndex,
+                                                 const TA_OutputParameterInfo **info );
+
+/* Alloc a structure allowing to build the list of parameters
+ * for doing a call.
+ *
+ * All input and output parameters must be setup, or TA_CallFunc fails.
+ *
+ * The optional input are not required to be setup. A default value
+ * will always be used in that case.
+ *
+ * If there is an attempts to set a parameter with the wrong function
+ * (and thus the wrong type), an error is immediatly returned.
+ *
+ * Although this mechanism looks complicated, it is written for being fairly solid.
+ * If you provide a wrong parameter value, or wrong type, or wrong pointer etc. the
+ * library shall return an error and not hang. No TA function returns the codes
+ * 4 to 11 and 15 of TA_RetCode: one of them from TA_CallFunc means the call was
+ * refused here and the function did not run.
+ */
+typedef struct TA_ParamHolder
+{
+  /* Implementation is hidden. */
+  void *hiddenData;
+} TA_ParamHolder;
+
+TA_LIB_API TA_RetCode TA_ParamHolderAlloc( const TA_FuncHandle *handle,
+                                           TA_ParamHolder **allocatedParams );
+
+TA_LIB_API TA_RetCode TA_ParamHolderFree( TA_ParamHolder *params );
+
+/* Setup the values of the data input parameters.
+ *
+ * paramIndex is zero for the first input.
+ */
+TA_LIB_API TA_RetCode TA_SetInputParamIntegerPtr( TA_ParamHolder *params,
+                                                  unsigned int paramIndex,
+                                                  const TA_Integer *value );
+
+TA_LIB_API TA_RetCode TA_SetInputParamRealPtr( TA_ParamHolder *params,
+                                               unsigned int paramIndex,
+                                               const TA_Real *value );
+
+TA_LIB_API TA_RetCode TA_SetInputParamPricePtr( TA_ParamHolder *params,
+                                                unsigned int paramIndex,
+                                                const TA_Real      *open,
+                                                const TA_Real      *high,
+                                                const TA_Real      *low,
+                                                const TA_Real      *close,
+                                                const TA_Real      *volume,
+                                                const TA_Real      *openInterest );
+
+/* Setup the values of the optional input parameters.
+ * If an optional input is not set, a default value will be used.
+ *
+ * paramIndex is zero for the first optional input.
+ */
+TA_LIB_API TA_RetCode TA_SetOptInputParamInteger( TA_ParamHolder *params,
+                                                  unsigned int paramIndex,
+                                                  TA_Integer optInValue );
+
+TA_LIB_API TA_RetCode TA_SetOptInputParamReal( TA_ParamHolder *params,
+                                               unsigned int paramIndex,
+                                               TA_Real optInValue );
+
+/* Setup the parameters indicating where to store the output.
+ *
+ * The caller is responsible to allocate sufficient memory. A safe bet is to
+ * always do: nb of output elements  == (endIdx-startIdx+1)
+ *
+ * paramIndex is zero for the first output.
+ *
+ */
+TA_LIB_API TA_RetCode TA_SetOutputParamIntegerPtr( TA_ParamHolder *params,
+                                                   unsigned int paramIndex,
+                                                   TA_Integer     *out );
+
+TA_LIB_API TA_RetCode TA_SetOutputParamRealPtr( TA_ParamHolder *params,
+                                                unsigned int paramIndex,
+                                                TA_Real        *out );
+
+/* Once the optional parameter are set, it is possible to
+ * get the lookback for this call. This information can be
+ * used to calculate the optimal size for the output buffers.
+ * (See the documentation for method to calculate the output size).
+ */
+TA_LIB_API TA_RetCode TA_GetLookback( const TA_ParamHolder *params,
+                                      TA_Integer *lookback );
+
+/* Where a chart draws one output: the value computed at bar i is drawn at
+ * bar i + displayShift. The values themselves are never shifted.
+ *
+ * outputIdx is zero for the first output. As with TA_GetLookback, a
+ * rejection is reported in the value, not the return code: displayShift is
+ * INT_MIN for parameters the lookback rejects and for an outputIdx that
+ * names no output.
+ */
+TA_LIB_API TA_RetCode TA_GetDisplayShift( const TA_ParamHolder *params,
+                                          unsigned int outputIdx,
+                                          TA_Integer *displayShift );
+
+/* Finally, call the TA function with the parameters.
+ *
+ * The TA function who is going to be called was specified
+ * when the TA_ParamHolderAlloc was done.
+ */
+TA_LIB_API TA_RetCode TA_CallFunc( const TA_ParamHolder *params,
+                                   TA_Integer            startIdx,
+                                   TA_Integer            endIdx,
+                                   TA_Integer           *outBegIdx,
+                                   TA_Integer           *outNbElement );
+
+
+/* Return XML representation of all the TA functions.
+ * The returned array is the same as the ta_func_api.xml file.
+ */
+TA_LIB_API const char *TA_FunctionDescriptionXML( void );
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif

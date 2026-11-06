@@ -19,6 +19,7 @@
 #include <variant>
 #include <vector>
 
+class CIndicator;
 class CRequest;
 class CHQService;
 class CStrategyContext;
@@ -111,7 +112,7 @@ public:
 	~CStrategyService();
 	CStrategyService(const CStrategyService& arg) = delete;
 	CStrategyService& operator=(const CStrategyService& arg) = delete;
-	CStrategyService(CHQService* pHQService, CTradeService* pTradeService, CAccountService* pAccountService);
+	CStrategyService(CHQService* pHQService, CTradeService* pTradeService, CAccountService* pAccountService, CIndicator& indicator);
 
 public:
 	bool Initialize();
@@ -177,6 +178,7 @@ private:
 	std::mutex m_mtx_accountUsers;
 	std::map<_TyAccount, std::unordered_set<_TyStrategyId>> m_runningStrategies;
 	std::mutex m_mtx_operations;
+	CIndicator& m_indicator;
 	CHQService* m_pHQService{ nullptr };
 	// Borrowed from CBootLoader; trading callbacks are stopped before destruction.
 	CTradeService* m_pTradeService{ nullptr };

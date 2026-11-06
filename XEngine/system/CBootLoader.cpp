@@ -129,12 +129,19 @@ bool CBootLoader::Initialize()
 		m_strLastError = m_pTradeService->GetLastError();
 		return false;
 	}
+	if (!m_indicator.Initialize(m_strLastError))
+	{
+		m_nErrorCode = 15;
+		Finalize();
+		return false;
+	}
 	m_pHQService = new CHQService(m_pHQMarket);
-	m_pStrategyService = new CStrategyService(m_pHQService, m_pTradeService, m_pAccountService);
+	m_pStrategyService = new CStrategyService(m_pHQService, m_pTradeService, m_pAccountService, m_indicator);
 	if (!m_pStrategyService->Initialize())
 	{
 		m_nErrorCode = 10;
 		m_strLastError = m_pStrategyService->GetLastError();
+		Finalize();
 		return false;
 	}
 	m_pEngineCenter = new CEngineCenter(m_pTcpServer, m_pHQMarket, m_pBroker, m_pHQService, m_pStrategyService, m_pTradeService, m_pAccountService);
@@ -142,6 +149,7 @@ bool CBootLoader::Initialize()
 	{
 		m_nErrorCode = 11;
 		m_strLastError = "Engine center initialization failed";
+		Finalize();
 		return false;
 	}
 	m_pAccountService->SetAccountStateHandler(std::bind_front(&CTradeService::OnAccountState, m_pTradeService));
@@ -149,6 +157,7 @@ bool CBootLoader::Initialize()
 	{
 		m_nErrorCode = 14;
 		m_strLastError = "Broker session initialization failed";
+		Finalize();
 		return false;
 	}
 	m_bInitialized = true;
@@ -236,6 +245,7 @@ void CBootLoader::Finalize()
 	m_pEngineCenter = nullptr;
 	delete m_pStrategyService;
 	m_pStrategyService = nullptr;
+	m_indicator.Finalize();
 	delete m_pHQService;
 	m_pHQService = nullptr;
 	delete m_pTradeService;

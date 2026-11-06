@@ -88,3 +88,11 @@ XEngine 通过 `[Broker] host/port/token` 连接 XBroker。账户不再使用数
 `CHQService` 管理终端行情查询合并、请求关联、订阅与退订、确认及回滚、行情推送、超时和断线恢复。终端与策略的上游行情订阅统一由 `CHQService` 管理，按证券和通道共享订阅，最后一个终端或策略释放后才退订。订阅归属统一使用 `FmtHQSubID(type, id)` 生成的 `client_id` / `strategy_id` 字符串，终端连接与策略即使 ID 相同也分别记录；两者共用 `CSubscriptionMgr`，只有终端类型参与网络推送。策略仅保留行情事件路由，不持有行情 Session，也不单独恢复订阅。订阅以匹配请求 ID 的上游 ACK 为准；断线清除确认状态，由行情服务统一恢复仍有需求的订阅。行情消息由中心同时交给行情服务和策略服务，不因一方处理成功而跳过另一方。策略交易响应继续由交易服务完成关联与解码，再调用策略服务的 `OnReply` 重载。
 
 BootLoader 显式持有中心和各业务服务。初始化完成并绑定回调后启动 Session；退出先排空终端请求、停止策略和上游 Session，再停止业务任务并清除两个 Session 回调，最后销毁借用方和 Session。
+
+## 内置指标计算
+
+XEngine 已内置 TA-Lib v0.8.3 源码，业务封装为 `indicator/CIndicator`。源码随工程以 C11 编译，直接纳入现有服务目标；无独立 TA-Lib `.a`、`.so` 或安装要求，构建过程不下载依赖。CMake 与 VS 远程 Linux 工程均维护对应编译入口，Linux 链接数学库 `m`。
+
+BootLoader 持有指标运行时，策略服务和均线策略借用它。当前接入 SMA：报价按证券和交易所隔离计算，价格精度先归一化，报单保留原定点价格。窗口范围为 `1 <= short_window < long_window <= 100000`，默认 5/20；仍按报价驱动、限价报单、每次 100 股，不包含 K 线聚合或目标仓位执行。
+
+上游版本、提交、源码包 SHA-256、许可、接口与验证边界见 [指标模块说明](XEngine/indicator/README.md)。此次接入仅静态检查，新增测试源码及构建入口尚未编译运行，Linux Debug/Release 和 VS 远程构建仍待验收。

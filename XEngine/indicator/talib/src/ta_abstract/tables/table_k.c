@@ -1,0 +1,781 @@
+/* TA-LIB Copyright (c) 1999-2026, Mario Fortier
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or
+ * without modification, are permitted provided that the following
+ * conditions are met:
+ *
+ * - Redistributions of source code must retain the above copyright
+ *   notice, this list of conditions and the following disclaimer.
+ *
+ * - Redistributions in binary form must reproduce the above copyright
+ *   notice, this list of conditions and the following disclaimer in
+ *   the documentation and/or other materials provided with the
+ *   distribution.
+ *
+ * - Neither name of author nor the names of its contributors
+ *   may be used to endorse or promote products derived from this
+ *   software without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ * ``AS IS'' AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+ * FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
+ * REGENTS OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+ * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+ * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+ * OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+ * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
+ * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
+ * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+
+/*********************************************************************
+ * This file contains only TA functions starting with the letter 'K' *
+ *********************************************************************/
+#include <stddef.h>
+#include "ta_abstract.h"
+#include "ta_def_ui.h"
+
+/* KAMA BEGIN */
+static const TA_InputParameterInfo    *TA_KAMA_Inputs[]    =
+{
+  &TA_DEF_UI_Input_Real,
+  NULL
+};
+
+static const TA_OutputParameterInfo   *TA_KAMA_Outputs[]   =
+{
+  &TA_DEF_UI_Output_Real,
+  NULL
+};
+
+static const TA_OptInputParameterInfo *TA_KAMA_OptInputs[] =
+{ &TA_DEF_UI_TimePeriod_30,
+  NULL
+};
+
+DEF_FUNCTION( KAMA,
+              TA_GroupId_OverlapStudies,
+              "Kaufman Adaptive Moving Average",
+              TA_FUNC_FLG_OVERLAP | TA_FUNC_FLG_UNST_PER | TA_FUNC_FLG_STREAM | TA_FUNC_FLG_PERIOD1_IDENTITY
+             );
+/* KAMA END */
+
+/* KC BEGIN */
+static const TA_OptInputParameterInfo TA_DEF_UI_D_KC_TimePeriod =
+{
+   TA_OptInput_IntegerRange,
+   "optInTimePeriod",
+   0,
+
+   "Time Period",
+   (const void *)&TA_DEF_TimePeriod_Positive_Minimum2,
+   20,
+   "Time period for the typical price moving average",
+
+   NULL
+};
+
+static const TA_OptInputParameterInfo TA_DEF_UI_D_KC_ATRPeriod =
+{
+   TA_OptInput_IntegerRange,
+   "optInATRPeriod",
+   0,
+
+   "ATR Period",
+   (const void *)&TA_DEF_TimePeriod_Positive,
+   10,
+   "Time period for the Average True Range",
+
+   NULL
+};
+
+static const TA_RealRange TA_DEF_KC_NbDev =
+{
+   TA_REAL_MIN,
+   TA_REAL_MAX,
+   2,
+   1.0,
+   3.0,
+   0.5
+};
+
+static const TA_OptInputParameterInfo TA_DEF_UI_D_KC_NbDev =
+{
+   TA_OptInput_RealRange,
+   "optInNbDev",
+   0,
+
+   "Deviations",
+   (const void *)&TA_DEF_KC_NbDev,
+   2.0,
+   "Multiplier applied to the Average True Range",
+
+   NULL
+};
+
+const TA_OutputParameterInfo TA_DEF_UI_Output_Real_KC_UpperBand =
+                               { TA_Output_Real, "outRealUpperBand", TA_OUT_UPPER_LIMIT };
+
+const TA_OutputParameterInfo TA_DEF_UI_Output_Real_KC_MiddleBand =
+                               { TA_Output_Real, "outRealMiddleBand", TA_OUT_LINE };
+
+const TA_OutputParameterInfo TA_DEF_UI_Output_Real_KC_LowerBand =
+                               { TA_Output_Real, "outRealLowerBand", TA_OUT_LOWER_LIMIT };
+
+static const TA_InputParameterInfo    *TA_KC_Inputs[]    =
+{
+  &TA_DEF_UI_Input_Price_HLC,
+  NULL
+};
+
+static const TA_OutputParameterInfo   *TA_KC_Outputs[]   =
+{
+  &TA_DEF_UI_Output_Real_KC_UpperBand,
+  &TA_DEF_UI_Output_Real_KC_MiddleBand,
+  &TA_DEF_UI_Output_Real_KC_LowerBand,
+  NULL
+};
+
+static const TA_OptInputParameterInfo *TA_KC_OptInputs[] =
+{ &TA_DEF_UI_D_KC_TimePeriod,
+  &TA_DEF_UI_D_KC_ATRPeriod,
+  &TA_DEF_UI_D_KC_NbDev,
+  NULL
+};
+
+DEF_FUNCTION( KC,
+              TA_GroupId_OverlapStudies,
+              "Keltner Channels",
+              TA_FUNC_FLG_OVERLAP | TA_FUNC_FLG_STREAM
+             );
+/* KC END */
+
+/* KDJ BEGIN */
+static const TA_OptInputParameterInfo TA_DEF_UI_D_KDJ_FastK_Period =
+{
+   TA_OptInput_IntegerRange,
+   "optInFastK_Period",
+   0,
+
+   "Fast-K Period",
+   (const void *)&TA_DEF_TimePeriod_Positive,
+   9,
+   "Time period for building the Fast-K line",
+
+   NULL
+};
+
+static const TA_OptInputParameterInfo TA_DEF_UI_D_KDJ_SlowK_Period =
+{
+   TA_OptInput_IntegerRange,
+   "optInSlowK_Period",
+   0,
+
+   "Slow-K Period",
+   (const void *)&TA_DEF_TimePeriod_Positive,
+   3,
+   "Smoothing for making the Slow-K line. Usually set to 3",
+
+   NULL
+};
+
+const TA_OptInputParameterInfo TA_DEF_UI_D_KDJ_SlowK_MAType =
+{
+   TA_OptInput_IntegerList,
+   "optInSlowK_MAType",
+   0,
+
+   "Slow-K MA",
+   (const void *)&TA_MA_TypeList,
+   13,
+   "Type of Moving Average for Slow-K",
+
+   NULL
+};
+
+static const TA_OptInputParameterInfo TA_DEF_UI_D_KDJ_SlowD_Period =
+{
+   TA_OptInput_IntegerRange,
+   "optInSlowD_Period",
+   0,
+
+   "Slow-D Period",
+   (const void *)&TA_DEF_TimePeriod_Positive,
+   3,
+   "Smoothing for making the Slow-D line",
+
+   NULL
+};
+
+const TA_OptInputParameterInfo TA_DEF_UI_D_KDJ_SlowD_MAType =
+{
+   TA_OptInput_IntegerList,
+   "optInSlowD_MAType",
+   0,
+
+   "Slow-D MA",
+   (const void *)&TA_MA_TypeList,
+   13,
+   "Type of Moving Average for Slow-D",
+
+   NULL
+};
+
+const TA_OutputParameterInfo TA_DEF_UI_Output_Real_KDJ_outK =
+                               { TA_Output_Real, "outK", TA_OUT_LINE };
+
+const TA_OutputParameterInfo TA_DEF_UI_Output_Real_KDJ_outD =
+                               { TA_Output_Real, "outD", TA_OUT_LINE };
+
+const TA_OutputParameterInfo TA_DEF_UI_Output_Real_KDJ_outJ =
+                               { TA_Output_Real, "outJ", TA_OUT_LINE };
+
+static const TA_InputParameterInfo    *TA_KDJ_Inputs[]    =
+{
+  &TA_DEF_UI_Input_Price_HLC,
+  NULL
+};
+
+static const TA_OutputParameterInfo   *TA_KDJ_Outputs[]   =
+{
+  &TA_DEF_UI_Output_Real_KDJ_outK,
+  &TA_DEF_UI_Output_Real_KDJ_outD,
+  &TA_DEF_UI_Output_Real_KDJ_outJ,
+  NULL
+};
+
+static const TA_OptInputParameterInfo *TA_KDJ_OptInputs[] =
+{ &TA_DEF_UI_D_KDJ_FastK_Period,
+  &TA_DEF_UI_D_KDJ_SlowK_Period,
+  &TA_DEF_UI_D_KDJ_SlowK_MAType,
+  &TA_DEF_UI_D_KDJ_SlowD_Period,
+  &TA_DEF_UI_D_KDJ_SlowD_MAType,
+  NULL
+};
+
+DEF_FUNCTION( KDJ,
+              TA_GroupId_MomentumIndicators,
+              "KDJ Stochastic",
+              TA_FUNC_FLG_STREAM
+             );
+/* KDJ END */
+
+/* KST BEGIN */
+static const TA_OptInputParameterInfo TA_DEF_UI_D_KST_ROC1Period =
+{
+   TA_OptInput_IntegerRange,
+   "optInROC1Period",
+   0,
+
+   "ROC-1 Period",
+   (const void *)&TA_DEF_TimePeriod_Positive,
+   10,
+   "Rate-of-change period of leg 1",
+
+   NULL
+};
+
+static const TA_OptInputParameterInfo TA_DEF_UI_D_KST_ROC2Period =
+{
+   TA_OptInput_IntegerRange,
+   "optInROC2Period",
+   0,
+
+   "ROC-2 Period",
+   (const void *)&TA_DEF_TimePeriod_Positive,
+   15,
+   "Rate-of-change period of leg 2",
+
+   NULL
+};
+
+static const TA_OptInputParameterInfo TA_DEF_UI_D_KST_ROC3Period =
+{
+   TA_OptInput_IntegerRange,
+   "optInROC3Period",
+   0,
+
+   "ROC-3 Period",
+   (const void *)&TA_DEF_TimePeriod_Positive,
+   20,
+   "Rate-of-change period of leg 3",
+
+   NULL
+};
+
+static const TA_OptInputParameterInfo TA_DEF_UI_D_KST_ROC4Period =
+{
+   TA_OptInput_IntegerRange,
+   "optInROC4Period",
+   0,
+
+   "ROC-4 Period",
+   (const void *)&TA_DEF_TimePeriod_Positive,
+   30,
+   "Rate-of-change period of leg 4",
+
+   NULL
+};
+
+static const TA_OptInputParameterInfo TA_DEF_UI_D_KST_SMA1Period =
+{
+   TA_OptInput_IntegerRange,
+   "optInSMA1Period",
+   0,
+
+   "SMA-1 Period",
+   (const void *)&TA_DEF_TimePeriod_Positive,
+   10,
+   "Smoothing period of leg 1",
+
+   NULL
+};
+
+static const TA_OptInputParameterInfo TA_DEF_UI_D_KST_SMA2Period =
+{
+   TA_OptInput_IntegerRange,
+   "optInSMA2Period",
+   0,
+
+   "SMA-2 Period",
+   (const void *)&TA_DEF_TimePeriod_Positive,
+   10,
+   "Smoothing period of leg 2",
+
+   NULL
+};
+
+static const TA_OptInputParameterInfo TA_DEF_UI_D_KST_SMA3Period =
+{
+   TA_OptInput_IntegerRange,
+   "optInSMA3Period",
+   0,
+
+   "SMA-3 Period",
+   (const void *)&TA_DEF_TimePeriod_Positive,
+   10,
+   "Smoothing period of leg 3",
+
+   NULL
+};
+
+static const TA_OptInputParameterInfo TA_DEF_UI_D_KST_SMA4Period =
+{
+   TA_OptInput_IntegerRange,
+   "optInSMA4Period",
+   0,
+
+   "SMA-4 Period",
+   (const void *)&TA_DEF_TimePeriod_Positive,
+   15,
+   "Smoothing period of leg 4",
+
+   NULL
+};
+
+static const TA_OptInputParameterInfo TA_DEF_UI_D_KST_SignalPeriod =
+{
+   TA_OptInput_IntegerRange,
+   "optInSignalPeriod",
+   0,
+
+   "Signal Period",
+   (const void *)&TA_DEF_TimePeriod_Positive,
+   9,
+   "Smoothing period of the signal line",
+
+   NULL
+};
+
+const TA_OutputParameterInfo TA_DEF_UI_Output_Real_KST_outKST =
+                               { TA_Output_Real, "outKST", TA_OUT_LINE };
+
+const TA_OutputParameterInfo TA_DEF_UI_Output_Real_KST_outKSTSignal =
+                               { TA_Output_Real, "outKSTSignal", TA_OUT_DASH_LINE };
+
+static const TA_InputParameterInfo    *TA_KST_Inputs[]    =
+{
+  &TA_DEF_UI_Input_Real,
+  NULL
+};
+
+static const TA_OutputParameterInfo   *TA_KST_Outputs[]   =
+{
+  &TA_DEF_UI_Output_Real_KST_outKST,
+  &TA_DEF_UI_Output_Real_KST_outKSTSignal,
+  NULL
+};
+
+static const TA_OptInputParameterInfo *TA_KST_OptInputs[] =
+{ &TA_DEF_UI_D_KST_ROC1Period,
+  &TA_DEF_UI_D_KST_ROC2Period,
+  &TA_DEF_UI_D_KST_ROC3Period,
+  &TA_DEF_UI_D_KST_ROC4Period,
+  &TA_DEF_UI_D_KST_SMA1Period,
+  &TA_DEF_UI_D_KST_SMA2Period,
+  &TA_DEF_UI_D_KST_SMA3Period,
+  &TA_DEF_UI_D_KST_SMA4Period,
+  &TA_DEF_UI_D_KST_SignalPeriod,
+  NULL
+};
+
+DEF_FUNCTION( KST,
+              TA_GroupId_MomentumIndicators,
+              "Know Sure Thing (Pring)",
+              TA_FUNC_FLG_STREAM | TA_FUNC_FLG_POSITIVE_INPUT
+             );
+/* KST END */
+
+/* KSTEXT BEGIN */
+static const TA_OptInputParameterInfo TA_DEF_UI_D_KSTEXT_ROC1Period =
+{
+   TA_OptInput_IntegerRange,
+   "optInROC1Period",
+   0,
+
+   "ROC-1 Period",
+   (const void *)&TA_DEF_TimePeriod_Positive,
+   10,
+   "Rate-of-change period of leg 1",
+
+   NULL
+};
+
+static const TA_OptInputParameterInfo TA_DEF_UI_D_KSTEXT_ROC2Period =
+{
+   TA_OptInput_IntegerRange,
+   "optInROC2Period",
+   0,
+
+   "ROC-2 Period",
+   (const void *)&TA_DEF_TimePeriod_Positive,
+   15,
+   "Rate-of-change period of leg 2",
+
+   NULL
+};
+
+static const TA_OptInputParameterInfo TA_DEF_UI_D_KSTEXT_ROC3Period =
+{
+   TA_OptInput_IntegerRange,
+   "optInROC3Period",
+   0,
+
+   "ROC-3 Period",
+   (const void *)&TA_DEF_TimePeriod_Positive,
+   20,
+   "Rate-of-change period of leg 3",
+
+   NULL
+};
+
+static const TA_OptInputParameterInfo TA_DEF_UI_D_KSTEXT_ROC4Period =
+{
+   TA_OptInput_IntegerRange,
+   "optInROC4Period",
+   0,
+
+   "ROC-4 Period",
+   (const void *)&TA_DEF_TimePeriod_Positive,
+   30,
+   "Rate-of-change period of leg 4",
+
+   NULL
+};
+
+static const TA_OptInputParameterInfo TA_DEF_UI_D_KSTEXT_MA1Period =
+{
+   TA_OptInput_IntegerRange,
+   "optInMA1Period",
+   0,
+
+   "MA-1 Period",
+   (const void *)&TA_DEF_TimePeriod_Positive,
+   10,
+   "Smoothing period of leg 1",
+
+   NULL
+};
+
+static const TA_OptInputParameterInfo TA_DEF_UI_D_KSTEXT_MA2Period =
+{
+   TA_OptInput_IntegerRange,
+   "optInMA2Period",
+   0,
+
+   "MA-2 Period",
+   (const void *)&TA_DEF_TimePeriod_Positive,
+   10,
+   "Smoothing period of leg 2",
+
+   NULL
+};
+
+static const TA_OptInputParameterInfo TA_DEF_UI_D_KSTEXT_MA3Period =
+{
+   TA_OptInput_IntegerRange,
+   "optInMA3Period",
+   0,
+
+   "MA-3 Period",
+   (const void *)&TA_DEF_TimePeriod_Positive,
+   10,
+   "Smoothing period of leg 3",
+
+   NULL
+};
+
+static const TA_OptInputParameterInfo TA_DEF_UI_D_KSTEXT_MA4Period =
+{
+   TA_OptInput_IntegerRange,
+   "optInMA4Period",
+   0,
+
+   "MA-4 Period",
+   (const void *)&TA_DEF_TimePeriod_Positive,
+   15,
+   "Smoothing period of leg 4",
+
+   NULL
+};
+
+static const TA_OptInputParameterInfo TA_DEF_UI_D_KSTEXT_SignalPeriod =
+{
+   TA_OptInput_IntegerRange,
+   "optInSignalPeriod",
+   0,
+
+   "Signal Period",
+   (const void *)&TA_DEF_TimePeriod_Positive,
+   9,
+   "Smoothing period of the signal line",
+
+   NULL
+};
+
+const TA_OptInputParameterInfo TA_DEF_UI_D_KSTEXT_ROCMAType =
+{
+   TA_OptInput_IntegerList,
+   "optInROCMAType",
+   0,
+
+   "ROC MA",
+   (const void *)&TA_MA_TypeList,
+   0,
+   "Type of Moving Average smoothing the four legs",
+
+   NULL
+};
+
+const TA_OptInputParameterInfo TA_DEF_UI_D_KSTEXT_SignalMAType =
+{
+   TA_OptInput_IntegerList,
+   "optInSignalMAType",
+   0,
+
+   "Signal MA",
+   (const void *)&TA_MA_TypeList,
+   0,
+   "Type of Moving Average for signal line",
+
+   NULL
+};
+
+const TA_OutputParameterInfo TA_DEF_UI_Output_Real_KSTEXT_outKST =
+                               { TA_Output_Real, "outKST", TA_OUT_LINE };
+
+const TA_OutputParameterInfo TA_DEF_UI_Output_Real_KSTEXT_outKSTSignal =
+                               { TA_Output_Real, "outKSTSignal", TA_OUT_DASH_LINE };
+
+static const TA_InputParameterInfo    *TA_KSTEXT_Inputs[]    =
+{
+  &TA_DEF_UI_Input_Real,
+  NULL
+};
+
+static const TA_OutputParameterInfo   *TA_KSTEXT_Outputs[]   =
+{
+  &TA_DEF_UI_Output_Real_KSTEXT_outKST,
+  &TA_DEF_UI_Output_Real_KSTEXT_outKSTSignal,
+  NULL
+};
+
+static const TA_OptInputParameterInfo *TA_KSTEXT_OptInputs[] =
+{ &TA_DEF_UI_D_KSTEXT_ROC1Period,
+  &TA_DEF_UI_D_KSTEXT_ROC2Period,
+  &TA_DEF_UI_D_KSTEXT_ROC3Period,
+  &TA_DEF_UI_D_KSTEXT_ROC4Period,
+  &TA_DEF_UI_D_KSTEXT_MA1Period,
+  &TA_DEF_UI_D_KSTEXT_MA2Period,
+  &TA_DEF_UI_D_KSTEXT_MA3Period,
+  &TA_DEF_UI_D_KSTEXT_MA4Period,
+  &TA_DEF_UI_D_KSTEXT_SignalPeriod,
+  &TA_DEF_UI_D_KSTEXT_ROCMAType,
+  &TA_DEF_UI_D_KSTEXT_SignalMAType,
+  NULL
+};
+
+DEF_FUNCTION( KSTEXT,
+              TA_GroupId_MomentumIndicators,
+              "Know Sure Thing with controllable MA type",
+              TA_FUNC_FLG_STREAM | TA_FUNC_FLG_POSITIVE_INPUT
+             );
+/* KSTEXT END */
+
+/* KURTOSIS BEGIN */
+static const TA_IntegerRange TA_DEF_KURTOSIS_TimePeriod =
+{
+   4,
+   10000,
+   10,
+   200,
+   5
+};
+
+static const TA_OptInputParameterInfo TA_DEF_UI_D_KURTOSIS_TimePeriod =
+{
+   TA_OptInput_IntegerRange,
+   "optInTimePeriod",
+   0,
+
+   "Time Period",
+   (const void *)&TA_DEF_KURTOSIS_TimePeriod,
+   30,
+   "Time period",
+
+   NULL
+};
+
+static const TA_InputParameterInfo    *TA_KURTOSIS_Inputs[]    =
+{
+  &TA_DEF_UI_Input_Real,
+  NULL
+};
+
+static const TA_OutputParameterInfo   *TA_KURTOSIS_Outputs[]   =
+{
+  &TA_DEF_UI_Output_Real,
+  NULL
+};
+
+static const TA_OptInputParameterInfo *TA_KURTOSIS_OptInputs[] =
+{ &TA_DEF_UI_D_KURTOSIS_TimePeriod,
+  NULL
+};
+
+DEF_FUNCTION( KURTOSIS,
+              TA_GroupId_Statistic,
+              "Rolling Excess Kurtosis",
+              TA_FUNC_FLG_STREAM | TA_FUNC_FLG_NAN_INF_OUT
+             );
+/* KURTOSIS END */
+
+/* KVO BEGIN */
+static const TA_OptInputParameterInfo TA_DEF_UI_D_KVO_FastPeriod =
+{
+   TA_OptInput_IntegerRange,
+   "optInFastPeriod",
+   0,
+
+   "Fast Period",
+   (const void *)&TA_DEF_TimePeriod_Positive_Minimum2,
+   34,
+   "Period of the faster smoothing of the volume force",
+
+   NULL
+};
+
+static const TA_OptInputParameterInfo TA_DEF_UI_D_KVO_SlowPeriod =
+{
+   TA_OptInput_IntegerRange,
+   "optInSlowPeriod",
+   0,
+
+   "Slow Period",
+   (const void *)&TA_DEF_TimePeriod_Positive_Minimum2,
+   55,
+   "Period of the slower smoothing of the volume force",
+
+   NULL
+};
+
+static const TA_IntegerRange TA_DEF_KVO_SignalPeriod =
+{
+   2,
+   100000,
+   2,
+   200,
+   1
+};
+
+static const TA_OptInputParameterInfo TA_DEF_UI_D_KVO_SignalPeriod =
+{
+   TA_OptInput_IntegerRange,
+   "optInSignalPeriod",
+   0,
+
+   "Signal Period",
+   (const void *)&TA_DEF_KVO_SignalPeriod,
+   13,
+   "Smoothing for the trigger line",
+
+   NULL
+};
+
+const TA_OutputParameterInfo TA_DEF_UI_Output_Real_KVO_outKVO =
+                               { TA_Output_Real, "outKVO", TA_OUT_LINE };
+
+const TA_OutputParameterInfo TA_DEF_UI_Output_Real_KVO_outKVOSignal =
+                               { TA_Output_Real, "outKVOSignal", TA_OUT_DASH_LINE };
+
+static const TA_InputParameterInfo    *TA_KVO_Inputs[]    =
+{
+  &TA_DEF_UI_Input_Price_HLCV,
+  NULL
+};
+
+static const TA_OutputParameterInfo   *TA_KVO_Outputs[]   =
+{
+  &TA_DEF_UI_Output_Real_KVO_outKVO,
+  &TA_DEF_UI_Output_Real_KVO_outKVOSignal,
+  NULL
+};
+
+static const TA_OptInputParameterInfo *TA_KVO_OptInputs[] =
+{ &TA_DEF_UI_D_KVO_FastPeriod,
+  &TA_DEF_UI_D_KVO_SlowPeriod,
+  &TA_DEF_UI_D_KVO_SignalPeriod,
+  NULL
+};
+
+DEF_FUNCTION( KVO,
+              TA_GroupId_VolumeIndicators,
+              "Klinger Volume Oscillator",
+              TA_FUNC_FLG_STREAM
+             );
+/* KVO END */
+
+/****************************************************************************
+ * Step 2 - Add your TA function to the table.
+ *          Keep in alphabetical order. Must be NULL terminated.
+ ****************************************************************************/
+const TA_FuncDef *TA_DEF_TableK[] =
+{
+   ADD_TO_TABLE(KAMA),
+   ADD_TO_TABLE(KC),
+   ADD_TO_TABLE(KDJ),
+   ADD_TO_TABLE(KST),
+   ADD_TO_TABLE(KSTEXT),
+   ADD_TO_TABLE(KURTOSIS),
+   ADD_TO_TABLE(KVO),
+   NULL
+};
+
+
+/* Do not modify the following line. */
+const unsigned int TA_DEF_TableKSize =
+              ((sizeof(TA_DEF_TableK)/sizeof(TA_FuncDef *))-1);
+

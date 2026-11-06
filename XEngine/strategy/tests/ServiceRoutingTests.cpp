@@ -1,3 +1,4 @@
+#include "../../indicator/CIndicator.h"
 #include "../CTradeService.h"
 #include "../CStrategyService.h"
 #include "../CStrategyContext.h"
@@ -177,7 +178,10 @@ public:
 		accounts.SetAccountStateHandler(std::bind_front(&CTradeService::OnAccountState, &trader));
 		CSession hq(CLoginInfo{});
 		CHQService market(&hq);
-		CStrategyService strategies(&market, &trader, &accounts);
+		CIndicator indicator;
+		std::string indicatorError;
+		Check(indicator.Initialize(indicatorError), "indicator runtime initializes");
+		CStrategyService strategies(&market, &trader, &accounts, indicator);
 		net::CTcpServer tcpServer(0);
 		CEngineCenter engine(&tcpServer, &hq, &broker, &market, &strategies, &trader, &accounts);
 		Check(engine.Initialize(), "center binds client and both Session callbacks before startup");
@@ -237,7 +241,7 @@ public:
 		Check(accounts.AcquireAccount(account), "failed forwarding releases the disconnect guard");
 		accounts.ReleaseAccount(account);
 		{
-			CStrategyService strategies(nullptr, &trader, &accounts);
+			CStrategyService strategies(nullptr, &trader, &accounts, indicator);
 			Check(strategies.BeginAccountUse(account, 7), "strategy registers account use");
 			Check(!strategies.BeginAccountUse(account, 7), "duplicate strategy does not acquire twice");
 			strategies.EndAccountUse(account, 7);

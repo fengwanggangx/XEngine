@@ -341,4 +341,871 @@
       <UniqueIdentifier>{03d4644b-bce0-4dee-bd3b-753f58363eea}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
+  <ItemGroup>
+    <Filter Include="indicator" />
+    <Filter Include="indicator\talib" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="indicator\CIndicator.cpp">
+      <Filter>indicator</Filter>
+    </ClCompile>
+    <ClInclude Include="indicator\CIndicator.h">
+      <Filter>indicator</Filter>
+    </ClInclude>
+    <ClInclude Include="indicator\talib\include\ta_abstract.h">
+      <Filter>indicator\talib</Filter>
+    </ClInclude>
+    <ClInclude Include="indicator\talib\include\ta_common.h">
+      <Filter>indicator\talib</Filter>
+    </ClInclude>
+    <ClInclude Include="indicator\talib\include\ta_defs.h">
+      <Filter>indicator\talib</Filter>
+    </ClInclude>
+    <ClInclude Include="indicator\talib\include\ta_func.h">
+      <Filter>indicator\talib</Filter>
+    </ClInclude>
+    <ClInclude Include="indicator\talib\include\ta_libc.h">
+      <Filter>indicator\talib</Filter>
+    </ClInclude>
+    <ClCompile Include="indicator\talib\src\ta_abstract\frames\ta_frame.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClInclude Include="indicator\talib\src\ta_abstract\frames\ta_frame.h">
+      <Filter>indicator\talib</Filter>
+    </ClInclude>
+    <ClCompile Include="indicator\talib\src\ta_abstract\ta_abstract.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_abstract\ta_def_ui.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClInclude Include="indicator\talib\src\ta_abstract\ta_def_ui.h">
+      <Filter>indicator\talib</Filter>
+    </ClInclude>
+    <ClInclude Include="indicator\talib\src\ta_abstract\ta_frame_priv.h">
+      <Filter>indicator\talib</Filter>
+    </ClInclude>
+    <ClCompile Include="indicator\talib\src\ta_abstract\ta_func_api.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_abstract\ta_group_idx.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_abstract\tables\table_a.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_abstract\tables\table_b.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_abstract\tables\table_c.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_abstract\tables\table_d.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_abstract\tables\table_e.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_abstract\tables\table_f.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_abstract\tables\table_g.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_abstract\tables\table_h.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_abstract\tables\table_i.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_abstract\tables\table_j.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_abstract\tables\table_k.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_abstract\tables\table_l.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_abstract\tables\table_m.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_abstract\tables\table_n.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_abstract\tables\table_o.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_abstract\tables\table_p.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_abstract\tables\table_q.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_abstract\tables\table_r.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_abstract\tables\table_s.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_abstract\tables\table_t.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_abstract\tables\table_u.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_abstract\tables\table_v.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_abstract\tables\table_w.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_abstract\tables\table_x.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_abstract\tables\table_y.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_abstract\tables\table_z.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_common\ta_global.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClInclude Include="indicator\talib\src\ta_common\ta_global.h">
+      <Filter>indicator\talib</Filter>
+    </ClInclude>
+    <ClInclude Include="indicator\talib\src\ta_common\ta_magic_nb.h">
+      <Filter>indicator\talib</Filter>
+    </ClInclude>
+    <ClInclude Include="indicator\talib\src\ta_common\ta_memory.h">
+      <Filter>indicator\talib</Filter>
+    </ClInclude>
+    <ClCompile Include="indicator\talib\src\ta_common\ta_retcode.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_common\ta_version.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_AC.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_ACCBANDS.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_ACOS.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_AD.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_ADD.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_ADOSC.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_ADR.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_ADX.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_ADXR.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_ALMA.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_AO.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_APO.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_AROON.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_AROONOSC.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_ASI.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_ASIN.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_ATAN.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_ATR.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_AVGDEV.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_AVGPRICE.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_BBANDS.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_BBW.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_BETA.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_BOP.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_CCI.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_CDL2CROWS.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_CDL3BLACKCROWS.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_CDL3INSIDE.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_CDL3LINESTRIKE.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_CDL3OUTSIDE.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_CDL3STARSINSOUTH.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_CDL3WHITESOLDIERS.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_CDLABANDONEDBABY.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_CDLADVANCEBLOCK.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_CDLBELTHOLD.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_CDLBREAKAWAY.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_CDLCLOSINGMARUBOZU.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_CDLCONCEALBABYSWALL.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_CDLCOUNTERATTACK.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_CDLDARKCLOUDCOVER.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_CDLDOJI.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_CDLDOJISTAR.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_CDLDRAGONFLYDOJI.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_CDLENGULFING.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_CDLEVENINGDOJISTAR.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_CDLEVENINGSTAR.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_CDLGAPSIDESIDEWHITE.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_CDLGRAVESTONEDOJI.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_CDLHAMMER.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_CDLHANGINGMAN.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_CDLHARAMI.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_CDLHARAMICROSS.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_CDLHIGHWAVE.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_CDLHIKKAKE.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_CDLHIKKAKEMOD.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_CDLHOMINGPIGEON.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_CDLIDENTICAL3CROWS.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_CDLINNECK.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_CDLINVERTEDHAMMER.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_CDLKICKING.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_CDLKICKINGBYLENGTH.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_CDLLADDERBOTTOM.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_CDLLONGLEGGEDDOJI.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_CDLLONGLINE.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_CDLMARUBOZU.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_CDLMATCHINGLOW.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_CDLMATHOLD.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_CDLMORNINGDOJISTAR.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_CDLMORNINGSTAR.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_CDLONNECK.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_CDLPIERCING.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_CDLRICKSHAWMAN.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_CDLRISEFALL3METHODS.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_CDLSEPARATINGLINES.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_CDLSHOOTINGSTAR.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_CDLSHORTLINE.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_CDLSPINNINGTOP.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_CDLSTALLEDPATTERN.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_CDLSTICKSANDWICH.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_CDLTAKURI.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_CDLTASUKIGAP.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_CDLTHRUSTING.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_CDLTRISTAR.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_CDLUNIQUE3RIVER.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_CDLUPSIDEGAP2CROWS.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_CDLXSIDEGAP3METHODS.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_CEIL.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_CG.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_CHOP.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_CHOPTR.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_CKSP.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_CMF.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_CMO.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_CMOU.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_COPPOCK.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_CORREL.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_COS.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_COSH.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_CRSI.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_CTI.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_CUMSUM.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_CVI.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_DEMA.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_DIV.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_DONCHIAN.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_DOSC.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_DPO.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_DX.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_EFI.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_EMA.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_EMV.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_ER.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_ERI.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_EXP.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_FISHER.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_FLOOR.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_FOSC.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_FRACTAL.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_FRAMA.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_HA.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_HMA.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_HT_DCPERIOD.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_HT_DCPHASE.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_HT_PHASOR.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_HT_SINE.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_HT_TRENDLINE.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_HT_TRENDMODE.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_IBS.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_ICHIMOKU.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_IMI.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_KAMA.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_KC.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_KDJ.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_KST.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_KSTEXT.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_KURTOSIS.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_KVO.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_LINEARREG.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_LINEARREG_ANGLE.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_LINEARREG_INTERCEPT.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_LINEARREG_SLOPE.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_LN.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_LOG10.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_MA.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_MACD.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_MACDEXT.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_MACDFIX.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_MAMA.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_MARKETFI.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_MASSI.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_MAVP.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_MAX.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_MAXINDEX.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_MCGD.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_MEDIAN.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_MEDPRICE.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_MFI.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_MIDPOINT.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_MIDPRICE.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_MIN.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_MININDEX.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_MINMAX.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_MINMAXINDEX.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_MINUS_DI.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_MINUS_DM.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_MOM.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_MULT.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_NATR.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_NVI.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_OBV.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_PERCENTB.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_PERCENTILE.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_PERCENTRANK.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_PLUS_DI.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_PLUS_DM.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_PPO.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_PSO.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_PVI.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_PVO.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_PVT.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_QSTICK.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_RMA.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_ROC.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_ROCP.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_ROCR.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_ROCR100.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_ROGERSSATCHELL.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_RSI.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_RVI.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_RVIR.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_RVOL.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_SAR.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_SAREXT.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_SI.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_SIN.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_SINH.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_SMA.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_SMI.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_SQRT.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_SQZMOM.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_STC.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_STDDEV.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_STOCH.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_STOCHF.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_STOCHRSI.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_SUB.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_SUM.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_SUPERTREND.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_SWAK_2PHP.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_SWAK_BP.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_SWAK_BUTTER.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_SWAK_GAUSS.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_SWAK_HP.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_T3.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_TAN.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_TANH.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_TEMA.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_TRANGE.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_TRIMA.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_TRIX.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_TSF.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_TSI.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_TYPPRICE.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_ULTOSC.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_VAR.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_VHF.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_VIDYA.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_VORTEX.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_VWAP.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_VWMA.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_WAD.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_WAVETREND.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_WCLPRICE.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_WILLR.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_WMA.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_ZIGZAG.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_ZLEMA.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClInclude Include="indicator\talib\src\ta_func\ta_func_stream_private.h">
+      <Filter>indicator\talib</Filter>
+    </ClInclude>
+    <ClCompile Include="indicator\talib\src\ta_func\ta_utility.c">
+      <Filter>indicator\talib</Filter>
+    </ClCompile>
+    <ClInclude Include="indicator\talib\src\ta_func\ta_utility.h">
+      <Filter>indicator\talib</Filter>
+    </ClInclude>
+  </ItemGroup>
 </Project>

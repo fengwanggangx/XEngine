@@ -1,3 +1,4 @@
+#include "../../indicator/CIndicator.h"
 #include "../../system/CEngineCenter.h"
 #include "../../strategy/CTradeService.h"
 #include "TradeProtocol.h"
@@ -142,7 +143,10 @@ class CBrokerServiceTests
 
 	static void TestStrategyReplies(CTradeService& service, CAccountService& accounts)
 	{
-		CStrategyService strategies(nullptr, &service, &accounts);
+		CIndicator indicator;
+		std::string indicatorError;
+		Check(indicator.Initialize(indicatorError), "indicator runtime initializes");
+		CStrategyService strategies(nullptr, &service, &accounts, indicator);
 		std::shared_ptr<CStrategyRuntime> runtime = std::make_shared<CStrategyRuntime>();
 		runtime->m_instanceId = 11;
 		runtime->m_config.m_strategyId = 7;

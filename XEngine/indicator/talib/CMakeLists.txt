@@ -1,0 +1,1231 @@
+cmake_minimum_required(VERSION 3.18)
+if (CMAKE_VERSION VERSION_LESS "3.30" AND WIN32)
+    message(FATAL_ERROR "For Windows systems you need CMake Version 3.30")
+endif (CMAKE_VERSION VERSION_LESS "3.30" AND WIN32)
+
+project(ta-lib)
+
+# Written by scripts/sync.py from VERSION; do not edit.
+set(TA_LIB_VERSION_MAJOR 0)
+set(TA_LIB_VERSION_MINOR 8)
+set(TA_LIB_VERSION_PATCH 3)
+
+set(PROJECT_VERSION "${TA_LIB_VERSION_MAJOR}.${TA_LIB_VERSION_MINOR}.${TA_LIB_VERSION_PATCH}")
+
+set(CMAKE_C_STANDARD 11)
+
+# Option to build development tools (enabled by default)
+option(BUILD_DEV_TOOLS "Build ta_regtest (verifies the library on a given setup; packagers run it)" ON)
+message(STATUS "BUILD_DEV_TOOLS: ${BUILD_DEV_TOOLS}")
+# Separate from BUILD_DEV_TOOLS on purpose. ta_regtest has a user-facing job, so
+# it is ON; the benchmarks are for people working ON TA-Lib and nobody else, so
+# they are OFF and a plain `cmake ..` from a clone does not compile them.
+option(BUILD_BENCHMARKS "Build ta_bench/ta_bench_direct/ta_bench_icount (TA-Lib developers only)" OFF)
+message(STATUS "BUILD_BENCHMARKS: ${BUILD_BENCHMARKS}")
+
+# Optional AddressSanitizer + UndefinedBehaviorSanitizer instrumentation (issue
+# #94). Builds the library and the C tools so that out-of-bounds / uninitialized
+# reads in indicator code (the MACD/TRIX/MAVP boundary class) fail loudly instead
+# of returning plausible garbage. Dev/CI only (one nightly job), never a release
+# build. GCC/Clang only. Enable with -DENABLE_SANITIZERS=ON.
+option(ENABLE_SANITIZERS "Instrument the C build with AddressSanitizer + UBSan (dev/CI only)" OFF)
+if(ENABLE_SANITIZERS)
+    if(MSVC)
+        message(FATAL_ERROR "ENABLE_SANITIZERS is only supported with GCC/Clang, not MSVC.")
+    endif()
+    # Must be set before any target is defined so the flags apply to the
+    # library and the tools alike (compile AND link).
+    set(TA_SANITIZER_FLAGS -fsanitize=address,undefined,float-cast-overflow -fno-sanitize-recover=all -fno-omit-frame-pointer)
+    add_compile_options(${TA_SANITIZER_FLAGS})
+    add_link_options(${TA_SANITIZER_FLAGS})
+    message(STATUS "ENABLE_SANITIZERS: ON (-fsanitize=address,undefined,float-cast-overflow -fno-sanitize-recover=all)")
+endif()
+
+# FMA numerical contract (PR #96): indicators use explicit fma(); fused ones are
+# marked target_clones for runtime CPU dispatch. -ffp-contract=off makes explicit
+# fma() the ONLY fusion (no compiler auto-contraction of the un-fused a*b+c), for
+# cross-clone/-language determinism. GCC/Clang only; no-op without hardware FMA.
+if(NOT MSVC)
+    add_compile_options(-ffp-contract=off)
+endif()
+
+# Warnings, never -Werror: MSVC and the i386 GCC cross-build ship from here and
+# their warning sets differ. One CI job holds the line instead.
+#   -Wno-unused-parameter  the uniform OHLCV signature is public API; some
+#                          indicators legitimately read only part of it.
+#   -Wno-unknown-pragmas   `#pragma STDC FP_CONTRACT OFF` (fuzz_data.h) is
+#                          honored by clang/MSVC, ignored by GCC (issue #150).
+if(NOT MSVC)
+    add_compile_options(-Wall -Wextra -Wno-unused-parameter -Wno-unknown-pragmas)
+endif()
+
+# -fno-math-errno (issue #192): sqrt() is one machine instruction, but ISO C
+# requires it to set errno on a domain error, so without this GCC keeps it
+# scalar and out of every vectorized loop. The library never reads errno and
+# never documents setting it. This is the ONE part of -ffast-math that cannot
+# change a value: no reassociation, no finite-math assumptions — sqrt returns
+# the same correctly-rounded double either way, and sqrtpd is sqrtsd per lane.
+# -ffp-contract=off is unaffected and still applies.
+#
+# Probed rather than added outright, unlike -ffp-contract=off above, and the
+# asymmetry is deliberate: that flag is load-bearing for the FMA contract, so a
+# toolchain that cannot take it must not build quietly without it. This one is
+# purely a speed knob, so a cross-toolchain that rejects it should just lose the
+# speed (scripts/package.py builds the .deb through CMAKE_TOOLCHAIN_FILE).
+#
+# It can change one thing that is NOT a value, and that no output-comparing gate
+# can see: FP exception state. Wherever a sqrt sits under a guard, vectorizing
+# if-converts it — sqrtpd runs on EVERY lane and the guard is reapplied afterwards
+# as a mask — so a lane the scalar form skipped executes anyway, and a negative
+# one there raises FE_INVALID. The value is masked away, so no output changes; a
+# caller trapping on FE_INVALID would see it. Nor can it be fixed at the guard:
+# this flag is precisely what makes sqrt speculatable, so GCC hoists it back above
+# a clamp using sqrt(select(c,0,t)) == select(c,0,sqrt(t)).
+#
+# TA_STDDEV was that case and is the reason this note exists — its map was
+# `if( !TA_IS_ZERO_OR_NEG(v) ) sqrt(v)`. #243 removed that guard: TA_VAR floors
+# its own output, so the map is now an unguarded sqrt of a radicand that cannot be
+# negative and there is no masked lane left to raise anything. Measured over 79M
+# VAR outputs (flat tails, 1e12 spikes, ulp-scale noise, 1e9/1e-7 alternation, all
+# periods 2..61): no negative, and no FE_INVALID from either function, with the
+# flag or without.
+#
+# The flag is still accepted for whatever guarded sqrt appears next, because the
+# library has no FE_INVALID-clean contract to begin with — TA_SQRT is a bare
+# sqrt() of caller data and raises on negative input in either build — and because
+# no computed value moves.
+if(NOT MSVC)
+    include(CheckCCompilerFlag)
+    check_c_compiler_flag(-fno-math-errno TA_HAS_NO_MATH_ERRNO)
+    if(TA_HAS_NO_MATH_ERRNO)
+        add_compile_options(-fno-math-errno)
+    endif()
+endif()
+
+# -falign-functions=64 -falign-loops=64 (issue #437): every function, and every
+# hot loop gcc enters by falling through, starts a 64-byte line. A function's code
+# layout then depends only on its own code after inlining, so a relink no longer
+# moves it; without the flags a relink alone moves a small-window scan by up to
+# 45%. Performance knobs that change no value. They pin
+# each function at one layout, not always the fastest one, and grow .text ~8%.
+# x86 only, where they were measured. Clang drops -falign-loops under LTO.
+if(NOT MSVC AND CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|amd64|AMD64|x86|i[3-6]86")
+    foreach(flag -falign-functions=64 -falign-loops=64)
+        string(MAKE_C_IDENTIFIER "TA_HAS${flag}" has_flag)
+        check_c_compiler_flag(${flag} ${has_flag})
+        if(${has_flag})
+            add_compile_options(${flag})
+        endif()
+    endforeach()
+endif()
+
+# Default to Release config
+if(NOT CMAKE_BUILD_TYPE OR CMAKE_BUILD_TYPE STREQUAL "")
+    set(CMAKE_BUILD_TYPE "Release" CACHE STRING "Build type" FORCE)
+endif()
+
+if(WIN32)
+    # Default install location, but only when the user (or a package manager
+    # such as vcpkg) did not specify a prefix: the unconditional FORCE used to
+    # hijack every -DCMAKE_INSTALL_PREFIX/--prefix, sending vcpkg installs to
+    # C:/Program Files (caught by the talib vcpkg-port 0.7.1 update).
+    if(CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
+        if(CMAKE_SIZEOF_VOID_P EQUAL 8)
+            set(CMAKE_INSTALL_PREFIX "C:/Program Files/TA-Lib" CACHE PATH "Installation Directory" FORCE)
+        else()
+            set(CMAKE_INSTALL_PREFIX "C:/Program Files (x86)/TA-Lib" CACHE PATH "Installation Directory" FORCE)
+        endif()
+    endif()
+
+	if(DEFINED ENV{Platform})
+    	set(PLATFORM_ENV $ENV{Platform})
+    	message(STATUS "Platform environment variable: ${PLATFORM_ENV}")
+	endif()
+endif()
+message(STATUS "Installation Directory: ${CMAKE_INSTALL_PREFIX}")
+
+# Attempt to set SOURCE_DATE_EPOCH to the last commit timestamp of include/ta_common.h
+# If not possible, use a fallback. Controlling the SOURCE_DATE_EPOCH "might" help producing
+# consistent binaries when there is no source code change.
+function(set_fallback_source_date_epoch)
+    # Generate a unique timestamp based on version numbers
+    math(EXPR UNIQUE_TIMESTAMP "(${TA_LIB_VERSION_MAJOR} * 1000000) + (${TA_LIB_VERSION_MINOR} * 1000) + ${TA_LIB_VERSION_PATCH}")
+    set(ENV{SOURCE_DATE_EPOCH} ${UNIQUE_TIMESTAMP})
+	message(STATUS "SOURCE_DATE_EPOCH: $ENV{SOURCE_DATE_EPOCH} (${PROJECT_VERSION})")
+endfunction()
+
+if(NOT DEFINED ENV{SOURCE_DATE_EPOCH})
+    # Check if the current directory is a Git repository
+    execute_process(
+        COMMAND git rev-parse --is-inside-work-tree
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        OUTPUT_VARIABLE IS_GIT_REPO
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+        ERROR_QUIET
+    )
+    if(IS_GIT_REPO AND IS_GIT_REPO STREQUAL "true")
+        execute_process(
+            COMMAND git log -1 --format=%ct -- include/ta_common.h
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            OUTPUT_VARIABLE GIT_COMMIT_TIMESTAMP
+            OUTPUT_STRIP_TRAILING_WHITESPACE
+            ERROR_QUIET
+        )
+        if(GIT_COMMIT_TIMESTAMP)
+            set(ENV{SOURCE_DATE_EPOCH} ${GIT_COMMIT_TIMESTAMP})
+            message(STATUS "SOURCE_DATE_EPOCH: $ENV{SOURCE_DATE_EPOCH}")
+        else()
+            message(WARNING "include/ta_common.h not found. Using fallback SOURCE_DATE_EPOCH.")
+            set_fallback_source_date_epoch()
+        endif()
+    else()
+        message(WARNING "Not a Git repository. Using fallback SOURCE_DATE_EPOCH.")
+        set_fallback_source_date_epoch()
+    endif()
+endif()
+
+message(STATUS "CMAKE_BUILD_TYPE: ${CMAKE_BUILD_TYPE}")
+message(STATUS "CMAKE_GENERATOR: ${CMAKE_GENERATOR}")
+message(STATUS "CPACK_GENERATOR: ${CPACK_GENERATOR}")
+
+# TA-Lib public API headers (will be installed by this script)
+set(LIB_HEADERS
+	"${CMAKE_CURRENT_SOURCE_DIR}/include/ta_abstract.h"
+	"${CMAKE_CURRENT_SOURCE_DIR}/include/ta_common.h"
+	"${CMAKE_CURRENT_SOURCE_DIR}/include/ta_defs.h"
+	"${CMAKE_CURRENT_SOURCE_DIR}/include/ta_func.h"
+	"${CMAKE_CURRENT_SOURCE_DIR}/include/ta_libc.h"
+)
+
+# Source used in all end-user libraries and most TA-Lib executable.
+set(COMMON_SOURCES
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_common/ta_global.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_common/ta_retcode.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_common/ta_version.c"
+)
+
+# TA-Lib specify all its TA functions signature (and meta information
+# such as the "group" it belongs to) using an "interface definition language"
+# written in C.
+set(IDL_SOURCES
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_abstract/ta_abstract.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_abstract/ta_def_ui.c"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/ta_abstract/tables/table_a.c"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/ta_abstract/tables/table_b.c"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/ta_abstract/tables/table_c.c"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/ta_abstract/tables/table_d.c"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/ta_abstract/tables/table_e.c"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/ta_abstract/tables/table_f.c"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/ta_abstract/tables/table_g.c"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/ta_abstract/tables/table_h.c"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/ta_abstract/tables/table_i.c"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/ta_abstract/tables/table_j.c"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/ta_abstract/tables/table_k.c"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/ta_abstract/tables/table_l.c"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/ta_abstract/tables/table_m.c"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/ta_abstract/tables/table_n.c"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/ta_abstract/tables/table_o.c"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/ta_abstract/tables/table_p.c"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/ta_abstract/tables/table_q.c"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/ta_abstract/tables/table_r.c"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/ta_abstract/tables/table_s.c"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/ta_abstract/tables/table_t.c"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/ta_abstract/tables/table_u.c"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/ta_abstract/tables/table_v.c"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/ta_abstract/tables/table_w.c"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/ta_abstract/tables/table_x.c"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/ta_abstract/tables/table_y.c"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/ta_abstract/tables/table_z.c"
+)
+
+
+# Extract the file names from the LIB_HEADERS variable
+set(LIB_HEADERS_FILENAMES)
+foreach(header ${LIB_HEADERS})
+	get_filename_component(header_name ${header} NAME)
+    list(APPEND LIB_HEADERS_FILENAMES ${header_name})
+endforeach()
+
+###############################
+# Shared and static libraries #
+###############################
+include(CheckIncludeFiles)
+include(CheckFunctionExists)
+include(CheckTypeSize)
+include(CheckSymbolExists)
+check_include_files(float.h HAVE_FLOAT_H)
+check_include_files(inttypes.h HAVE_INTTYPES_H)
+check_include_files(limits.h HAVE_LIMITS_H)
+check_include_files(locale.h HAVE_LOCALE_H)
+check_include_files(stddef.h HAVE_STDDEF_H)
+check_include_files(stdint.h HAVE_STDINT_H)
+check_include_files(stdlib.h HAVE_STDLIB_H)
+check_include_files(string.h HAVE_STRING_H)
+check_include_files(unistd.h HAVE_UNISTD_H)
+check_include_files(wchar.h HAVE_WCHAR_H)
+check_include_files(wctype.h HAVE_WCTYPE_H)
+check_function_exists(floor HAVE_FLOOR)
+check_function_exists(isascii HAVE_ISASCII)
+check_function_exists(localeconv HAVE_LOCALECONV)
+check_function_exists(mblen HAVE_MBLEN)
+check_function_exists(memmove HAVE_MEMMOVE)
+check_function_exists(memset HAVE_MEMSET)
+check_function_exists(modf HAVE_MODF)
+check_function_exists(pow HAVE_POW)
+check_function_exists(sqrt HAVE_SQRT)
+check_function_exists(strcasecmp HAVE_STRCASECMP)
+check_function_exists(strchr HAVE_STRCHR)
+check_function_exists(strerror HAVE_STRERROR)
+check_function_exists(strncasecmp HAVE_STRNCASECMP)
+check_function_exists(strrchr HAVE_STRRCHR)
+check_function_exists(strstr HAVE_STRSTR)
+check_function_exists(strtol HAVE_STRTOL)
+check_function_exists(strtoul HAVE_STRTOUL)
+check_function_exists(strcoll HAVE_STRCOLL)
+check_function_exists(strftime HAVE_STRFTIME)
+check_function_exists(vprintf HAVE_VPRINTF)
+check_type_size(ptrdiff_t SIZEOF_PTRDIFF_T)
+if(HAVE_SIZEOF_PTRDIFF_T)
+	set(HAVE_PTRDIFF_T 1)
+else()
+	set(HAVE_PTRDIFF_T 0)
+endif()
+check_type_size(size_t SIZEOF_SIZE_T)
+if(HAVE_SIZEOF_SIZE_T)
+	set(HAVE_SIZE_T 1)
+else()
+	set(HAVE_SIZE_T 0)
+	set(size_t "unsigned")
+endif()
+check_symbol_exists("struct tm" "sys/time.h" TM_IN_SYS_TIME)
+configure_file("${CMAKE_CURRENT_SOURCE_DIR}/include/ta_config.h.cmake" "${CMAKE_CURRENT_SOURCE_DIR}/include/ta_config.h")
+
+include_directories(
+	"${CMAKE_CURRENT_SOURCE_DIR}/include"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_abstract"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_abstract/frames"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_common"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func"
+)
+
+# [ta_codegen begin LIB_SOURCES]
+set(LIB_SOURCES
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_utility.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_AC.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_ACCBANDS.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_ACOS.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_AD.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_ADD.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_ADOSC.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_ADR.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_ADX.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_ADXR.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_ALMA.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_AO.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_APO.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_AROON.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_AROONOSC.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_ASI.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_ASIN.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_ATAN.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_ATR.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_AVGDEV.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_AVGPRICE.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_BBANDS.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_BBW.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_BETA.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_BOP.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_CCI.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_CDL2CROWS.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_CDL3BLACKCROWS.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_CDL3INSIDE.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_CDL3LINESTRIKE.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_CDL3OUTSIDE.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_CDL3STARSINSOUTH.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_CDL3WHITESOLDIERS.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_CDLABANDONEDBABY.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_CDLADVANCEBLOCK.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_CDLBELTHOLD.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_CDLBREAKAWAY.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_CDLCLOSINGMARUBOZU.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_CDLCONCEALBABYSWALL.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_CDLCOUNTERATTACK.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_CDLDARKCLOUDCOVER.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_CDLDOJI.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_CDLDOJISTAR.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_CDLDRAGONFLYDOJI.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_CDLENGULFING.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_CDLEVENINGDOJISTAR.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_CDLEVENINGSTAR.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_CDLGAPSIDESIDEWHITE.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_CDLGRAVESTONEDOJI.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_CDLHAMMER.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_CDLHANGINGMAN.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_CDLHARAMI.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_CDLHARAMICROSS.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_CDLHIGHWAVE.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_CDLHIKKAKE.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_CDLHIKKAKEMOD.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_CDLHOMINGPIGEON.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_CDLIDENTICAL3CROWS.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_CDLINNECK.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_CDLINVERTEDHAMMER.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_CDLKICKING.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_CDLKICKINGBYLENGTH.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_CDLLADDERBOTTOM.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_CDLLONGLEGGEDDOJI.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_CDLLONGLINE.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_CDLMARUBOZU.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_CDLMATCHINGLOW.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_CDLMATHOLD.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_CDLMORNINGDOJISTAR.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_CDLMORNINGSTAR.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_CDLONNECK.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_CDLPIERCING.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_CDLRICKSHAWMAN.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_CDLRISEFALL3METHODS.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_CDLSEPARATINGLINES.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_CDLSHOOTINGSTAR.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_CDLSHORTLINE.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_CDLSPINNINGTOP.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_CDLSTALLEDPATTERN.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_CDLSTICKSANDWICH.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_CDLTAKURI.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_CDLTASUKIGAP.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_CDLTHRUSTING.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_CDLTRISTAR.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_CDLUNIQUE3RIVER.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_CDLUPSIDEGAP2CROWS.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_CDLXSIDEGAP3METHODS.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_CEIL.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_CG.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_CHOP.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_CHOPTR.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_CKSP.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_CMF.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_CMO.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_CMOU.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_COPPOCK.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_CORREL.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_COS.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_COSH.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_CRSI.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_CTI.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_CUMSUM.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_CVI.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_DEMA.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_DIV.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_DONCHIAN.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_DOSC.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_DPO.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_DX.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_EFI.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_EMA.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_EMV.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_ER.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_ERI.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_EXP.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_FISHER.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_FLOOR.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_FOSC.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_FRACTAL.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_FRAMA.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_HA.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_HMA.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_HT_DCPERIOD.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_HT_DCPHASE.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_HT_PHASOR.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_HT_SINE.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_HT_TRENDLINE.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_HT_TRENDMODE.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_IBS.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_ICHIMOKU.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_IMI.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_KAMA.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_KC.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_KDJ.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_KST.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_KSTEXT.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_KURTOSIS.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_KVO.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_LINEARREG.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_LINEARREG_ANGLE.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_LINEARREG_INTERCEPT.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_LINEARREG_SLOPE.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_LN.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_LOG10.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_MA.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_MACD.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_MACDEXT.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_MACDFIX.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_MAMA.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_MARKETFI.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_MASSI.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_MAVP.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_MAX.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_MAXINDEX.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_MCGD.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_MEDIAN.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_MEDPRICE.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_MFI.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_MIDPOINT.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_MIDPRICE.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_MIN.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_MININDEX.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_MINMAX.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_MINMAXINDEX.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_MINUS_DI.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_MINUS_DM.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_MOM.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_MULT.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_NATR.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_NVI.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_OBV.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_PERCENTB.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_PERCENTILE.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_PERCENTRANK.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_PLUS_DI.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_PLUS_DM.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_PPO.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_PSO.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_PVI.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_PVO.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_PVT.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_QSTICK.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_RMA.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_ROC.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_ROCP.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_ROCR.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_ROCR100.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_ROGERSSATCHELL.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_RSI.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_RVI.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_RVIR.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_RVOL.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_SAR.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_SAREXT.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_SI.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_SIN.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_SINH.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_SMA.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_SMI.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_SQRT.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_SQZMOM.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_STC.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_STDDEV.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_STOCH.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_STOCHF.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_STOCHRSI.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_SUB.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_SUM.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_SUPERTREND.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_SWAK_2PHP.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_SWAK_BP.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_SWAK_BUTTER.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_SWAK_GAUSS.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_SWAK_HP.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_T3.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_TAN.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_TANH.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_TEMA.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_TRANGE.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_TRIMA.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_TRIX.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_TSF.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_TSI.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_TYPPRICE.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_ULTOSC.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_VAR.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_VHF.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_VIDYA.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_VORTEX.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_VWAP.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_VWMA.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_WAD.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_WAVETREND.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_WCLPRICE.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_WILLR.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_WMA.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_ZIGZAG.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func/ta_ZLEMA.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_abstract/frames/ta_frame.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_abstract/ta_func_api.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_abstract/ta_group_idx.c"
+)
+# [ta_codegen end LIB_SOURCES]
+
+list(APPEND LIB_SOURCES ${COMMON_SOURCES})
+list(APPEND LIB_SOURCES ${IDL_SOURCES})
+
+# --- Library artifact selection (issue #78) ---
+# Both default ON, so a plain build produces the shared + static libraries just
+# as before. Opt out with -DBUILD_SHARED_LIBS=OFF (static only) or
+# -DBUILD_STATIC_LIBS=OFF (shared only). BUILD_SHARED_LIBS is the standard CMake
+# variable that vcpkg/Conan already drive, so honoring it also lets those builds
+# request a single linkage instead of always building both.
+option(BUILD_SHARED_LIBS "Build the ta-lib shared library" ON)
+option(BUILD_STATIC_LIBS "Build the ta-lib static library" ON)
+if(NOT BUILD_SHARED_LIBS AND NOT BUILD_STATIC_LIBS)
+	message(FATAL_ERROR
+		"BUILD_SHARED_LIBS and BUILD_STATIC_LIBS are both OFF: nothing to build. "
+		"Enable at least one.")
+endif()
+message(STATUS "BUILD_SHARED_LIBS: ${BUILD_SHARED_LIBS}  BUILD_STATIC_LIBS: ${BUILD_STATIC_LIBS}")
+
+# libm note (applies to both targets): on Linux/glibc and the BSDs the math
+# functions (sin, cos, sqrt, atan, ...) live in a separate libm, so the shared
+# library needs its own DT_NEEDED libm and the static archive must propagate the
+# dependency to consumers. Windows math is in the CRT, macOS in libSystem, so 'm'
+# is linked only on non-Windows. PRIVATE: libm is an implementation detail.
+# The ABI generation is declared ONCE, in configure.ac, and parsed here — the two
+# build systems ship the same library and a soname they disagree about is a
+# library that resolves differently depending on which one built it. libtool's
+# arithmetic: soname suffix is `current - age`, file version `<soname>.age.revision`.
+# Without this the ABI generation can change and an EXISTING build tree keeps
+# stamping the old soname: `cmake --build` alone never re-reads configure.ac.
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
+             "${CMAKE_CURRENT_SOURCE_DIR}/configure.ac")
+file(STRINGS "${CMAKE_CURRENT_SOURCE_DIR}/configure.ac" TA_ABI_LINE
+     REGEX "^TALIB_LIBRARY_VERSION=[0-9]+:[0-9]+:[0-9]+$")
+if(NOT TA_ABI_LINE)
+	message(FATAL_ERROR "no TALIB_LIBRARY_VERSION=c:r:a in configure.ac — the ABI generation is declared there")
+endif()
+string(REGEX REPLACE "^TALIB_LIBRARY_VERSION=([0-9]+):([0-9]+):([0-9]+)$" "\\1;\\2;\\3"
+       TA_ABI_TRIPLE "${TA_ABI_LINE}")
+list(GET TA_ABI_TRIPLE 0 TA_ABI_CURRENT)
+list(GET TA_ABI_TRIPLE 1 TA_ABI_REVISION)
+list(GET TA_ABI_TRIPLE 2 TA_ABI_AGE)
+math(EXPR TA_SOVERSION "${TA_ABI_CURRENT} - ${TA_ABI_AGE}")
+set(TA_ABI_FILE_VERSION "${TA_SOVERSION}.${TA_ABI_AGE}.${TA_ABI_REVISION}")
+# libtool's darwin arithmetic, so both build systems stamp the same dylib versions.
+math(EXPR TA_MACHO_COMPAT "${TA_ABI_CURRENT} + 1")
+
+if(BUILD_SHARED_LIBS)
+	add_library(ta-lib SHARED ${LIB_SOURCES})
+	set_target_properties(ta-lib PROPERTIES
+		VERSION ${TA_ABI_FILE_VERSION}
+		SOVERSION ${TA_SOVERSION}
+		MACHO_COMPATIBILITY_VERSION ${TA_MACHO_COMPAT}
+		MACHO_CURRENT_VERSION ${TA_MACHO_COMPAT}.${TA_ABI_REVISION}
+		DEFINE_SYMBOL TA_LIB_SHARED
+		C_VISIBILITY_PRESET hidden
+		OUTPUT_NAME "ta-lib"
+	)
+
+	# Hidden-by-default is what makes TA_LIB_API mean the same thing on ELF that
+	# __declspec(dllexport) already means on Windows. Set as a target property,
+	# not from CMAKE_C_VISIBILITY_PRESET, so a consumer's cache cannot widen the
+	# shipped surface. The map handles what the flag cannot -- see src/libta-lib.map.
+	# --no-undefined-version makes a map naming a symbol that no longer exists a
+	# link error; GNU ld accepts one silently otherwise. Apple's ld understands
+	# neither flag and needs no map: target_clones is glibc-only, so no resolver
+	# is emitted there.
+	if(NOT WIN32 AND NOT APPLE)
+		set(TA_VERSION_SCRIPT "${CMAKE_CURRENT_SOURCE_DIR}/src/libta-lib.map")
+		target_link_options(ta-lib PRIVATE
+			"LINKER:--version-script,${TA_VERSION_SCRIPT}"
+			"LINKER:--no-undefined-version")
+		# Without this a regenerated map does not relink and the stale export
+		# table survives an incremental build.
+		set_target_properties(ta-lib PROPERTIES LINK_DEPENDS "${TA_VERSION_SCRIPT}")
+	endif()
+	# Both spellings are supported, so both are exported. With only include/ta-lib
+	# here, <ta-lib/ta_libc.h> still compiles at a system prefix by resolving
+	# against ANOTHER TA-Lib on the default search path.
+	target_include_directories(ta-lib PUBLIC
+		$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+		$<INSTALL_INTERFACE:include/ta-lib>
+		$<INSTALL_INTERFACE:include>)
+	if(NOT WIN32)
+		target_link_libraries(ta-lib PRIVATE m)
+	endif()
+endif()
+if(BUILD_STATIC_LIBS)
+	add_library(ta-lib-static STATIC ${LIB_SOURCES})
+	# Same visibility as the shared build, so a consumer who links this archive
+	# into their own shared library re-exports the TA_LIB_API surface and nothing
+	# else. Static LINKING is unaffected: a hidden symbol still resolves at link
+	# time, which is how the dev tools reach TA_Globals.
+	set_target_properties(ta-lib-static PROPERTIES C_VISIBILITY_PRESET hidden)
+
+	if(UNIX)
+		set_target_properties(ta-lib-static PROPERTIES OUTPUT_NAME ta-lib)
+	endif(UNIX)
+
+	if(WIN32)
+		# Note: WIN32 is defined regardless of 32 or 64 bits host.
+		# Keep the -static suffix so it does not collide with the shared import
+		# library ta-lib.lib; the vcpkg port renames it to ta-lib.lib for the
+		# static triplet.
+		set_target_properties(ta-lib-static PROPERTIES OUTPUT_NAME ta-lib-static)
+	endif(WIN32)
+
+	target_include_directories(ta-lib-static PUBLIC
+		$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+		$<INSTALL_INTERFACE:include/ta-lib>
+		$<INSTALL_INTERFACE:include>)
+	if(NOT WIN32)
+		target_link_libraries(ta-lib-static PRIVATE m)
+	endif()
+endif()
+
+if(MSVC)
+	add_compile_options($<$<STREQUAL:$<TARGET_PROPERTY:TYPE>,SHARED_LIBRARY>:/deterministic>)
+	add_compile_options($<$<STREQUAL:$<TARGET_PROPERTY:TYPE>,STATIC_LIBRARY>:/deterministic>)
+    add_link_options($<$<STREQUAL:$<TARGET_PROPERTY:TYPE>,SHARED_LIBRARY>:/Brepro>)
+    add_link_options($<$<STREQUAL:$<TARGET_PROPERTY:TYPE>,STATIC_LIBRARY>:/Brepro>)
+endif(MSVC)
+
+# Install the libraries and headers (only the targets that were built).
+set(TA_LIB_INSTALL_TARGETS "")
+if(BUILD_SHARED_LIBS)
+    list(APPEND TA_LIB_INSTALL_TARGETS ta-lib)
+endif()
+if(BUILD_STATIC_LIBS)
+    list(APPEND TA_LIB_INSTALL_TARGETS ta-lib-static)
+endif()
+
+# vcpkg builds one linkage per triplet, so ta-lib::ta-lib has to name whichever
+# library exists or its static and dynamic triplets export different names.
+if(NOT BUILD_SHARED_LIBS)
+    set_target_properties(ta-lib-static PROPERTIES EXPORT_NAME ta-lib)
+endif()
+
+if(WIN32)
+    install(TARGETS ${TA_LIB_INSTALL_TARGETS} EXPORT ta-lib-targets
+	    RUNTIME DESTINATION bin  # For shared libraries (DLLs on Windows)
+        LIBRARY DESTINATION lib  # For import library
+        ARCHIVE DESTINATION lib  # For static libraries
+    )
+
+    install(FILES ${LIB_HEADERS}
+        DESTINATION include/ta-lib
+    )
+else()
+    install(TARGETS ${TA_LIB_INSTALL_TARGETS} EXPORT ta-lib-targets
+        LIBRARY DESTINATION lib  # For shared libraries (.so on Linux)
+        ARCHIVE DESTINATION lib  # For static libraries
+    )
+    install(FILES ${LIB_HEADERS}
+        DESTINATION include/ta-lib
+    )
+endif()
+
+install(EXPORT ta-lib-targets
+    NAMESPACE ta-lib::
+    FILE ta-lib-config.cmake
+    DESTINATION lib/cmake/ta-lib)
+include(CMakePackageConfigHelpers)
+# configure.ac owns the ABI generation and moves it independently of this
+# version, so a stricter rule here rejects installs that are ABI-compatible.
+write_basic_package_version_file(
+    "${CMAKE_CURRENT_BINARY_DIR}/ta-lib-config-version.cmake"
+    VERSION ${PROJECT_VERSION}
+    COMPATIBILITY SameMajorVersion)
+install(FILES "${CMAKE_CURRENT_BINARY_DIR}/ta-lib-config-version.cmake"
+    DESTINATION lib/cmake/ta-lib)
+
+# Warn when another TA-Lib installation could shadow this
+# one (pre-0.6.0 "ta_lib" libs, headers directly under include/, or a ta-lib
+# install in the other system prefix).
+if(UNIX)
+	configure_file(
+		"${CMAKE_CURRENT_SOURCE_DIR}/cmake/warn-stale-installs.cmake.in"
+		"${CMAKE_BINARY_DIR}/warn-stale-installs.cmake"
+		@ONLY
+	)
+	install(SCRIPT "${CMAKE_BINARY_DIR}/warn-stale-installs.cmake")
+
+    # The .pc must describe where these files END UP. A CPack package stages
+    # under CPACK_PACKAGING_INSTALL_PREFIX (/usr for DEB) rather than here, so a
+    # packaging build has to be configured with a matching CMAKE_INSTALL_PREFIX
+    # -- scripts/package.py passes it, and verify_deb_payload fails the run if
+    # the shipped .pc and the shipped payload ever disagree again. Quoted: an
+    # unquoted prefix containing a space becomes a CMake list, and `libdir` then
+    # reads `/opt/ta;lib/lib`.
+    set(prefix "${CMAKE_INSTALL_PREFIX}")
+    set(exec_prefix "${prefix}")
+    set(libdir "${prefix}/lib")
+    set(includedir "${prefix}/include")
+    set(PACKAGE_VERSION ${PROJECT_VERSION})
+    if(NOT WIN32)
+        set(LIBM "-lm")
+    else()
+        set(LIBM "")
+    endif()
+    configure_file(
+        "${CMAKE_CURRENT_SOURCE_DIR}/ta-lib.pc.in"
+        "${CMAKE_BINARY_DIR}/ta-lib.pc" @ONLY)
+    install(FILES ${CMAKE_BINARY_DIR}/ta-lib.pc DESTINATION lib/pkgconfig)
+endif()
+
+# The dev tools reach TA_Globals, which no installed header declares. The
+# ELF/Mach-O library still exports it (src/ta_common/ta_global.h says why), so
+# the tools can fall back to the shared library there; on Windows the DLL never
+# has, so a shared-only build cannot link them -- skip them (a shared-only build
+# is a packaging request; the dev tools are not needed).
+set(_TA_BUILD_TOOLS ${BUILD_DEV_TOOLS})
+if(BUILD_DEV_TOOLS AND WIN32 AND NOT BUILD_STATIC_LIBS)
+	message(WARNING "BUILD_DEV_TOOLS is ON but the dev tools require the static library "
+		"on Windows (BUILD_STATIC_LIBS=OFF); skipping ta_regtest and the benchmarks. "
+		"Set BUILD_STATIC_LIBS=ON to build them.")
+	set(_TA_BUILD_TOOLS OFF)
+endif()
+
+if(_TA_BUILD_TOOLS)
+	##############
+	# ta_regtest #
+	##############
+	set(TA_REGTEST_SOURCES
+		"${CMAKE_CURRENT_SOURCE_DIR}/src/tools/ta_regtest/ta_regtest.c"
+		"${CMAKE_CURRENT_SOURCE_DIR}/src/tools/ta_regtest/ta_test_func/test_candlestick.c"
+		"${CMAKE_CURRENT_SOURCE_DIR}/src/tools/ta_regtest/ta_test_func/test_1in_1out.c"
+		"${CMAKE_CURRENT_SOURCE_DIR}/src/tools/ta_regtest/ta_test_func/test_1in_2out.c"
+		"${CMAKE_CURRENT_SOURCE_DIR}/src/tools/ta_regtest/test_internals.c"
+		"${CMAKE_CURRENT_SOURCE_DIR}/src/tools/ta_regtest/ta_test_func/test_adx.c"
+		"${CMAKE_CURRENT_SOURCE_DIR}/src/tools/ta_regtest/ta_test_func/test_avgdev.c"
+		"${CMAKE_CURRENT_SOURCE_DIR}/src/tools/ta_regtest/ta_test_func/test_bbands.c"
+		"${CMAKE_CURRENT_SOURCE_DIR}/src/tools/ta_regtest/ta_test_func/test_imi.c"
+		"${CMAKE_CURRENT_SOURCE_DIR}/src/tools/ta_regtest/ta_test_func/test_ma.c"
+		"${CMAKE_CURRENT_SOURCE_DIR}/src/tools/ta_regtest/ta_test_func/test_median.c"
+		"${CMAKE_CURRENT_SOURCE_DIR}/src/tools/ta_regtest/ta_test_func/test_macd.c"
+		"${CMAKE_CURRENT_SOURCE_DIR}/src/tools/ta_regtest/ta_test_func/test_minmax.c"
+		"${CMAKE_CURRENT_SOURCE_DIR}/src/tools/ta_regtest/ta_test_func/test_rolling_extremum.c"
+		"${CMAKE_CURRENT_SOURCE_DIR}/src/tools/ta_regtest/ta_test_func/test_mom.c"
+		"${CMAKE_CURRENT_SOURCE_DIR}/src/tools/ta_regtest/ta_test_func/test_per_ema.c"
+		"${CMAKE_CURRENT_SOURCE_DIR}/src/tools/ta_regtest/ta_test_func/test_per_hl.c"
+		"${CMAKE_CURRENT_SOURCE_DIR}/src/tools/ta_regtest/ta_test_func/test_per_hlc.c"
+		"${CMAKE_CURRENT_SOURCE_DIR}/src/tools/ta_regtest/ta_test_func/test_per_hlcv.c"
+		"${CMAKE_CURRENT_SOURCE_DIR}/src/tools/ta_regtest/ta_test_func/test_per_cv.c"
+		"${CMAKE_CURRENT_SOURCE_DIR}/src/tools/ta_regtest/ta_test_func/test_per_ohlc.c"
+		"${CMAKE_CURRENT_SOURCE_DIR}/src/tools/ta_regtest/ta_test_func/test_po.c"
+		"${CMAKE_CURRENT_SOURCE_DIR}/src/tools/ta_regtest/ta_test_func/test_rsi.c"
+		"${CMAKE_CURRENT_SOURCE_DIR}/src/tools/ta_regtest/ta_test_func/test_sar.c"
+		"${CMAKE_CURRENT_SOURCE_DIR}/src/tools/ta_regtest/ta_test_func/test_stddev.c"
+		"${CMAKE_CURRENT_SOURCE_DIR}/src/tools/ta_regtest/ta_test_func/test_correl.c"
+		"${CMAKE_CURRENT_SOURCE_DIR}/src/tools/ta_regtest/ta_test_func/test_cti.c"
+		"${CMAKE_CURRENT_SOURCE_DIR}/src/tools/ta_regtest/ta_test_func/test_beta.c"
+		"${CMAKE_CURRENT_SOURCE_DIR}/src/tools/ta_regtest/ta_test_func/test_linearreg.c"
+		"${CMAKE_CURRENT_SOURCE_DIR}/src/tools/ta_regtest/ta_test_func/test_wma.c"
+		"${CMAKE_CURRENT_SOURCE_DIR}/src/tools/ta_regtest/ta_test_func/test_reference.c"
+		"${CMAKE_CURRENT_SOURCE_DIR}/src/tools/ta_regtest/ta_test_func/test_stoch.c"
+		"${CMAKE_CURRENT_SOURCE_DIR}/src/tools/ta_regtest/ta_test_func/test_trange.c"
+		"${CMAKE_CURRENT_SOURCE_DIR}/src/tools/ta_regtest/ta_test_func/test_period_boundary.c"
+		"${CMAKE_CURRENT_SOURCE_DIR}/src/tools/ta_regtest/ta_test_func/test_quote_unit.c"
+		"${CMAKE_CURRENT_SOURCE_DIR}/src/tools/ta_regtest/ta_test_func/test_mavp.c"
+		"${CMAKE_CURRENT_SOURCE_DIR}/src/tools/ta_regtest/ta_test_func/test_s_overflow.c"
+		"${CMAKE_CURRENT_SOURCE_DIR}/src/tools/ta_regtest/ta_test_func/test_div_zero.c"
+		"${CMAKE_CURRENT_SOURCE_DIR}/src/tools/ta_regtest/ta_test_func/test_stream_finite.c"
+		"${CMAKE_CURRENT_SOURCE_DIR}/src/tools/ta_regtest/ta_test_func/test_open_contract.c"
+		"${CMAKE_CURRENT_SOURCE_DIR}/src/tools/ta_regtest/ta_test_func/test_composite1.c"
+		"${CMAKE_CURRENT_SOURCE_DIR}/src/tools/ta_regtest/ta_test_func/test_composite2.c"
+		"${CMAKE_CURRENT_SOURCE_DIR}/src/tools/ta_regtest/ta_test_func/test_marketfi.c"
+		"${CMAKE_CURRENT_SOURCE_DIR}/src/tools/ta_regtest/ta_test_func/test_dosc.c"
+		"${CMAKE_CURRENT_SOURCE_DIR}/src/tools/ta_regtest/ta_test_func/test_fisher.c"
+		"${CMAKE_CURRENT_SOURCE_DIR}/src/tools/ta_regtest/ta_test_func/test_kvo.c"
+		"${CMAKE_CURRENT_SOURCE_DIR}/src/tools/ta_regtest/ta_test_func/test_ichimoku.c"
+		"${CMAKE_CURRENT_SOURCE_DIR}/src/tools/ta_regtest/ta_test_func/test_sqzmom.c"
+		"${CMAKE_CURRENT_SOURCE_DIR}/src/tools/ta_regtest/ta_test_func/test_zigzag.c"
+		"${CMAKE_CURRENT_SOURCE_DIR}/src/tools/ta_regtest/ta_test_func/test_pso.c"
+		"${CMAKE_CURRENT_SOURCE_DIR}/src/tools/ta_regtest/ta_test_func/test_rogerssatchell.c"
+		"${CMAKE_CURRENT_SOURCE_DIR}/src/tools/ta_regtest/ta_test_func/test_emv.c"
+		"${CMAKE_CURRENT_SOURCE_DIR}/src/tools/ta_regtest/ta_test_func/test_kst.c"
+		"${CMAKE_CURRENT_SOURCE_DIR}/src/tools/ta_regtest/ta_test_func/test_kstext.c"
+		"${CMAKE_CURRENT_SOURCE_DIR}/src/tools/ta_regtest/ta_test_func/test_chop.c"
+		"${CMAKE_CURRENT_SOURCE_DIR}/src/tools/ta_regtest/ta_test_func/test_vwap.c"
+		"${CMAKE_CURRENT_SOURCE_DIR}/src/tools/ta_regtest/ta_test_func/test_cmf.c"
+		"${CMAKE_CURRENT_SOURCE_DIR}/src/tools/ta_regtest/ta_test_func/test_kc.c"
+		"${CMAKE_CURRENT_SOURCE_DIR}/src/tools/ta_regtest/ta_test_func/test_kurtosis.c"
+		"${CMAKE_CURRENT_SOURCE_DIR}/src/tools/ta_regtest/ta_test_func/test_donchian.c"
+		"${CMAKE_CURRENT_SOURCE_DIR}/src/tools/ta_regtest/ta_test_func/test_rma.c"
+		"${CMAKE_CURRENT_SOURCE_DIR}/src/tools/ta_regtest/ta_test_func/test_cksp.c"
+		"${CMAKE_CURRENT_SOURCE_DIR}/src/tools/ta_regtest/ta_test_func/test_supertrend.c"
+		"${CMAKE_CURRENT_SOURCE_DIR}/src/tools/ta_regtest/ta_test_func/test_mfi.c"
+		"${CMAKE_CURRENT_SOURCE_DIR}/src/tools/ta_regtest/ta_test_func/test_cmou.c"
+		"${CMAKE_CURRENT_SOURCE_DIR}/src/tools/ta_regtest/ta_test_func/test_vortex.c"
+		"${CMAKE_CURRENT_SOURCE_DIR}/src/tools/ta_regtest/ta_test_func/test_eri.c"
+		"${CMAKE_CURRENT_SOURCE_DIR}/src/tools/ta_regtest/ta_test_func/test_cumsum.c"
+		"${CMAKE_CURRENT_SOURCE_DIR}/src/tools/ta_regtest/ta_test_func/test_zlema.c"
+		"${CMAKE_CURRENT_SOURCE_DIR}/src/tools/ta_regtest/ta_test_func/test_wavetrend.c"
+		"${CMAKE_CURRENT_SOURCE_DIR}/src/tools/ta_regtest/ta_test_func/test_vhf.c"
+		"${CMAKE_CURRENT_SOURCE_DIR}/src/tools/ta_regtest/ta_test_func/test_rvi.c"
+		"${CMAKE_CURRENT_SOURCE_DIR}/src/tools/ta_regtest/ta_test_func/test_rvir.c"
+		"${CMAKE_CURRENT_SOURCE_DIR}/src/tools/ta_regtest/ta_test_func/test_ibs.c"
+		"${CMAKE_CURRENT_SOURCE_DIR}/src/tools/ta_regtest/ta_test_func/test_frama.c"
+		"${CMAKE_CURRENT_SOURCE_DIR}/src/tools/ta_regtest/ta_test_func/test_mcgd.c"
+		"${CMAKE_CURRENT_SOURCE_DIR}/src/tools/ta_regtest/ta_test_func/test_vidya.c"
+		"${CMAKE_CURRENT_SOURCE_DIR}/src/tools/ta_regtest/ta_test_func/test_alma.c"
+		"${CMAKE_CURRENT_SOURCE_DIR}/src/tools/ta_regtest/ta_test_func/test_stc.c"
+		"${CMAKE_CURRENT_SOURCE_DIR}/src/tools/ta_regtest/ta_test_func/test_auto_stabilization.c"
+		"${CMAKE_CURRENT_SOURCE_DIR}/src/tools/ta_regtest/ta_test_func/test_transcendental_ref.c"
+		"${CMAKE_CURRENT_SOURCE_DIR}/src/tools/ta_regtest/ta_test_func/test_swak.c"
+		"${CMAKE_CURRENT_SOURCE_DIR}/src/tools/ta_regtest/ta_test_func/test_fractal.c"
+		"${CMAKE_CURRENT_SOURCE_DIR}/src/tools/ta_regtest/ta_test_func/test_ha.c"
+		"${CMAKE_CURRENT_SOURCE_DIR}/src/tools/ta_regtest/ta_test_func/test_tsi.c"
+		"${CMAKE_CURRENT_SOURCE_DIR}/src/tools/ta_regtest/ta_test_func/test_kdj.c"
+		"${CMAKE_CURRENT_SOURCE_DIR}/src/tools/ta_regtest/ta_test_func/test_fosc.c"
+		"${CMAKE_CURRENT_SOURCE_DIR}/src/tools/ta_regtest/ta_test_func/test_dpo.c"
+		"${CMAKE_CURRENT_SOURCE_DIR}/src/tools/ta_regtest/ta_test_func/test_percentrank.c"
+		"${CMAKE_CURRENT_SOURCE_DIR}/src/tools/ta_regtest/ta_test_func/test_crsi.c"
+		"${CMAKE_CURRENT_SOURCE_DIR}/src/tools/ta_regtest/ta_test_func/test_bbw.c"
+		"${CMAKE_CURRENT_SOURCE_DIR}/src/tools/ta_regtest/ta_test_func/test_cg.c"
+		"${CMAKE_CURRENT_SOURCE_DIR}/src/tools/ta_regtest/ta_test_func/test_percentb.c"
+		"${CMAKE_CURRENT_SOURCE_DIR}/src/tools/ta_regtest/ta_test_func/test_si.c"
+		"${CMAKE_CURRENT_SOURCE_DIR}/src/tools/ta_regtest/ta_test_func/test_percentile.c"
+		"${CMAKE_CURRENT_SOURCE_DIR}/src/tools/ta_regtest/ta_test_func/test_cvi.c"
+		"${CMAKE_CURRENT_SOURCE_DIR}/src/tools/ta_regtest/ta_test_func/test_massi.c"
+		"${CMAKE_CURRENT_SOURCE_DIR}/src/tools/ta_regtest/ta_test_func/test_adr.c"
+		"${CMAKE_CURRENT_SOURCE_DIR}/src/tools/ta_regtest/ta_test_func/test_rvol.c"
+		"${CMAKE_CURRENT_SOURCE_DIR}/src/tools/ta_regtest/ta_test_func/test_variants.c"
+		"${CMAKE_CURRENT_SOURCE_DIR}/src/tools/ta_regtest/ta_test_legacy.c"
+
+		"${CMAKE_CURRENT_SOURCE_DIR}/src/tools/ta_regtest/codegen_pipe.c"
+		"${CMAKE_CURRENT_SOURCE_DIR}/src/tools/ta_regtest/test_codegen.c"
+		"${CMAKE_CURRENT_SOURCE_DIR}/src/tools/ta_regtest/test_util.c"
+		"${CMAKE_CURRENT_SOURCE_DIR}/src/tools/ta_regtest/meta_ride.c"
+		"${CMAKE_CURRENT_SOURCE_DIR}/src/tools/ta_regtest/test_data.c"
+		"${CMAKE_CURRENT_SOURCE_DIR}/src/tools/ta_regtest/test_abstract.c"
+		"${CMAKE_CURRENT_SOURCE_DIR}/src/tools/ta_regtest/server_verify.c"
+		"${CMAKE_CURRENT_SOURCE_DIR}/src/tools/ta_regtest/ta_test_reference.c"
+		"${CMAKE_CURRENT_SOURCE_DIR}/src/tools/ta_regtest/ta_test_reference_golden.c"
+	)
+
+	# Link the static lib (built alongside by default); on a non-Windows
+	# shared-only build fall back to the shared lib, which still exports the one
+	# internal these tools need.
+	# (The Windows shared-only case never reaches here -- see _TA_BUILD_TOOLS.)
+	if(BUILD_STATIC_LIBS)
+		set(TA_LIB_TOOL_TARGET ta-lib-static)
+	else()
+		set(TA_LIB_TOOL_TARGET ta-lib)
+	endif()
+
+	add_executable(ta_regtest ${TA_REGTEST_SOURCES})
+
+	# Set the include directories for ta_regtest
+	target_include_directories(ta_regtest PRIVATE
+		"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_common"
+		"${CMAKE_CURRENT_SOURCE_DIR}/src/tools/ta_regtest"
+		"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_func"
+		"${CMAKE_CURRENT_SOURCE_DIR}/include"
+	)
+
+	# Link the necessary libraries for ta_regtest (the 'm' is for the Math library)
+	# On windows, no need for a math library. It is already included in the standard library.
+	if(WIN32)
+		target_link_libraries(ta_regtest PRIVATE ${TA_LIB_TOOL_TARGET})
+	else()
+		target_link_libraries(ta_regtest PRIVATE ${TA_LIB_TOOL_TARGET} m)
+	endif()
+
+	# Set the output directory for the ta_regtest executable during the build process
+	set_target_properties(ta_regtest PROPERTIES
+		RUNTIME_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/bin"
+	)
+
+	############
+	# ta_bench #
+	############
+	# Opt-in, unlike ta_regtest: the benchmarks answer questions only TA-Lib's
+	# own developers ask, so a library consumer building from a git clone should
+	# not compile them. They are also absent from the released source tarball
+	# (autotools never descends into src/tools/ta_bench), so this keeps the two
+	# build systems agreeing on what a non-developer gets.
+	if(BUILD_BENCHMARKS)
+	add_executable(ta_bench
+		"${CMAKE_CURRENT_SOURCE_DIR}/src/tools/ta_bench/ta_bench.c"
+		"${CMAKE_CURRENT_SOURCE_DIR}/src/tools/ta_regtest/codegen_pipe.c"
+	)
+	target_include_directories(ta_bench PRIVATE
+		"${CMAKE_CURRENT_SOURCE_DIR}/include"
+		"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_common"
+		"${CMAKE_CURRENT_SOURCE_DIR}/src/tools/ta_regtest"
+	)
+	if(WIN32)
+		target_link_libraries(ta_bench PRIVATE ${TA_LIB_TOOL_TARGET})
+	else()
+		target_link_libraries(ta_bench PRIVATE ${TA_LIB_TOOL_TARGET} m)
+	endif()
+	set_target_properties(ta_bench PROPERTIES
+		RUNTIME_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/bin"
+	)
+	if(NOT MSVC)
+		# MSVC: Release config already uses /O2; forcing it here would
+		# conflict with /RTC1 in Debug builds.
+		target_compile_options(ta_bench PRIVATE -O3)
+	endif()
+
+	#####################
+	# ta_bench_direct #
+	#####################
+	add_executable(ta_bench_direct
+		"${CMAKE_CURRENT_SOURCE_DIR}/src/tools/ta_bench/ta_bench_direct.c"
+	)
+	target_include_directories(ta_bench_direct PRIVATE
+		"${CMAKE_CURRENT_SOURCE_DIR}/include"
+		"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_common"
+	)
+	if(WIN32)
+		target_link_libraries(ta_bench_direct PRIVATE ${TA_LIB_TOOL_TARGET})
+	else()
+		target_link_libraries(ta_bench_direct PRIVATE ${TA_LIB_TOOL_TARGET} m)
+	endif()
+	set_target_properties(ta_bench_direct PROPERTIES
+		RUNTIME_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/bin"
+	)
+	if(NOT MSVC)
+		target_compile_options(ta_bench_direct PRIVATE -O3)
+	endif()
+
+	####################
+	# ta_bench_icount #
+	####################
+	# The nightly instruction-count suite (scripts/bench_icount.py). Generated
+	# by ta_codegen, but built HERE rather than by cargo like the other two
+	# generated benches, because it must link the shipped library: the single-TU
+	# -flto builds let gcc re-decide inlining corpus-wide, which moves hundreds
+	# of unrelated rows on an unrelated commit.
+	add_executable(ta_bench_icount
+		"${CMAKE_CURRENT_SOURCE_DIR}/ta_codegen/output/c/tools/ta_bench_icount.c"
+	)
+	target_include_directories(ta_bench_icount PRIVATE
+		"${CMAKE_CURRENT_SOURCE_DIR}/include"
+		"${CMAKE_CURRENT_SOURCE_DIR}/src"
+		"${CMAKE_CURRENT_SOURCE_DIR}/src/ta_common"
+		"${CMAKE_CURRENT_SOURCE_DIR}/src/tools/ta_bench"
+	)
+	if(WIN32)
+		target_link_libraries(ta_bench_icount PRIVATE ${TA_LIB_TOOL_TARGET})
+	else()
+		target_link_libraries(ta_bench_icount PRIVATE ${TA_LIB_TOOL_TARGET} m)
+	endif()
+	set_target_properties(ta_bench_icount PROPERTIES
+		RUNTIME_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/bin"
+	)
+	if(NOT MSVC)
+		# -g is not for symbol attribution (the counts come from callgrind client
+		# requests, not from the call graph); it is so callgrind_annotate can name
+		# a line when someone follows a regression by hand.
+		target_compile_options(ta_bench_icount PRIVATE -O3 -g)
+	endif()
+
+	# Stage the benches into bin/, which is where the docs and the perf skill
+	# invoke them, and where ta_bench_direct must find ./ta_bench_cg (cargo puts
+	# the two generated benches there).
+	#
+	# ALL, but scoped inside BUILD_BENCHMARKS, so it exists only for developers
+	# who opted in — a consumer build never defines it. POST_BUILD would be
+	# wrong here: it runs only when the target relinks, so an up-to-date
+	# ta_bench would leave bin/ holding an older copy indefinitely, which is the
+	# staleness this exists to prevent.
+	add_custom_target(stage_benchmarks ALL
+		COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_CURRENT_SOURCE_DIR}/bin"
+		COMMAND ${CMAKE_COMMAND} -E copy_if_different
+		"$<TARGET_FILE:ta_bench>"
+		"${CMAKE_CURRENT_SOURCE_DIR}/bin/$<TARGET_FILE_NAME:ta_bench>"
+		COMMAND ${CMAKE_COMMAND} -E copy_if_different
+		"$<TARGET_FILE:ta_bench_direct>"
+		"${CMAKE_CURRENT_SOURCE_DIR}/bin/$<TARGET_FILE_NAME:ta_bench_direct>"
+		COMMAND ${CMAKE_COMMAND} -E copy_if_different
+		"$<TARGET_FILE:ta_bench_icount>"
+		"${CMAKE_CURRENT_SOURCE_DIR}/bin/$<TARGET_FILE_NAME:ta_bench_icount>"
+		DEPENDS ta_bench ta_bench_direct ta_bench_icount
+	)
+	endif() # BUILD_BENCHMARKS
+
+	# Add a custom target to ensure ta_regtest is copied to ta-lib/bin directory
+	# ta_regtest is a USER-facing tool — downstream packagers (brew) run it to
+	# verify the library behaves on their setup — so it is an ALL target and is
+	# always present in bin/. The benchmarks are developer-only and get no such
+	# treatment; they only refresh bin/ as a side effect of being built (below).
+	add_custom_target(ensure_ta_regtest_in_bin ALL
+		COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_CURRENT_SOURCE_DIR}/bin"
+		COMMAND ${CMAKE_COMMAND} -E copy_if_different
+		"$<TARGET_FILE:ta_regtest>"
+		"${CMAKE_CURRENT_SOURCE_DIR}/bin/$<TARGET_FILE_NAME:ta_regtest>"
+		DEPENDS ta_regtest
+	)
+
+endif()
+
+# --- Convenience test targets (run the C ta_regtest binary) ---
+# make test           - C reference tests only
+# make regtest        - cross-language codegen verification (C, Java, C#, Rust)
+#
+# These run the already-built C ta_regtest binary; building ta_codegen and the
+# language servers is the developer build script's job (scripts/build.py — run
+# `scripts/build.py servers` first). CMake itself never invokes cargo.
+#
+# Pass extra args: cmake --build . --target regtest -- REGTEST_ARGS="--function=SMA"
+
+if(_TA_BUILD_TOOLS)
+	# C reference tests only
+	add_custom_target(test
+		COMMAND ${CMAKE_COMMAND} -E chdir "${CMAKE_CURRENT_SOURCE_DIR}/bin"
+			./ta_regtest
+		DEPENDS ensure_ta_regtest_in_bin
+		COMMENT "Running C reference regression tests"
+	)
+
+	# Cross-language codegen verification (requires the servers to be pre-built
+	# via `scripts/build.py servers`).
+	add_custom_target(regtest
+		COMMAND ${CMAKE_COMMAND} -E chdir "${CMAKE_CURRENT_SOURCE_DIR}/bin"
+			./ta_regtest --codegen --language=c,java,csharp,rust
+		DEPENDS ensure_ta_regtest_in_bin
+		COMMENT "Running cross-language regression tests (C, Java, C#, Rust)"
+	)
+endif()
+
+#############
+# Packaging #
+#############
+
+# Example of good assets naming:
+#    https://cmake.org/download/
+
+# Set variables controling the package creation.
+set(CPACK_BUILD_CONFIG "${CMAKE_BUILD_TYPE}")
+
+# Set common package metadata
+set(CPACK_PACKAGE_VERSION_MAJOR ${TA_LIB_VERSION_MAJOR})
+set(CPACK_PACKAGE_VERSION_MINOR ${TA_LIB_VERSION_MINOR})
+set(CPACK_PACKAGE_VERSION_PATCH ${TA_LIB_VERSION_PATCH})
+set(CPACK_PACKAGE_VERSION ${PROJECT_VERSION})
+
+set(CPACK_PACKAGE_VENDOR "ta-lib.org")
+set(CPACK_PACKAGE_CONTACT "mfortier@yahoo.com")
+
+set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "TA-Lib Technical Analysis Library")
+
+if(WIN32)
+    # Use mix case for Windows "best practice" in "C:\Program Files"
+    set(CPACK_PACKAGE_INSTALL_DIRECTORY "TA-Lib")
+	# Set a constant UPGRADE_GUID for each variant (never change these)
+	if(CMAKE_SIZEOF_VOID_P EQUAL 8)
+	  set(CPACK_WIX_UPGRADE_GUID "37b08339-521a-422f-a964-e616bd3e06b9")
+	  set(CPACK_PACKAGE_NAME "TA-Lib (64 bits)")
+	else()
+	  set(CPACK_WIX_UPGRADE_GUID "773316fa-8a9d-433c-b639-8f71a71641c5")
+	  set(CPACK_PACKAGE_NAME "TA-Lib (32 bits)")
+	endif()
+else()
+    # Keep everything lowercase for Unix-like systems
+    set(CPACK_PACKAGE_INSTALL_DIRECTORY "ta-lib")
+	set(CPACK_PACKAGE_NAME "ta-lib")
+endif()
+set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_CURRENT_SOURCE_DIR}/LICENSE")
+set(CPACK_RESOURCE_FILE_README "${CMAKE_CURRENT_SOURCE_DIR}/README.md")
+
+# Detect host architecture and set DEB and RPM specific architecture variables
+message(STATUS "CMAKE_SYSTEM_PROCESSOR: ${CMAKE_SYSTEM_PROCESSOR}")
+if(CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|amd64|AMD64")
+	if(WIN32)
+	  # Handle cross-compilation configured with, say, using "vcvarsall.bat amd64_arm" settings.
+	  # For windows, assume CMAKE_SYSTEM_PROCESSOR is always "AMD64", and  the target architecture
+	  # is in PLATFORM_ENV.
+	  #
+	  # There is no plan to cross-compile from anything else than AMD64.
+	  if(PLATFORM_ENV STREQUAL "x86")
+	    set(MSI_HOST_ARCH "x86_32")
+	    message(STATUS "Cross-compilation to ${MSI_HOST_ARCH}")
+      elseif(PLATFORM_ENV STREQUAL "arm")
+	    set(MSI_HOST_ARCH "arm_32")
+	    message(STATUS "Cross-compilation to ${MSI_HOST_ARCH}")
+	  elseif(PLATFORM_ENV STREQUAL "arm64")
+	    set(MSI_HOST_ARCH "arm_64")
+	    message(STATUS "Cross-compilation to ${MSI_HOST_ARCH}")
+	  elseif(PLATFORM_ENV STREQUAL "x64")
+	    set(MSI_HOST_ARCH "x86_64")
+	  else()
+	    # Platform is unset outside a vcvarsall shell and can hold an unrelated OEM
+	    # value; only the MSI package name reads this, so never fail configure on it.
+	    if(CMAKE_SIZEOF_VOID_P EQUAL 8)
+	      set(MSI_HOST_ARCH "x86_64")
+	    else()
+	      set(MSI_HOST_ARCH "x86_32")
+	    endif()
+      endif()
+    else()
+	  set(DEB_HOST_ARCH "amd64")
+	  set(RPM_HOST_ARCH "x86_64")
+	endif()
+elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "x86|i386|i686")
+    set(DEB_HOST_ARCH "i386")
+    set(RPM_HOST_ARCH "i386")
+    set(MSI_HOST_ARCH "x86_32")
+elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "armv7l")
+    set(DEB_HOST_ARCH "armhf")
+    set(RPM_HOST_ARCH "armv7hl")
+    set(MSI_HOST_ARCH "arm_32")
+elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64")
+    set(DEB_HOST_ARCH "arm64")
+    set(RPM_HOST_ARCH "aarch64")
+    set(MSI_HOST_ARCH "arm_64")
+elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "ppc64le")
+    set(DEB_HOST_ARCH "ppc64el")
+    set(RPM_HOST_ARCH "ppc64le")
+    set(MSI_HOST_ARCH "ppc64le")
+elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "s390x")
+    set(DEB_HOST_ARCH "s390x")
+    set(RPM_HOST_ARCH "s390x")
+    set(MSI_HOST_ARCH "s390x")
+else()
+    set(DEB_HOST_ARCH "${CMAKE_SYSTEM_PROCESSOR}")
+    set(RPM_HOST_ARCH "${CMAKE_SYSTEM_PROCESSOR}")
+    set(MSI_HOST_ARCH "${CMAKE_SYSTEM_PROCESSOR}")
+endif()
+
+# Debian package created by TA-LIb CI only if host is ubuntu.
+# The package should work on any debian-based Linux.
+#
+# More info: https://www.debian.org/doc/debian-policy/ch-controlfields.html#source
+set(CPACK_DEBIAN_PACKAGE_ARCHITECTURE "${DEB_HOST_ARCH}")
+set(CPACK_DEBIAN_PACKAGE_DEPENDS "libc6")
+set(CPACK_DEBIAN_PACKAGE_MAINTAINER "mfortier@yahoo.com")
+set(CPACK_DEBIAN_PACKAGE_PRIORITY "optional")
+set(CPACK_DEBIAN_PACKAGE_SECTION "libs")
+
+# RPM package created only if host is red-hat based.
+set(CPACK_RPM_PACKAGE_ARCHITECTURE "${RPM_HOST_ARCH}")
+set(CPACK_RPM_PACKAGE_GROUP "Development/Libraries")
+set(CPACK_RPM_PACKAGE_LICENSE "BSD")
+set(CPACK_RPM_PACKAGE_REQUIRES "glibc")
+
+# MSI package created only if host is windows.
+
+# CPACK_WIX_VERSION "4" is for ""4 and later" and is the one to use for Wix 5
+# References:
+#    https://cmake.org/cmake/help/latest/cpack_gen/wix.html#variable:CPACK_WIX_VERSION
+#    https://stackoverflow.com/questions/77584815/how-to-use-wix-v4-within-cmake-to-build-an-installation-package-for-windows
+set(CPACK_WIX_VERSION "4")
+set(CPACK_WIX_LICENSE_RTF "${CMAKE_CURRENT_SOURCE_DIR}/LICENSE.rtf")
+#set(CPACK_WIX_UI_BANNER "${CMAKE_CURRENT_SOURCE_DIR}/banner.bmp")
+#set(CPACK_WIX_UI_DIALOG "${CMAKE_CURRENT_SOURCE_DIR}/dialog.bmp")
+
+# Set the PRODUCT_GUID to change on every version change.
+#
+# This should guarantee a single version of the library installed
+# (older ones always uninstalled first).
+string(MD5 PRODUCT_GUID_HASH "${CPACK_WIX_UPGRADE_GUID}${CPACK_PACKAGE_VERSION}")
+string(SUBSTRING ${PRODUCT_GUID_HASH} 0 8 PRODUCT_GUID_PART1)
+string(SUBSTRING ${PRODUCT_GUID_HASH} 8 4 PRODUCT_GUID_PART2)
+string(SUBSTRING ${PRODUCT_GUID_HASH} 12 4 PRODUCT_GUID_PART3)
+string(SUBSTRING ${PRODUCT_GUID_HASH} 16 4 PRODUCT_GUID_PART4)
+string(SUBSTRING ${PRODUCT_GUID_HASH} 20 12 PRODUCT_GUID_PART5)
+set(CPACK_WIX_PRODUCT_GUID "${PRODUCT_GUID_PART1}-${PRODUCT_GUID_PART2}-${PRODUCT_GUID_PART3}-${PRODUCT_GUID_PART4}-${PRODUCT_GUID_PART5}")
+
+# Set common variables that changes depending of the generator.
+if(CPACK_GENERATOR STREQUAL "DEB")
+    set(CPACK_PACKAGE_FILE_NAME "ta-lib_${CPACK_PACKAGE_VERSION}_${DEB_HOST_ARCH}")
+elseif(CPACK_GENERATOR STREQUAL "RPM")
+    set(CPACK_PACKAGE_FILE_NAME "ta-lib-${CPACK_PACKAGE_VERSION}.${RPM_HOST_ARCH}")
+elseif(CPACK_GENERATOR STREQUAL "WIX")
+	set(CPACK_PACKAGE_FILE_NAME "ta-lib-${CPACK_PACKAGE_VERSION}-windows-${MSI_HOST_ARCH}")
+else()
+	set(CPACK_PACKAGE_FILE_NAME "ta-lib-${CPACK_PACKAGE_VERSION}")
+endif()
+
+message(STATUS "CPACK_PACKAGE_FILE_NAME: ${CPACK_PACKAGE_FILE_NAME}")
+
+include(CPack)

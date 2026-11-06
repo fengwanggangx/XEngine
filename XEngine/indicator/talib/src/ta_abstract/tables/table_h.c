@@ -1,0 +1,291 @@
+/* TA-LIB Copyright (c) 1999-2026, Mario Fortier
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or
+ * without modification, are permitted provided that the following
+ * conditions are met:
+ *
+ * - Redistributions of source code must retain the above copyright
+ *   notice, this list of conditions and the following disclaimer.
+ *
+ * - Redistributions in binary form must reproduce the above copyright
+ *   notice, this list of conditions and the following disclaimer in
+ *   the documentation and/or other materials provided with the
+ *   distribution.
+ *
+ * - Neither name of author nor the names of its contributors
+ *   may be used to endorse or promote products derived from this
+ *   software without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ * ``AS IS'' AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+ * FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
+ * REGENTS OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+ * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+ * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+ * OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+ * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
+ * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
+ * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+
+/*********************************************************************
+ * This file contains only TA functions starting with the letter 'H' *
+ *********************************************************************/
+#include <stddef.h>
+#include "ta_abstract.h"
+#include "ta_def_ui.h"
+
+/* HA BEGIN */
+const TA_OutputParameterInfo TA_DEF_UI_Output_Real_HA_outHAOpen =
+                               { TA_Output_Real, "outHAOpen", TA_OUT_LINE };
+
+const TA_OutputParameterInfo TA_DEF_UI_Output_Real_HA_outHAHigh =
+                               { TA_Output_Real, "outHAHigh", TA_OUT_LINE | TA_OUT_UPPER_LIMIT };
+
+const TA_OutputParameterInfo TA_DEF_UI_Output_Real_HA_outHALow =
+                               { TA_Output_Real, "outHALow", TA_OUT_LINE | TA_OUT_LOWER_LIMIT };
+
+const TA_OutputParameterInfo TA_DEF_UI_Output_Real_HA_outHAClose =
+                               { TA_Output_Real, "outHAClose", TA_OUT_LINE };
+
+static const TA_InputParameterInfo    *TA_HA_Inputs[]    =
+{
+  &TA_DEF_UI_Input_Price_OHLC,
+  NULL
+};
+
+static const TA_OutputParameterInfo   *TA_HA_Outputs[]   =
+{
+  &TA_DEF_UI_Output_Real_HA_outHAOpen,
+  &TA_DEF_UI_Output_Real_HA_outHAHigh,
+  &TA_DEF_UI_Output_Real_HA_outHALow,
+  &TA_DEF_UI_Output_Real_HA_outHAClose,
+  NULL
+};
+
+static const TA_OptInputParameterInfo *TA_HA_OptInputs[] =
+{ NULL };
+
+DEF_FUNCTION( HA,
+              TA_GroupId_PriceTransform,
+              "Heikin-Ashi Candles",
+              TA_FUNC_FLG_OVERLAP | TA_FUNC_FLG_UNST_PER | TA_FUNC_FLG_STREAM
+             );
+/* HA END */
+
+/* HMA BEGIN */
+static const TA_OptInputParameterInfo TA_DEF_UI_D_HMA_TimePeriod =
+{
+   TA_OptInput_IntegerRange,
+   "optInTimePeriod",
+   0,
+
+   "Time Period",
+   (const void *)&TA_DEF_TimePeriod_Positive,
+   20,
+   "Time period",
+
+   NULL
+};
+
+static const TA_InputParameterInfo    *TA_HMA_Inputs[]    =
+{
+  &TA_DEF_UI_Input_Real,
+  NULL
+};
+
+static const TA_OutputParameterInfo   *TA_HMA_Outputs[]   =
+{
+  &TA_DEF_UI_Output_Real,
+  NULL
+};
+
+static const TA_OptInputParameterInfo *TA_HMA_OptInputs[] =
+{ &TA_DEF_UI_D_HMA_TimePeriod,
+  NULL
+};
+
+DEF_FUNCTION( HMA,
+              TA_GroupId_OverlapStudies,
+              "Hull Moving Average",
+              TA_FUNC_FLG_OVERLAP | TA_FUNC_FLG_STREAM | TA_FUNC_FLG_PERIOD1_IDENTITY
+             );
+/* HMA END */
+
+/* HT_DCPERIOD BEGIN */
+static const TA_InputParameterInfo    *TA_HT_DCPERIOD_Inputs[]    =
+{
+  &TA_DEF_UI_Input_Real,
+  NULL
+};
+
+static const TA_OutputParameterInfo   *TA_HT_DCPERIOD_Outputs[]   =
+{
+  &TA_DEF_UI_Output_Real,
+  NULL
+};
+
+static const TA_OptInputParameterInfo *TA_HT_DCPERIOD_OptInputs[] =
+{ NULL };
+
+DEF_FUNCTION( HT_DCPERIOD,
+              TA_GroupId_CycleIndicators,
+              "Hilbert Transform - Dominant Cycle Period",
+              TA_FUNC_FLG_UNST_PER | TA_FUNC_FLG_STREAM | TA_FUNC_FLG_USES_TRANSCENDENTAL
+             );
+/* HT_DCPERIOD END */
+
+/* HT_DCPHASE BEGIN */
+static const TA_InputParameterInfo    *TA_HT_DCPHASE_Inputs[]    =
+{
+  &TA_DEF_UI_Input_Real,
+  NULL
+};
+
+static const TA_OutputParameterInfo   *TA_HT_DCPHASE_Outputs[]   =
+{
+  &TA_DEF_UI_Output_Real,
+  NULL
+};
+
+static const TA_OptInputParameterInfo *TA_HT_DCPHASE_OptInputs[] =
+{ NULL };
+
+DEF_FUNCTION( HT_DCPHASE,
+              TA_GroupId_CycleIndicators,
+              "Hilbert Transform - Dominant Cycle Phase",
+              TA_FUNC_FLG_UNST_PER | TA_FUNC_FLG_STREAM | TA_FUNC_FLG_USES_TRANSCENDENTAL
+             );
+/* HT_DCPHASE END */
+
+/* HT_PHASOR BEGIN */
+const TA_OutputParameterInfo TA_DEF_UI_Output_Real_HT_PHASOR_outInPhase =
+                               { TA_Output_Real, "outInPhase", TA_OUT_LINE };
+
+const TA_OutputParameterInfo TA_DEF_UI_Output_Real_HT_PHASOR_outQuadrature =
+                               { TA_Output_Real, "outQuadrature", TA_OUT_DASH_LINE };
+
+static const TA_InputParameterInfo    *TA_HT_PHASOR_Inputs[]    =
+{
+  &TA_DEF_UI_Input_Real,
+  NULL
+};
+
+static const TA_OutputParameterInfo   *TA_HT_PHASOR_Outputs[]   =
+{
+  &TA_DEF_UI_Output_Real_HT_PHASOR_outInPhase,
+  &TA_DEF_UI_Output_Real_HT_PHASOR_outQuadrature,
+  NULL
+};
+
+static const TA_OptInputParameterInfo *TA_HT_PHASOR_OptInputs[] =
+{ NULL };
+
+DEF_FUNCTION( HT_PHASOR,
+              TA_GroupId_CycleIndicators,
+              "Hilbert Transform - Phasor Components",
+              TA_FUNC_FLG_UNST_PER | TA_FUNC_FLG_STREAM | TA_FUNC_FLG_USES_TRANSCENDENTAL
+             );
+/* HT_PHASOR END */
+
+/* HT_SINE BEGIN */
+const TA_OutputParameterInfo TA_DEF_UI_Output_Real_HT_SINE_outSine =
+                               { TA_Output_Real, "outSine", TA_OUT_LINE };
+
+const TA_OutputParameterInfo TA_DEF_UI_Output_Real_HT_SINE_outLeadSine =
+                               { TA_Output_Real, "outLeadSine", TA_OUT_DASH_LINE };
+
+static const TA_InputParameterInfo    *TA_HT_SINE_Inputs[]    =
+{
+  &TA_DEF_UI_Input_Real,
+  NULL
+};
+
+static const TA_OutputParameterInfo   *TA_HT_SINE_Outputs[]   =
+{
+  &TA_DEF_UI_Output_Real_HT_SINE_outSine,
+  &TA_DEF_UI_Output_Real_HT_SINE_outLeadSine,
+  NULL
+};
+
+static const TA_OptInputParameterInfo *TA_HT_SINE_OptInputs[] =
+{ NULL };
+
+DEF_FUNCTION( HT_SINE,
+              TA_GroupId_CycleIndicators,
+              "Hilbert Transform - SineWave",
+              TA_FUNC_FLG_UNST_PER | TA_FUNC_FLG_STREAM | TA_FUNC_FLG_USES_TRANSCENDENTAL
+             );
+/* HT_SINE END */
+
+/* HT_TRENDLINE BEGIN */
+static const TA_InputParameterInfo    *TA_HT_TRENDLINE_Inputs[]    =
+{
+  &TA_DEF_UI_Input_Real,
+  NULL
+};
+
+static const TA_OutputParameterInfo   *TA_HT_TRENDLINE_Outputs[]   =
+{
+  &TA_DEF_UI_Output_Real,
+  NULL
+};
+
+static const TA_OptInputParameterInfo *TA_HT_TRENDLINE_OptInputs[] =
+{ NULL };
+
+DEF_FUNCTION( HT_TRENDLINE,
+              TA_GroupId_OverlapStudies,
+              "Hilbert Transform - Instantaneous Trendline",
+              TA_FUNC_FLG_UNST_PER | TA_FUNC_FLG_OVERLAP | TA_FUNC_FLG_STREAM | TA_FUNC_FLG_USES_TRANSCENDENTAL
+             );
+/* HT_TRENDLINE END */
+
+/* HT_TRENDMODE BEGIN */
+static const TA_InputParameterInfo    *TA_HT_TRENDMODE_Inputs[]    =
+{
+  &TA_DEF_UI_Input_Real,
+  NULL
+};
+
+static const TA_OutputParameterInfo   *TA_HT_TRENDMODE_Outputs[]   =
+{
+  &TA_DEF_UI_Output_Integer,
+  NULL
+};
+
+static const TA_OptInputParameterInfo *TA_HT_TRENDMODE_OptInputs[] =
+{ NULL };
+
+DEF_FUNCTION( HT_TRENDMODE,
+              TA_GroupId_CycleIndicators,
+              "Hilbert Transform - Trend vs Cycle Mode",
+              TA_FUNC_FLG_UNST_PER | TA_FUNC_FLG_STREAM | TA_FUNC_FLG_USES_TRANSCENDENTAL
+             );
+/* HT_TRENDMODE END */
+
+/****************************************************************************
+ * Step 2 - Add your TA function to the table.
+ *          Keep in alphabetical order. Must be NULL terminated.
+ ****************************************************************************/
+const TA_FuncDef *TA_DEF_TableH[] =
+{
+   ADD_TO_TABLE(HA),
+   ADD_TO_TABLE(HMA),
+   ADD_TO_TABLE(HT_DCPERIOD),
+   ADD_TO_TABLE(HT_DCPHASE),
+   ADD_TO_TABLE(HT_PHASOR),
+   ADD_TO_TABLE(HT_SINE),
+   ADD_TO_TABLE(HT_TRENDLINE),
+   ADD_TO_TABLE(HT_TRENDMODE),
+   NULL
+};
+
+
+/* Do not modify the following line. */
+const unsigned int TA_DEF_TableHSize =
+              ((sizeof(TA_DEF_TableH)/sizeof(TA_FuncDef *))-1);
+

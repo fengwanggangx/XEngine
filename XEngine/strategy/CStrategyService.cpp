@@ -153,7 +153,7 @@ namespace
 			}
 			cfg.m_subscriptions.emplace_back(std::move(quote));
 		}
-		return cfg.IsValid();
+		return cfg.IsValid() && (("moving_average" != cfg.m_strType) || CMovingAverageStrategy::ValidateParameters(cfg));
 	}
 
 	std::string SerializeParameters(const request::StrategyInfo& info)
@@ -266,7 +266,7 @@ std::size_t CSignalKeyHash::operator()(const CSignalKey& key) const
 	return strategyHash ^ (signalHash + 0x9e3779b9U + (strategyHash << 6) + (strategyHash >> 2));
 }
 
-CStrategyService::CStrategyService(CHQService* pHQService, CTradeService* pTradeService, CAccountService* pAccountService) : m_pHQService(pHQService), m_pTradeService(pTradeService), m_pAccountService(pAccountService)
+CStrategyService::CStrategyService(CHQService* pHQService, CTradeService* pTradeService, CAccountService* pAccountService, CIndicator& indicator) : m_indicator(indicator), m_pHQService(pHQService), m_pTradeService(pTradeService), m_pAccountService(pAccountService)
 {
 }
 
@@ -817,7 +817,7 @@ std::unique_ptr<IStrategy> CStrategyService::CreateStrategy(const std::string& s
 {
 	if ("moving_average" == strType)
 	{
-		return std::make_unique<CMovingAverageStrategy>();
+		return std::make_unique<CMovingAverageStrategy>(m_indicator);
 	}
 	return nullptr;
 }

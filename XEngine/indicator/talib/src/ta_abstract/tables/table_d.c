@@ -1,0 +1,335 @@
+/* TA-LIB Copyright (c) 1999-2026, Mario Fortier
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or
+ * without modification, are permitted provided that the following
+ * conditions are met:
+ *
+ * - Redistributions of source code must retain the above copyright
+ *   notice, this list of conditions and the following disclaimer.
+ *
+ * - Redistributions in binary form must reproduce the above copyright
+ *   notice, this list of conditions and the following disclaimer in
+ *   the documentation and/or other materials provided with the
+ *   distribution.
+ *
+ * - Neither name of author nor the names of its contributors
+ *   may be used to endorse or promote products derived from this
+ *   software without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ * ``AS IS'' AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+ * FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
+ * REGENTS OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+ * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+ * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+ * OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+ * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
+ * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
+ * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+
+/*********************************************************************
+ * This file contains only TA functions starting with the letter 'D' *
+ *********************************************************************/
+#include <stddef.h>
+#include "ta_abstract.h"
+#include "ta_def_ui.h"
+
+/* DEMA BEGIN */
+static const TA_InputParameterInfo    *TA_DEMA_Inputs[]    =
+{
+  &TA_DEF_UI_Input_Real,
+  NULL
+};
+
+static const TA_OutputParameterInfo   *TA_DEMA_Outputs[]   =
+{
+  &TA_DEF_UI_Output_Real,
+  NULL
+};
+
+static const TA_OptInputParameterInfo *TA_DEMA_OptInputs[] =
+{ &TA_DEF_UI_TimePeriod_30,
+  NULL
+};
+
+DEF_FUNCTION( DEMA,
+              TA_GroupId_OverlapStudies,
+              "Double Exponential Moving Average",
+              TA_FUNC_FLG_OVERLAP | TA_FUNC_FLG_STREAM | TA_FUNC_FLG_PERIOD1_IDENTITY
+             );
+/* DEMA END */
+
+/* DIV BEGIN */
+static const TA_InputParameterInfo    *TA_DIV_Inputs[]    =
+{
+  &TA_DEF_UI_Input_Real0,
+  &TA_DEF_UI_Input_Real1,
+  NULL
+};
+
+static const TA_OutputParameterInfo   *TA_DIV_Outputs[]   =
+{
+  &TA_DEF_UI_Output_Real,
+  NULL
+};
+
+static const TA_OptInputParameterInfo *TA_DIV_OptInputs[] =
+{ NULL };
+
+DEF_FUNCTION( DIV,
+              TA_GroupId_MathOperators,
+              "Vector Arithmetic Div",
+              TA_FUNC_FLG_STREAM | TA_FUNC_FLG_NAN_INF_OUT
+             );
+/* DIV END */
+
+/* DONCHIAN BEGIN */
+const TA_OutputParameterInfo TA_DEF_UI_Output_Real_DONCHIAN_UpperBand =
+                               { TA_Output_Real, "outRealUpperBand", TA_OUT_UPPER_LIMIT };
+
+const TA_OutputParameterInfo TA_DEF_UI_Output_Real_DONCHIAN_MiddleBand =
+                               { TA_Output_Real, "outRealMiddleBand", TA_OUT_LINE };
+
+const TA_OutputParameterInfo TA_DEF_UI_Output_Real_DONCHIAN_LowerBand =
+                               { TA_Output_Real, "outRealLowerBand", TA_OUT_LOWER_LIMIT };
+
+static const TA_InputParameterInfo    *TA_DONCHIAN_Inputs[]    =
+{
+  &TA_DEF_UI_Input_Price_HL,
+  NULL
+};
+
+static const TA_OutputParameterInfo   *TA_DONCHIAN_Outputs[]   =
+{
+  &TA_DEF_UI_Output_Real_DONCHIAN_UpperBand,
+  &TA_DEF_UI_Output_Real_DONCHIAN_MiddleBand,
+  &TA_DEF_UI_Output_Real_DONCHIAN_LowerBand,
+  NULL
+};
+
+static const TA_OptInputParameterInfo *TA_DONCHIAN_OptInputs[] =
+{ &TA_DEF_UI_TimePeriod_20_MINIMUM2,
+  NULL
+};
+
+DEF_FUNCTION( DONCHIAN,
+              TA_GroupId_OverlapStudies,
+              "Donchian Channels",
+              TA_FUNC_FLG_OVERLAP | TA_FUNC_FLG_STREAM
+             );
+/* DONCHIAN END */
+
+/* DOSC BEGIN */
+static const TA_OptInputParameterInfo TA_DEF_UI_D_DOSC_TimePeriod =
+{
+   TA_OptInput_IntegerRange,
+   "optInTimePeriod",
+   0,
+
+   "Time Period",
+   (const void *)&TA_DEF_TimePeriod_Positive_Minimum2,
+   14,
+   "Period of the RSI",
+
+   NULL
+};
+
+static const TA_IntegerRange TA_DEF_DOSC_FirstPeriod =
+{
+   2,
+   100000,
+   2,
+   50,
+   1
+};
+
+static const TA_OptInputParameterInfo TA_DEF_UI_D_DOSC_FirstPeriod =
+{
+   TA_OptInput_IntegerRange,
+   "optInFirstPeriod",
+   0,
+
+   "First Smoothing Period",
+   (const void *)&TA_DEF_DOSC_FirstPeriod,
+   5,
+   "Period of the first smoothing, applied to the RSI",
+
+   NULL
+};
+
+static const TA_IntegerRange TA_DEF_DOSC_SecondPeriod =
+{
+   2,
+   100000,
+   2,
+   50,
+   1
+};
+
+static const TA_OptInputParameterInfo TA_DEF_UI_D_DOSC_SecondPeriod =
+{
+   TA_OptInput_IntegerRange,
+   "optInSecondPeriod",
+   0,
+
+   "Second Smoothing Period",
+   (const void *)&TA_DEF_DOSC_SecondPeriod,
+   3,
+   "Period of the second smoothing, applied to the first",
+
+   NULL
+};
+
+static const TA_IntegerRange TA_DEF_DOSC_SignalPeriod =
+{
+   2,
+   100000,
+   2,
+   50,
+   1
+};
+
+static const TA_OptInputParameterInfo TA_DEF_UI_D_DOSC_SignalPeriod =
+{
+   TA_OptInput_IntegerRange,
+   "optInSignalPeriod",
+   0,
+
+   "Signal Period",
+   (const void *)&TA_DEF_DOSC_SignalPeriod,
+   9,
+   "Period of the simple average subtracted from the smoothed line",
+
+   NULL
+};
+
+const TA_OutputParameterInfo TA_DEF_UI_Output_Real_DOSC_Default =
+                               { TA_Output_Real, "outReal", TA_OUT_HISTO };
+
+static const TA_InputParameterInfo    *TA_DOSC_Inputs[]    =
+{
+  &TA_DEF_UI_Input_Real,
+  NULL
+};
+
+static const TA_OutputParameterInfo   *TA_DOSC_Outputs[]   =
+{
+  &TA_DEF_UI_Output_Real_DOSC_Default,
+  NULL
+};
+
+static const TA_OptInputParameterInfo *TA_DOSC_OptInputs[] =
+{ &TA_DEF_UI_D_DOSC_TimePeriod,
+  &TA_DEF_UI_D_DOSC_FirstPeriod,
+  &TA_DEF_UI_D_DOSC_SecondPeriod,
+  &TA_DEF_UI_D_DOSC_SignalPeriod,
+  NULL
+};
+
+DEF_FUNCTION( DOSC,
+              TA_GroupId_MomentumIndicators,
+              "Derivative Oscillator",
+              TA_FUNC_FLG_STREAM
+             );
+/* DOSC END */
+
+/* DPO BEGIN */
+static const TA_IntegerRange TA_DEF_DPO_TimePeriod =
+{
+   2,
+   100000,
+   10,
+   60,
+   5
+};
+
+static const TA_OptInputParameterInfo TA_DEF_UI_D_DPO_TimePeriod =
+{
+   TA_OptInput_IntegerRange,
+   "optInTimePeriod",
+   0,
+
+   "Time Period",
+   (const void *)&TA_DEF_DPO_TimePeriod,
+   20,
+   "Time period",
+
+   NULL
+};
+
+const TA_OutputParameterInfo TA_DEF_UI_Output_Real_DPO_Default =
+                               { TA_Output_Real, "outReal", TA_OUT_LINE | TA_OUT_DISPLAY_SHIFT };
+
+static const TA_InputParameterInfo    *TA_DPO_Inputs[]    =
+{
+  &TA_DEF_UI_Input_Real,
+  NULL
+};
+
+static const TA_OutputParameterInfo   *TA_DPO_Outputs[]   =
+{
+  &TA_DEF_UI_Output_Real_DPO_Default,
+  NULL
+};
+
+static const TA_OptInputParameterInfo *TA_DPO_OptInputs[] =
+{ &TA_DEF_UI_D_DPO_TimePeriod,
+  NULL
+};
+
+DEF_FUNCTION( DPO,
+              TA_GroupId_MomentumIndicators,
+              "Detrended Price Oscillator",
+              TA_FUNC_FLG_STREAM | TA_FUNC_FLG_DISPLAY_SHIFT
+             );
+/* DPO END */
+
+/* DX BEGIN */
+static const TA_InputParameterInfo    *TA_DX_Inputs[]    =
+{
+  &TA_DEF_UI_Input_Price_HLC,
+  NULL
+};
+
+static const TA_OutputParameterInfo   *TA_DX_Outputs[]   =
+{
+  &TA_DEF_UI_Output_Real,
+  NULL
+};
+
+static const TA_OptInputParameterInfo *TA_DX_OptInputs[] =
+{ &TA_DEF_UI_TimePeriod_14_MINIMUM2,
+  NULL
+};
+
+DEF_FUNCTION( DX,
+              TA_GroupId_MomentumIndicators,
+              "Directional Movement Index",
+              TA_FUNC_FLG_UNST_PER | TA_FUNC_FLG_STREAM
+             );
+/* DX END */
+
+/****************************************************************************
+ * Step 2 - Add your TA function to the table.
+ *          Keep in alphabetical order. Must be NULL terminated.
+ ****************************************************************************/
+const TA_FuncDef *TA_DEF_TableD[] =
+{
+   ADD_TO_TABLE(DEMA),
+   ADD_TO_TABLE(DIV),
+   ADD_TO_TABLE(DONCHIAN),
+   ADD_TO_TABLE(DOSC),
+   ADD_TO_TABLE(DPO),
+   ADD_TO_TABLE(DX),
+   NULL
+};
+
+
+/* Do not modify the following line. */
+const unsigned int TA_DEF_TableDSize =
+              ((sizeof(TA_DEF_TableD)/sizeof(TA_FuncDef *))-1);
+

@@ -1,6 +1,8 @@
 #ifndef HQMARKET_SYSTEM_CBOOTLOADER_H
 #define HQMARKET_SYSTEM_CBOOTLOADER_H
 
+#include "../indicator/CIndicator.h"
+
 #include <string>
 #include <thread>
 #include <filesystem>
@@ -53,6 +55,7 @@ private:
 	CStrategyService* m_pStrategyService{ nullptr };
 	CHQService* m_pHQService{ nullptr };
 	CEngineCenter* m_pEngineCenter{ nullptr };
+	CIndicator m_indicator;
 };
 
 #endif
