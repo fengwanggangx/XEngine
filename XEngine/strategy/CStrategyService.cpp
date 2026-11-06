@@ -583,9 +583,9 @@ bool CStrategyService::ModifyStrategy(const CRequest& req)
 			std::lock_guard<std::mutex> lock(oldRuntime->m_mtx_orders);
 			ownActiveOrders = !oldRuntime->m_activeOrderIds.empty();
 		}
-		if ((oldConfig.m_account != cfg.m_account) && ((StrategyState::Running == oldState) || (StrategyState::Starting == oldState) || (StrategyState::Pausing == oldState) || (StrategyState::Stopping == oldState) || ownActiveOrders))
+		if (((StrategyState::Initialized != oldState) && (StrategyState::Stopped != oldState)) || ownActiveOrders)
 		{
-			net::SendError(req.GetConnectionId(), req, 1115, "Stop strategy and resolve orders before rebinding account");
+			net::SendError(req.GetConnectionId(), req, 1115, "Stop strategy and resolve orders before modifying configuration");
 			return false;
 		}
 		if (!StopStrategy(cfg.m_id) || !RemoveStrategy(cfg.m_id))
