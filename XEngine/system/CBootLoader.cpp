@@ -112,6 +112,13 @@ bool CBootLoader::Initialize()
 	broker.m_host.m_strName = strBrokerHost;
 	broker.m_host.m_strHost = hIni.GetString(ini::Config::System, strBrokerHost, "host");
 	broker.m_host.m_nPort = hIni.GetInt(ini::Config::System, strBrokerHost, "port");
+	if (!broker.Valid())
+	{
+		m_nErrorCode = 14;
+		m_strLastError = "Broker endpoint and login credentials are required in ini/system.ini";
+		Finalize();
+		return false;
+	}
 	broker.m_bOrdered = true;
 	m_pBroker = new CSession(broker);
 
@@ -153,7 +160,7 @@ bool CBootLoader::Initialize()
 		return false;
 	}
 	m_pAccountService->SetAccountStateHandler(std::bind_front(&CTradeService::OnAccountState, m_pTradeService));
-	if (broker.Valid() && !m_pBroker->Start())
+	if (!m_pBroker->Start())
 	{
 		m_nErrorCode = 14;
 		m_strLastError = "Broker session initialization failed";
