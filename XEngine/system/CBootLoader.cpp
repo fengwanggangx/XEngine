@@ -52,15 +52,15 @@ bool CBootLoader::Initialize()
 	}
 
 	ini::CINIHandler& hIni = ini::CINIHandler::InstanceRef();
+	static const std::string cs_mysql = "MySQL";
+	std::string strMySqlHost = hIni.GetString(ini::Config::System, cs_mysql, "host");
+	int nMySqlPort = hIni.GetInt(ini::Config::System, cs_mysql, "port");
 
-	std::string strMySqlHost = hIni.GetString(ini::Config::System, "MySQL", "host");
-	int nMySqlPort = hIni.GetInt(ini::Config::System, "MySQL", "port");
+	std::string strMySqlAccount = hIni.GetString(ini::Config::System, cs_mysql, "user");
+	std::string strMySqlPassword = hIni.GetString(ini::Config::System, cs_mysql, "password");
+	std::string strMySqlDatabase = hIni.GetString(ini::Config::System, cs_mysql, "database");
 
-	std::string strMySqlAccount = hIni.GetString(ini::Config::System, "MySQL", "user");
-	std::string strMySqlPassword = hIni.GetString(ini::Config::System, "MySQL", "password");
-	std::string strMySqlDatabase = hIni.GetString(ini::Config::System, "MySQL", "database");
-
-	int nMySqlPoolSize = hIni.GetInt(ini::Config::System, "MySQL", "pool_size");
+	int nMySqlPoolSize = hIni.GetInt(ini::Config::System, cs_mysql, "pool_size");
 
 	if (strMySqlHost.empty() || (nMySqlPort <= 0) || strMySqlAccount.empty() || strMySqlPassword.empty() || strMySqlDatabase.empty() || (nMySqlPoolSize <= 0))
 	{
@@ -96,22 +96,22 @@ bool CBootLoader::Initialize()
 	m_pTcpServer = new net::CTcpServer(nTcpPort);
 	m_pHttpServer = new net::CHttpServer(nHttpPort);
 
-	std::string strhqMarketHost = "HQMarket";
+	static const std::string cs_hqmarket = "HQMarket";
 	CLoginInfo hq;
-	hq.m_strUser = hIni.GetString(ini::Config::System, strhqMarketHost, "user");
-	hq.m_strPassword = hIni.GetString(ini::Config::System, strhqMarketHost, "password");
-	hq.m_host.m_strName = strhqMarketHost;
-	hq.m_host.m_strHost = hIni.GetString(ini::Config::System, strhqMarketHost, "host");
-	hq.m_host.m_nPort = hIni.GetInt(ini::Config::System, strhqMarketHost, "port");
+	hq.m_strUser = hIni.GetString(ini::Config::System, cs_hqmarket, "user");
+	hq.m_strPassword = hIni.GetString(ini::Config::System, cs_hqmarket, "password");
+	hq.m_host.m_strName = cs_hqmarket;
+	hq.m_host.m_strHost = hIni.GetString(ini::Config::System, cs_hqmarket, "host");
+	hq.m_host.m_nPort = hIni.GetInt(ini::Config::System, cs_hqmarket, "port");
 	m_pHQMarket = new CSession(hq);
 
-	std::string strBrokerHost = "Broker";
+	static const std::string cs_broker = "Broker";
 	CLoginInfo broker;
-	broker.m_strUser = hIni.GetString(ini::Config::System, strBrokerHost, "user");
-	broker.m_strPassword = hIni.GetString(ini::Config::System, strBrokerHost, "password");
-	broker.m_host.m_strName = strBrokerHost;
-	broker.m_host.m_strHost = hIni.GetString(ini::Config::System, strBrokerHost, "host");
-	broker.m_host.m_nPort = hIni.GetInt(ini::Config::System, strBrokerHost, "port");
+	broker.m_strUser = hIni.GetString(ini::Config::System, cs_broker, "user");
+	broker.m_strPassword = hIni.GetString(ini::Config::System, cs_broker, "password");
+	broker.m_host.m_strName = cs_broker;
+	broker.m_host.m_strHost = hIni.GetString(ini::Config::System, cs_broker, "host");
+	broker.m_host.m_nPort = hIni.GetInt(ini::Config::System, cs_broker, "port");
 	if (!broker.Valid())
 	{
 		m_nErrorCode = 14;
