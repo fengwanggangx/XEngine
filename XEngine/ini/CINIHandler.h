@@ -26,6 +26,16 @@ namespace ini
 		DECLARE_SINGLE_DFAULT(CINIHandler)
 
 	  public:
+		int GetInt(Config config, const std::string& strSection, const std::string& strKey) const
+		{
+			return GetValue(config, strSection, strKey, -1);
+		}
+
+		std::string GetString(Config config, const std::string& strSection, const std::string& strKey) const
+		{
+			return GetValue(config, strSection, strKey, std::string());
+		}
+
 		template <class Type, std::enable_if_t<!std::is_convertible<Type, std::string>::value, int> = 0>
 		Type GetValue(Config config, const std::string& strSection, const std::string& strKey, Type&& defaultValue) const
 		{

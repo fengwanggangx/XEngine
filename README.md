@@ -59,7 +59,7 @@ hqMarket.SubscribeQuote("600519", market::Exchange::sse);
 
 ## XBroker 动态账户
 
-XEngine 通过 `[Broker] host/port/token` 连接 XBroker。账户不再使用数字 account_id，而以券商 ID、站点、账号共同标识。策略绑定将这一 tuple 无损持久化为 account_identity；协议仍传递独立的 broker_id、site、account 字段。默认数据库改为 engine_accounts_v2，使用新库，不迁移旧策略绑定。
+XEngine 通过 `[Broker] host/port/user/password` 连接 XBroker，账号密码认证成功后在会话内存中缓存服务端动态签发的 token，重连优先使用 token，失效后回退账号密码；不读取预配置 token。账户不再使用数字 account_id，而以券商 ID、站点、账号共同标识。策略绑定将这一 tuple 无损持久化为 account_identity；协议仍传递独立的 broker_id、site、account 字段。默认数据库改为 engine_accounts_v2，使用新库，不迁移旧策略绑定。
 
 券商目录和开户/登录请求由 XEngine 转发；Broker 只发布运行期间成功登录的账户。XEngine 在目录发现账户后依次查询资金、持仓、委托和成交，按各类水位衔接推送。断线使缓存失效，恢复查询完成后策略才可使用账户；交易请求不自动重发，不提供一次返回全部账户数据的请求。
 

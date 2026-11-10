@@ -21,10 +21,10 @@ namespace ini
 		bool UpdateEntry(const std::string& strSection, const std::string& strKey, const std::optional<std::string>& value, const std::string& oldKey = {});
 
 	  public:
-		int GetInt(const std::string& strSection, const std::string& strKey, int nDefault) const;
-		bool GetBool(const std::string& strSection, const std::string& strKey, bool bDefault) const;
-		double GetDouble(const std::string& strSection, const std::string& strKey, double fDefault) const;
-		std::string GetString(const std::string& strSection, const std::string& strKey, const std::string& strDefault) const;
+		int GetInt(const std::string& strSection, const std::string& strKey, int nDefault = -1) const;
+		bool GetBool(const std::string& strSection, const std::string& strKey, bool bDefault = false) const;
+		double GetDouble(const std::string& strSection, const std::string& strKey, double fDefault = 0.0) const;
+		std::string GetString(const std::string& strSection, const std::string& strKey, const std::string& strDefault = "") const;
 
 		bool SetInt(const std::string& strSection, const std::string& strKey, int nVal);
 		bool SetBool(const std::string& strSection, const std::string& strKey, bool bVal);
