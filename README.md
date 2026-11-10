@@ -96,3 +96,10 @@ XEngine 已内置 TA-Lib v0.8.3 源码，业务封装为 `indicator/CIndicator`�
 BootLoader 持有指标运行时，策略服务和均线策略借用它。当前接入 SMA：报价按证券和交易所隔离计算，价格精度先归一化，报单保留原定点价格。窗口范围为 `1 <= short_window < long_window <= 100000`，默认 5/20；仍按报价驱动、限价报单、每次 100 股，不包含 K 线聚合或目标仓位执行。
 
 上游版本、提交、源码包 SHA-256、许可、接口与验证边界见 [指标模块说明](XEngine/indicator/README.md)。此次接入仅静态检查，新增测试源码及构建入口尚未编译运行，Linux Debug/Release 和 VS 远程构建仍待验收。
+
+## 正式程序构建入口
+
+正式程序统一从 Visual Studio 解决方案构建，以 `.vcxproj` 为准。仓库中的 CMake 入口仅用于辅助验证，不作为正式程序构建、发布或验收依据。
+
+打开 `XEngine.sln`，选择 `XEngine/XEngine.vcxproj`，使用 VS Linux 远程构建，配置为 Debug 或 Release、平台 x64；需在 VS 中配置 Linux 连接及工程所需依赖。
+本次仅核对解决方案及工程文件，不执行编译、链接或运行测试。
