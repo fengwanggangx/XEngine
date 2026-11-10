@@ -33,7 +33,7 @@ namespace
 	constexpr int StorageUnavailable = 1004;
 	constexpr std::size_t MinUserLength = 3;
 	constexpr std::size_t MaxUserLength = 64;
-	constexpr std::size_t MinPasswordLength = 8;
+	constexpr std::size_t MinPasswordLength = 6;
 	constexpr std::size_t MaxPasswordLength = 128;
 	constexpr int AuthenticationRequired = 1005;
 	constexpr int UpstreamUnavailable = 1007;
@@ -175,7 +175,7 @@ bool CEngineCenter::HandleRegisterAuth(net::_TyConnectionId, const CRequest& req
 	}
 	if (!IsPasswordValid(strPassword))
 	{
-		SendResponse(req, InvalidRequest, "密码长度需为 8-128 位");
+		SendResponse(req, InvalidRequest, "密码长度需为 6-128 位");
 		return false;
 	}
 

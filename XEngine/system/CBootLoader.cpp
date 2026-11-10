@@ -64,7 +64,7 @@ bool CBootLoader::Initialize()
 
 	if (strMySqlHost.empty() || (nMySqlPort <= 0) || strMySqlAccount.empty() || strMySqlPassword.empty() || strMySqlDatabase.empty() || (nMySqlPoolSize <= 0))
 	{
-		m_nErrorCode = 5;
+		m_nErrorCode = 2;
 		m_strLastError = "HQMarket mysql param error";
 		return false;
 	}
@@ -72,15 +72,21 @@ bool CBootLoader::Initialize()
 	db::CConnectParam dbParam(strMySqlHost, static_cast<unsigned int>(nMySqlPort), strMySqlAccount, strMySqlPassword, strMySqlDatabase, "utf8mb4");
 	if (0 != CDBEngine::InstanceRef().Initialize(db::em_database::mysql, dbParam, nMySqlPoolSize))
 	{
-		m_nErrorCode = 6;
+		m_nErrorCode = 3;
 		m_strLastError = "MySQL initialization failed";
 		return false;
 	}
 	db::_TyDBPtr db = CDBEngine::InstanceRef().GetDBPtr(db::em_database::mysql);
 	if ((nullptr == db) || (0 != db->ExecSqlFile(m_exec / "sql" / "table_create.sql")))
 	{
-		m_nErrorCode = 7;
+		m_nErrorCode = 4;
 		m_strLastError = "Failed to initialize MySQL tables";
+		return false;
+	}
+	if (0 != db->ExecSqlFile(m_exec / "sql" / "table_init.sql"))
+	{
+		m_nErrorCode = 5;
+		m_strLastError = "Failed to execute sql/table_init.sql";
 		return false;
 	}
 
@@ -88,7 +94,7 @@ bool CBootLoader::Initialize()
 	int nHttpPort = hIni.GetInt(ini::Config::System, "System", "http_port");
 	if ((nTcpPort <= 0) || (nHttpPort <= 0))
 	{
-		m_nErrorCode = 8;
+		m_nErrorCode = 6;
 		m_strLastError = "HQMarket tcp_port && http_port is required in ini/system.ini";
 		return false;
 	}
@@ -114,7 +120,7 @@ bool CBootLoader::Initialize()
 	broker.m_host.m_nPort = hIni.GetInt(ini::Config::System, cs_broker, "port");
 	if (!broker.Valid())
 	{
-		m_nErrorCode = 14;
+		m_nErrorCode = 7;
 		m_strLastError = "Broker endpoint and login credentials are required in ini/system.ini";
 		Finalize();
 		return false;
@@ -125,7 +131,7 @@ bool CBootLoader::Initialize()
 	m_pAccountService = new CAccountService(m_pBroker);
 	if (!m_pAccountService->Initialize())
 	{
-		m_nErrorCode = 13;
+		m_nErrorCode = 8;
 		m_strLastError = m_pAccountService->GetLastError();
 		return false;
 	}
@@ -138,7 +144,7 @@ bool CBootLoader::Initialize()
 	}
 	if (!m_indicator.Initialize(m_strLastError))
 	{
-		m_nErrorCode = 15;
+		m_nErrorCode = 10;
 		Finalize();
 		return false;
 	}
@@ -146,7 +152,7 @@ bool CBootLoader::Initialize()
 	m_pStrategyService = new CStrategyService(m_pHQService, m_pTradeService, m_pAccountService, m_indicator);
 	if (!m_pStrategyService->Initialize())
 	{
-		m_nErrorCode = 10;
+		m_nErrorCode = 11;
 		m_strLastError = m_pStrategyService->GetLastError();
 		Finalize();
 		return false;
@@ -154,7 +160,7 @@ bool CBootLoader::Initialize()
 	m_pEngineCenter = new CEngineCenter(m_pTcpServer, m_pHQMarket, m_pBroker, m_pHQService, m_pStrategyService, m_pTradeService, m_pAccountService);
 	if (!m_pEngineCenter->Initialize())
 	{
-		m_nErrorCode = 11;
+		m_nErrorCode = 12;
 		m_strLastError = "Engine center initialization failed";
 		Finalize();
 		return false;
@@ -162,7 +168,7 @@ bool CBootLoader::Initialize()
 	m_pAccountService->SetAccountStateHandler(std::bind_front(&CTradeService::OnAccountState, m_pTradeService));
 	if (!m_pBroker->Start())
 	{
-		m_nErrorCode = 14;
+		m_nErrorCode = 13;
 		m_strLastError = "Broker session initialization failed";
 		Finalize();
 		return false;
@@ -175,25 +181,25 @@ bool CBootLoader::Run()
 {
 	if (!m_bInitialized || (nullptr == m_pTcpServer) || (nullptr == m_pHttpServer))
 	{
-		m_nErrorCode = 4;
+		m_nErrorCode = 14;
 		m_strLastError = "Boot loader is not initialized";
 		return false;
 	}
 	if (0 != m_pTcpServer->Initialize())
 	{
-		m_nErrorCode = 4;
+		m_nErrorCode = 15;
 		m_strLastError = "TCP server initialization failed";
 		return false;
 	}
 	if (0 != m_pHttpServer->Initialize())
 	{
-		m_nErrorCode = 5;
+		m_nErrorCode = 16;
 		m_strLastError = "HTTP server initialization failed";
 		return false;
 	}
 	if (!m_pHQMarket->Start())
 	{
-		m_nErrorCode = 12;
+		m_nErrorCode = 17;
 		m_strLastError = "HQMarket session configuration is invalid";
 		return false;
 	}
