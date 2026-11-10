@@ -69,7 +69,8 @@ private:
 	// with demand changes so a late unsubscribe cannot overtake a new subscriber.
 	bool HasDemand(const CQuoteInfo& quote) const;
 	void CompleteSubscriptions();
-	void ReconcileSubscription(const CQuoteInfo& quote);
+	void ReconcileSubscription(const CQuoteInfo& quote, bool bRefreshSnapshot = false);
+	void ReconcileSubscriptions(const std::vector<CQuoteInfo>& quotes, bool bRefreshSnapshot = false);
 	bool HandleSubscriptionReply(const CRequest& req);
 	void FinishSubscription(const std::string& strKey, bool bAccepted, const std::string& strReason, bool bUncertain = false);
 	void ExpirePendingQueries();

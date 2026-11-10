@@ -15,6 +15,7 @@
 #include <mutex>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 namespace
@@ -172,10 +173,7 @@ void CHQService::OnSessionState(SessionState state, const std::string& strMessag
 		std::lock_guard<std::mutex> lock(m_mtx_subscriptions);
 		m_bMarketReady = true;
 		std::vector<CQuoteInfo> quotes = m_subscriptions.GetSubscriptions();
-		for (const auto& quote : quotes)
-		{
-			ReconcileSubscription(quote);
-		}
+		ReconcileSubscriptions(quotes);
 		CompleteSubscriptions();
 		return;
 	}
@@ -368,23 +366,70 @@ bool CHQService::HasDemand(const CQuoteInfo& quote) const
 	return 0 != m_subscriptions.GetSubscriptionCount(quote);
 }
 
-void CHQService::ReconcileSubscription(const CQuoteInfo& quote)
+void CHQService::ReconcileSubscription(const CQuoteInfo& quote, bool bRefreshSnapshot)
 {
-	CUpstreamSubscription& state = m_upstreamSubscriptions[quote.String()];
-	state.m_quote = quote;
-	bool bSubscribe = HasDemand(quote);
-	if (!m_bMarketReady || (0 != state.m_requestId) || ((bSubscribe == state.m_bConfirmed) && !state.m_bUncertain))
+	ReconcileSubscriptions({ quote }, bRefreshSnapshot);
+}
+
+void CHQService::ReconcileSubscriptions(const std::vector<CQuoteInfo>& quotes, bool bRefreshSnapshot)
+{
+	if (!m_bMarketReady)
 	{
 		return;
 	}
-	CRequest request = bSubscribe ? request::Subscription(quote) : request::UnSubscription(quote);
-	state.m_requestId = m_routerId.fetch_add(1);
-	state.m_type = request.GetType();
-	state.m_deadline = std::chrono::steady_clock::now() + UpstreamRequestTimeout;
-	request.SetId(state.m_requestId);
-	if ((nullptr == m_pSession) || !m_pSession->SendRequest(request))
+	std::vector<CQuoteInfo> subscriptions;
+	std::vector<CQuoteInfo> unsubscriptions;
+	std::unordered_set<std::string> keys;
+	for (const auto& quote : quotes)
 	{
-		FinishSubscription(quote.String(), false, "HQMarket is unavailable", true);
+		if (!keys.emplace(quote.String()).second)
+		{
+			continue;
+		}
+		CUpstreamSubscription& state = m_upstreamSubscriptions[quote.String()];
+		state.m_quote = quote;
+		bool bSubscribe = HasDemand(quote);
+		bool bSnapshot = bRefreshSnapshot && bSubscribe && (Channel::quote == quote.m_channel);
+		if ((0 != state.m_requestId) || ((bSubscribe == state.m_bConfirmed) && !state.m_bUncertain && !bSnapshot))
+		{
+			continue;
+		}
+		(bSubscribe ? subscriptions : unsubscriptions).emplace_back(quote);
+	}
+	for (const std::vector<CQuoteInfo>* pGroup : { &subscriptions, &unsubscriptions })
+	{
+		const std::vector<CQuoteInfo>& pending = *pGroup;
+		bool bSubscribe = &subscriptions == pGroup;
+		constexpr std::size_t BatchSize = 1000;
+		for (std::size_t nOffset = 0; pending.size() > nOffset; nOffset += BatchSize)
+		{
+			std::size_t nEnd = (std::min)(pending.size(), nOffset + BatchSize);
+			CRequest request = bSubscribe ? request::Subscription(pending[nOffset]) : request::UnSubscription(pending[nOffset]);
+			_TyRequestId requestId = m_routerId.fetch_add(1);
+			request.SetId(requestId);
+			CRequest::_TyExtraRows rows;
+			rows.reserve(nEnd - nOffset);
+			for (std::size_t nIndex = nOffset; nEnd > nIndex; ++nIndex)
+			{
+				const CQuoteInfo& quote = pending[nIndex];
+				CUpstreamSubscription& state = m_upstreamSubscriptions.at(quote.String());
+				state.m_requestId = requestId;
+				state.m_type = request.GetType();
+				state.m_deadline = std::chrono::steady_clock::now() + UpstreamRequestTimeout;
+				rows.emplace_back(std::unordered_map<std::string, std::string>{ { "security", quote.m_security.String() }, { "channel", GetChannelString(quote.m_channel) } });
+			}
+			if (1 < rows.size())
+			{
+				request.SetExtraData("subscriptions", rows);
+			}
+			if ((nullptr == m_pSession) || !m_pSession->SendRequest(request))
+			{
+				for (std::size_t nIndex = nOffset; nEnd > nIndex; ++nIndex)
+				{
+					FinishSubscription(pending[nIndex].String(), false, "HQMarket is unavailable", true);
+				}
+			}
+		}
 	}
 }
 
@@ -401,7 +446,7 @@ void CHQService::CompleteSubscriptions()
 				const auto stateIter = m_upstreamSubscriptions.find(quote.String());
 				if (_TyRequest::MARKET_SUBSCRIBE == pending.m_type)
 				{
-					return (m_upstreamSubscriptions.end() != stateIter) && stateIter->second.m_bConfirmed && !stateIter->second.m_bUncertain && (_TyRequest::MARKET_UNSUBSCRIBE != stateIter->second.m_type || 0 == stateIter->second.m_requestId);
+					return (m_upstreamSubscriptions.end() != stateIter) && stateIter->second.m_bConfirmed && !stateIter->second.m_bUncertain && (0 == stateIter->second.m_requestId);
 				}
 				return HasDemand(quote) || (m_upstreamSubscriptions.end() == stateIter) || (!stateIter->second.m_bConfirmed && !stateIter->second.m_bUncertain && 0 == stateIter->second.m_requestId);
 			});
@@ -469,58 +514,65 @@ void CHQService::FinishSubscription(const std::string& strKey, bool bAccepted, c
 bool CHQService::HandleSubscriptionReply(const CRequest& req)
 {
 	std::lock_guard<std::mutex> lock(m_mtx_subscriptions);
-	const auto mIter = std::find_if(m_upstreamSubscriptions.begin(), m_upstreamSubscriptions.end(), [&req](const auto& item)
+	std::unordered_set<std::string> keys;
+	for (const auto& item : m_upstreamSubscriptions)
 	{
-		return (0 != item.second.m_requestId) && (req.GetId() == item.second.m_requestId) && (req.GetType() == item.second.m_type);
-	});
-	if (m_upstreamSubscriptions.end() == mIter)
+		if ((0 != item.second.m_requestId) && (req.GetId() == item.second.m_requestId) && (req.GetType() == item.second.m_type))
+		{
+			keys.emplace(item.first);
+		}
+	}
+	if (keys.empty())
 	{
 		return false;
 	}
-	std::string strKey = mIter->first;
 	std::optional<std::pair<int, std::string>> error = req.GetErrorInfo();
-	bool bAccepted = !error.has_value();
-	std::string strReason = error.has_value() ? error->second : std::string();
+	std::unordered_map<std::string, std::pair<bool, std::string>> results;
 	const _TyReqData& data = req.GetData();
 	if (data.has_subscription_ack())
 	{
-		bool bMatched = false;
 		for (const auto& result : data.subscription_ack().results())
 		{
 			CQuoteInfo quote(result.security().symbol(), static_cast<Exchange>(result.security().exchange()), static_cast<Channel>(result.channel()));
-			if (strKey == quote.String())
+			results.insert_or_assign(quote.String(), std::make_pair(result.accepted(), result.reason()));
+		}
+	}
+	for (const auto& strKey : keys)
+	{
+		bool bAccepted = !error.has_value();
+		std::string strReason = error.has_value() ? error->second : std::string();
+		if (data.has_subscription_ack())
+		{
+			const auto resultIter = results.find(strKey);
+			if (results.end() == resultIter)
 			{
-				bMatched = true;
-				bAccepted = bAccepted && result.accepted();
-				if (!result.accepted())
+				bAccepted = false;
+				strReason = "HQMarket subscription ACK is missing a result";
+			}
+			else
+			{
+				bAccepted = bAccepted && resultIter->second.first;
+				if (!resultIter->second.first)
 				{
-					strReason = result.reason();
+					strReason = resultIter->second.second;
 				}
 			}
 		}
-		if (!bMatched)
-		{
-			return false;
-		}
+		FinishSubscription(strKey, bAccepted, strReason);
 	}
-	FinishSubscription(strKey, bAccepted, strReason);
 	// A failed batch may release other confirmed keys; converge all remaining demand.
 	std::vector<CQuoteInfo> quotes;
 	for (const auto& item : m_upstreamSubscriptions)
 	{
-		if (strKey != item.first)
+		if (!keys.contains(item.first))
 		{
 			quotes.emplace_back(item.second.m_quote);
 		}
 	}
-	for (const auto& quote : quotes)
-	{
-		ReconcileSubscription(quote);
-	}
+	ReconcileSubscriptions(quotes);
 	CompleteSubscriptions();
 	return true;
 }
-
 void CHQService::ExpirePendingSubscriptions()
 {
 	std::lock_guard<std::mutex> lock(m_mtx_subscriptions);
@@ -578,10 +630,7 @@ void CHQService::Subscribe(HQOrigin type, std::uint64_t id, const std::vector<CQ
 	}
 	std::lock_guard<std::mutex> lock(m_mtx_subscriptions);
 	m_subscriptions.Subscribe(strKey, quotes);
-	for (const auto& quote : quotes)
-	{
-		ReconcileSubscription(quote);
-	}
+	ReconcileSubscriptions(quotes);
 	CompleteSubscriptions();
 }
 
@@ -601,10 +650,7 @@ void CHQService::Release(HQOrigin type, std::uint64_t id)
 			return id == static_cast<std::uint64_t>(item.second.m_client.m_routerId);
 		});
 	}
-	for (const auto& quote : quotes)
-	{
-		ReconcileSubscription(quote);
-	}
+	ReconcileSubscriptions(quotes);
 	CompleteSubscriptions();
 }
 
@@ -714,11 +760,8 @@ bool CHQService::OnSubscriptionRequest(net::_TyConnectionId id, const CRequest& 
 		m_subscriptions.Unsubscribe(strKey, quotes);
 	}
 	m_pendingBatchSubscriptions.emplace(m_routerId.fetch_add(1), std::move(pending));
-	quotes.insert(quotes.end(), superseded.begin(), superseded.end());
-	for (const auto& quote : quotes)
-	{
-		ReconcileSubscription(quote);
-	}
+	ReconcileSubscriptions(quotes, bSubscribe);
+	ReconcileSubscriptions(superseded);
 	CompleteSubscriptions();
 	return true;
 }

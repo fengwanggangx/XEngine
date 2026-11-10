@@ -4,6 +4,7 @@
 #include "../CSession.h"
 #include "../../network/CNetTools.h"
 #include "../../request/RequestCenter.h"
+#include "../../request/request.pb.h"
 #include "../../request/v1/market.pb.h"
 #include <iostream>
 #include <stdexcept>
@@ -30,12 +31,24 @@ namespace
 		reply.SetId(request.GetId());
 		reply.SetType(request.GetType());
 		_TySubscriptionAck ack;
-		hqmarket::market::v1::SubscriptionResult* result = ack.add_results();
-		result->mutable_security()->set_symbol(request.GetExtraData("security").substr(0, request.GetExtraData("security").find('.')));
-		result->mutable_security()->set_exchange(hqmarket::market::v1::SSE);
-		result->set_channel(static_cast<hqmarket::market::v1::Channel>(ParseChannel(request.GetExtraData("channel"))));
-		result->set_accepted(accepted);
-		result->set_reason(accepted ? "" : "test rejection");
+		CRequest::_TyExtraRows rows;
+		if (request.GetExtraData("subscriptions").empty())
+		{
+			rows.emplace_back(std::unordered_map<std::string, std::string>{ { "security", request.GetExtraData("security") }, { "channel", request.GetExtraData("channel") } });
+		}
+		else
+		{
+			Check(request.GetExtraData("subscriptions", rows), "upstream batch parses");
+		}
+		for (const auto& row : rows)
+		{
+			hqmarket::market::v1::SubscriptionResult* result = ack.add_results();
+			result->mutable_security()->set_symbol(row.at("security").substr(0, row.at("security").find('.')));
+			result->mutable_security()->set_exchange(hqmarket::market::v1::SSE);
+			result->set_channel(static_cast<hqmarket::market::v1::Channel>(ParseChannel(row.at("channel"))));
+			result->set_accepted(accepted);
+			result->set_reason(accepted ? "" : "test rejection");
+		}
 		reply.SetData(ack);
 		return reply;
 	}
@@ -163,12 +176,14 @@ public:
 			Check(!market.OnReply(Reply(unsubscribe)), "duplicate ACK cannot complete a newer operation");
 			market.OnReply(Reply(sent.back()));
 			market.OnRequest(ClientRequest(quote, true, 103));
+			Check(4 == sent.size(), "terminal joining confirmed demand requests a fresh HQMarket snapshot");
+			market.OnReply(Reply(sent.back()));
 			market.HandleClientDisconnected(7070);
-			Check(3 == sent.size(), "terminal disconnect retains the strategy subscription");
+			Check(4 == sent.size(), "terminal disconnect retains the strategy subscription");
 			market.OnSessionState(SessionState::Disconnected, "offline");
 			Check(!market.m_upstreamSubscriptions.at(quote.String()).m_bConfirmed, "disconnect invalidates confirmation");
 			market.OnSessionState(SessionState::Ready, "");
-			Check(4 == sent.size(), "reconnect restores shared strategy demand exactly once");
+			Check(5 == sent.size(), "reconnect restores shared strategy demand exactly once");
 			market.OnReply(Reply(sent.back()));
 			market.Release(HQOrigin::Strategy, 3);
 			market.OnReply(Reply(sent.back()));
@@ -260,16 +275,51 @@ public:
 			};
 			batch.SetExtraData("subscriptions", rows);
 			market.OnRequest(batch);
-			Check(2 == sent.size() && responses.empty(), "batch waits for all unique upstream subscriptions");
-			CRequest second = sent.back();
-			market.OnReply(Reply(sent.front(), false));
+			Check(1 == sent.size() && responses.empty(), "client batch uses one upstream request and waits for ACK");
+			CRequest reply = Reply(sent.front());
+			_TySubscriptionAck ack = reply.GetData().subscription_ack();
+			ack.mutable_results(0)->set_accepted(false);
+			ack.mutable_results(0)->set_reason("test rejection");
+			reply.SetData(ack);
+			market.OnReply(reply);
 			Check(responses.back().GetErrorInfo().has_value(), "one rejected batch item fails the request");
-			market.OnReply(Reply(second));
-			Check(3 == sent.size() && _TyRequest::MARKET_UNSUBSCRIBE == sent.back().GetType(), "late success for a rolled-back batch is released upstream");
+			Check(2 == sent.size() && _TyRequest::MARKET_UNSUBSCRIBE == sent.back().GetType(), "accepted item in a rolled-back batch is released upstream");
 			market.OnReply(Reply(sent.back()));
 			Check(market.m_upstreamSubscriptions.empty(), "batch rollback leaves no orphan subscriptions");
 		}
 
+		sent.clear();
+		responses.clear();
+		{
+			CHQService market(&session);
+			CRequest batch;
+			batch.SetConnectionId(7070);
+			batch.SetId(460);
+			batch.SetType(_TyRequest::MARKET_SUBSCRIBE);
+			CRequest::_TyExtraRows rows{
+				{ { "security", "600519.SSE" }, { "channel", "quote" } },
+				{ { "security", "600000.SSE" }, { "channel", "quote" } },
+				{ { "security", "600519.SSE" }, { "channel", "quote" } }
+			};
+			batch.SetExtraData("subscriptions", rows);
+			market.OnRequest(batch);
+			Check(1 == sent.size(), "duplicate securities share one upstream batch");
+			CRequest reply = Reply(sent.back());
+			Check(2 == reply.GetData().subscription_ack().results_size(), "upstream batch deduplicates securities");
+			market.OnReply(reply);
+			Check(1 == responses.size() && !responses.back().GetErrorInfo().has_value(), "all batch results complete the client ACK");
+			batch.SetId(461);
+			batch.SetConnectionId(8080);
+			market.OnRequest(batch);
+			Check(2 == sent.size(), "new client refreshes cached snapshots with one upstream batch");
+			reply = Reply(sent.back());
+			_TySubscriptionAck ack = reply.GetData().subscription_ack();
+			ack.mutable_results()->RemoveLast();
+			reply.SetData(ack);
+			market.OnReply(reply);
+			Check(responses.back().GetErrorInfo().has_value(), "missing batch result fails the new request");
+			Check(market.m_subscriptions.IsSubscribed(FmtHQSubID(HQOrigin::Client, 7070), quote), "failed snapshot refresh preserves existing subscriber");
+		}
 		sent.clear();
 		responses.clear();
 		{
