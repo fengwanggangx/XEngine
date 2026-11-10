@@ -83,6 +83,7 @@
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <RemoteCompileLocalCopyObjectFiles>true</RemoteCompileLocalCopyObjectFiles>
+    <CopyAdditionalIncludes>true</CopyAdditionalIncludes>
     <RemoteOutDir>$(RemoteProjectDir)exec/release/</RemoteOutDir>
     <LibraryPath>
     </LibraryPath>
@@ -223,12 +224,7 @@
       </Command>
     </RemotePreBuildEvent>
   </ItemDefinitionGroup>
-  <Import Project="indicator\IndicatorSources.props" />
-  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
-  <ImportGroup Label="ExtensionTargets" />
   <ItemGroup>
-
-
     <ClCompile Include="trade\TradeProtocol.cpp" />
     <ClInclude Include="trade\TradeProtocol.h" />
     <ClCompile Include="trade\TradeTypes.cpp" />
@@ -236,4 +232,7 @@
     <ClCompile Include="trade\TradingTypes.cpp" />
     <ClInclude Include="trade\TradingTypes.h" />
   </ItemGroup>
+  <Import Project="indicator\IndicatorSources.props" />
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets" />
 </Project>
