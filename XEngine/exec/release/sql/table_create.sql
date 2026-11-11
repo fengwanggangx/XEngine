@@ -20,6 +20,22 @@ CREATE TABLE IF NOT EXISTS table_user_watchlist
 	CONSTRAINT fk_table_user_watchlist_user FOREIGN KEY (user_id) REFERENCES table_user(user_id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin;
 
+CREATE TABLE IF NOT EXISTS table_account
+(
+	user_id BIGINT UNSIGNED NOT NULL,
+	broker_id BIGINT UNSIGNED NOT NULL,
+	account VARCHAR(64) NOT NULL,
+	site VARCHAR(64) NOT NULL,
+	broker_name VARCHAR(128) NOT NULL DEFAULT '',
+	account_name VARCHAR(128) NOT NULL DEFAULT '',
+	password VARCHAR(128) NOT NULL,
+	created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+	updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+	PRIMARY KEY (user_id, broker_id, account),
+	KEY idx_table_account_identity (broker_id, account),
+	CONSTRAINT fk_table_account_user FOREIGN KEY (user_id) REFERENCES table_user(user_id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin;
+
 CREATE TABLE IF NOT EXISTS table_strategy
 (
 	strategy_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,

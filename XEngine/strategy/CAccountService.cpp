@@ -76,6 +76,24 @@ std::vector<_TyAccount> CAccountService::GetAccounts() const
 	return accounts;
 }
 
+bool CAccountService::IsInUse(const _TyAccount& account) const
+{
+	std::shared_lock<std::shared_mutex> lock(m_mtx_accounts);
+	const auto mIter = m_accounts.find(account);
+	return m_accounts.end() != mIter && 0 != mIter->second.m_useCount;
+}
+
+CAccountInfo CAccountService::GetAccountInfo(const _TyAccount& account) const
+{
+	std::shared_lock<std::shared_mutex> lock(m_mtx_accounts);
+	const auto mIter = m_accounts.find(account);
+	if (m_accounts.end() == mIter || !mIter->second.m_bAtAccountList)
+	{
+		return FmtAccountInfo(account);
+	}
+	return mIter->second.m_info;
+}
+
 void CAccountService::SetPushHandler(_TyRequestNotify&& handler)
 {
 	std::unique_lock<std::shared_mutex> lock(m_mtx_accounts);

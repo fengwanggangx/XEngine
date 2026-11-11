@@ -24,12 +24,14 @@ public:
 	bool Initialize();
 	~CAccountService();
 	std::vector<_TyAccount> GetAccounts() const;
+	CAccountInfo GetAccountInfo(const _TyAccount& account) const;
 	explicit CAccountService(CSession* pSession);
 	bool AcquireAccount(const _TyAccount& account);
 	void ReleaseAccount(const _TyAccount& account);
 	void SetPushHandler(_TyRequestNotify&& handler);
 	bool HasAccount(const _TyAccount& account) const;
 	bool IsConnected(const _TyAccount& account) const;
+	bool IsInUse(const _TyAccount& account) const;
 	void OnBrokerEvent(const trade::CCounterEvent& event);
 	bool OnRequest(const CRequest& req, const std::string& actor);
 	void SetAccountStateHandler(_TyAccountStateHandler&& handler);

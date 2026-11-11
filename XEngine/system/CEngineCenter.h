@@ -52,6 +52,7 @@ private:
 	bool HandleStrategyRequest(net::_TyConnectionId id, const CRequest& req);
 	bool HandleTradeAccountRequest(net::_TyConnectionId id, const CRequest& req, const std::string& strUser);
 	bool HandleWatchlistRequest(const CRequest& req, const std::string& strUser);
+	bool IsOwnedAccount(const std::string& strUser, const _TyAccount& account) const;
 
 	bool HandleReAuth(const CRequest& req);
 	int HandleClientDisconnected(net::_TyConnectionId id);

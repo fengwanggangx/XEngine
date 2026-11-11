@@ -59,6 +59,8 @@ namespace request
 		WATCHLIST_QUERY = 62,
 		WATCHLIST_ADD = 63,
 		WATCHLIST_REMOVE = 64,
+		TRADE_ACCOUNT_ADD = 65,
+		TRADE_ACCOUNT_REMOVE = 66,
 	};
 
 	class RequestData;

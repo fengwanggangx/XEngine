@@ -11,6 +11,7 @@
 #include "../request/request.pb.h"
 #include "../request/v1/market.pb.h"
 #include "../strategy/CStrategyService.h"
+#include "../strategy/CAccountService.h"
 #include "../strategy/CTradeService.h"
 #include "CSession.h"
 #include "CHQService.h"
@@ -88,13 +89,36 @@ bool CEngineCenter::Initialize()
 
 bool CEngineCenter::BroadcastTrade(const CRequest& req)
 {
+	_TyAccount account;
+	if (!FmtAccount(req, account))
+	{
+		return false;
+	}
+	db::_TyDBPtr pDB = CDBEngine::InstanceRef().GetDBPtr(db::em_database::mysql);
+	if (nullptr == pDB)
+	{
+		return false;
+	}
+	const db::CTable& owners = pDB->ExecQuery("SELECT u.user FROM table_account a JOIN table_user u ON u.user_id=a.user_id WHERE a.broker_id=" + std::to_string(account.first) + " AND a.account=" + utility::Utf8Literal(account.second) + " AND u.status=1");
+	if (owners.m_columns.empty())
+	{
+		return false;
+	}
+	std::unordered_set<std::string> users;
+	for (const db::_TyRow& row : owners.m_rows)
+	{
+		users.emplace(db::to_string(row.at(0)));
+	}
 	std::vector<net::_TyConnectionId> clients;
 	{
 		std::lock_guard<std::mutex> lock(m_mtx_state);
 		clients.reserve(m_authClients.size());
 		for (const auto& client : m_authClients)
 		{
-			clients.emplace_back(client.first);
+			if (users.contains(client.second))
+			{
+				clients.emplace_back(client.first);
+			}
 		}
 	}
 	bool bSent = true;
@@ -325,6 +349,8 @@ void CEngineCenter::OnRequest(const CRequest& req)
 	case _TyRequest::TRADE_ACCOUNT_LOGIN:
 	case _TyRequest::TRADE_ACCOUNT_LIST_QUERY:
 	case _TyRequest::TRADE_ACCOUNT_DISCONNECT:
+	case _TyRequest::TRADE_ACCOUNT_ADD:
+	case _TyRequest::TRADE_ACCOUNT_REMOVE:
 		HandleTradeAccountRequest(id, req, strUser);
 		return;
 
@@ -490,6 +516,105 @@ bool CEngineCenter::HandleTradeAccountRequest(net::_TyConnectionId id, const CRe
 		net::SendError(id, req, UpstreamUnavailable, "Account service is unavailable");
 		return false;
 	}
+	db::_TyDBPtr pDB = CDBEngine::InstanceRef().GetDBPtr(db::em_database::mysql);
+	if (nullptr == pDB)
+	{
+		SendResponse(req, StorageUnavailable, "交易账户数据库暂不可用");
+		return false;
+	}
+	const db::CTable& userTable = pDB->ExecQuery("SELECT user_id FROM table_user WHERE user=" + utility::Utf8Literal(strUser) + " AND status=1 LIMIT 1");
+	if (userTable.m_rows.empty())
+	{
+		SendResponse(req, StorageUnavailable, "登录用户不存在或数据库不可用");
+		return false;
+	}
+	std::string strUserId = db::to_string(userTable.m_rows.front().at(0));
+	_TyRequest type = req.GetType();
+	if (_TyRequest::TRADE_ACCOUNT_LIST_QUERY == type)
+	{
+		const db::CTable& table = pDB->ExecQuery("SELECT broker_id,account,site,broker_name,account_name FROM table_account WHERE user_id=" + strUserId + " ORDER BY created_at,broker_id,account");
+		if (table.m_columns.empty())
+		{
+			SendResponse(req, StorageUnavailable, "读取交易账户失败");
+			return false;
+		}
+		request::TradeAccountList list;
+		for (const db::_TyRow& row : table.m_rows)
+		{
+			request::TradeAccountRecord* record = list.add_accounts();
+			record->set_broker_id(std::stoull(db::to_string(row.at(0))));
+			record->set_account(db::to_string(row.at(1)));
+			record->set_site(db::to_string(row.at(2)));
+			record->set_broker_name(db::to_string(row.at(3)));
+			record->set_name(db::to_string(row.at(4)));
+			CAccountInfo info = m_pAccountService->GetAccountInfo(FmtAccount(*record));
+			record->set_state(static_cast<request::TradingAccountState>(info.m_state));
+			record->set_last_error(info.m_strLastError);
+		}
+		CRequest response;
+		response.SetId(req.GetId());
+		response.SetType(type);
+		response.SetData(list);
+		return net::SendRequest(id, response);
+	}
+	_TyAccount account;
+	if (!FmtAccount(req, account) || 64 < account.second.size())
+	{
+		SendResponse(req, InvalidRequest, "无效交易账户");
+		return false;
+	}
+	std::string strWhere = "user_id=" + strUserId + " AND broker_id=" + std::to_string(account.first) + " AND account=" + utility::Utf8Literal(account.second);
+	if (_TyRequest::TRADE_ACCOUNT_ADD == type)
+	{
+		std::string strSite = req.GetExtraData("site");
+		std::string strPassword = req.GetExtraData("password");
+		if (strSite.empty() || 64 < strSite.size() || strPassword.empty() || 128 < strPassword.size())
+		{
+			SendResponse(req, InvalidRequest, "站点或交易密码无效");
+			return false;
+		}
+		std::string strSql = "INSERT INTO table_account(user_id,broker_id,account,site,broker_name,account_name,password) VALUES(" + strUserId + "," + std::to_string(account.first) + "," + utility::Utf8Literal(account.second) + "," + utility::Utf8Literal(strSite) + "," + utility::Utf8Literal(req.GetExtraData("broker_name")) + "," + utility::Utf8Literal(account.second) + "," + utility::Utf8Literal(strPassword) + ") ON DUPLICATE KEY UPDATE site=VALUES(site),broker_name=VALUES(broker_name),password=VALUES(password)";
+		if (0 != pDB->ExecUpdate(strSql))
+		{
+			SendResponse(req, StorageUnavailable, "保存交易账户失败");
+			return false;
+		}
+		SendResponse(req, 0, "交易账户已保存");
+		return true;
+	}
+	const db::CTable& table = pDB->ExecQuery("SELECT site,password FROM table_account WHERE " + strWhere + " LIMIT 1");
+	if (table.m_columns.empty())
+	{
+		SendResponse(req, StorageUnavailable, "读取交易账户失败");
+		return false;
+	}
+	if (table.m_rows.empty())
+	{
+		SendResponse(req, InvalidRequest, "交易账户未添加到当前用户");
+		return false;
+	}
+	if (_TyRequest::TRADE_ACCOUNT_REMOVE == type)
+	{
+		if (m_pAccountService->IsConnected(account) || m_pAccountService->IsInUse(account))
+		{
+			SendResponse(req, InvalidRequest, "请先断开账户并停止关联策略");
+			return false;
+		}
+		if (0 != pDB->ExecUpdate("DELETE FROM table_account WHERE " + strWhere))
+		{
+			SendResponse(req, StorageUnavailable, "移除交易账户失败");
+			return false;
+		}
+		SendResponse(req, 0, "交易账户已移除");
+		return true;
+	}
+	if (_TyRequest::TRADE_ACCOUNT_LOGIN == type)
+	{
+		CRequest login = req;
+		login.SetExtraData("site", db::to_string(table.m_rows.front().at(0)));
+		login.SetExtraData("password", db::to_string(table.m_rows.front().at(1)));
+		return m_pAccountService->OnRequest(login, strUser);
+	}
 	return m_pAccountService->OnRequest(req, strUser);
 }
 
@@ -500,7 +625,27 @@ bool CEngineCenter::HandleTradeRequest(net::_TyConnectionId id, const CRequest& 
 		net::SendError(id, req, AuthenticationRequired, "authentication required");
 		return false;
 	}
+	if (_TyRequest::SUPPORTED_BROKER_QUERY != req.GetType())
+	{
+		_TyAccount account;
+		if (!FmtAccount(req, account) || !IsOwnedAccount(IsAuthenticated(id).second, account))
+		{
+			net::SendError(id, req, AuthenticationRequired, "交易账户不属于当前用户");
+			return false;
+		}
+	}
 	return m_pTradeService->OnRequest(req);
+}
+
+bool CEngineCenter::IsOwnedAccount(const std::string& strUser, const _TyAccount& account) const
+{
+	db::_TyDBPtr pDB = CDBEngine::InstanceRef().GetDBPtr(db::em_database::mysql);
+	if (nullptr == pDB || !IsAccountValid(account))
+	{
+		return false;
+	}
+	const db::CTable& table = pDB->ExecQuery("SELECT 1 FROM table_account a JOIN table_user u ON u.user_id=a.user_id WHERE u.user=" + utility::Utf8Literal(strUser) + " AND a.broker_id=" + std::to_string(account.first) + " AND a.account=" + utility::Utf8Literal(account.second) + " AND u.status=1 LIMIT 1");
+	return !table.m_rows.empty();
 }
 
 CEngineCenter::~CEngineCenter()
