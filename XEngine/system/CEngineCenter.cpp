@@ -20,6 +20,7 @@
 #include <functional>
 #include <iterator>
 #include <mutex>
+#include <sstream>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
@@ -302,6 +303,12 @@ void CEngineCenter::OnRequest(const CRequest& req)
 		HandleHeartbeat(id, req);
 		return;
 
+	case _TyRequest::WATCHLIST_QUERY:
+	case _TyRequest::WATCHLIST_ADD:
+	case _TyRequest::WATCHLIST_REMOVE:
+		HandleWatchlistRequest(req, strUser);
+		return;
+
 	case _TyRequest::MARKET_SUBSCRIBE:
 	case _TyRequest::MARKET_UNSUBSCRIBE:
 		m_pHQService->OnRequest(req);
@@ -336,6 +343,111 @@ void CEngineCenter::OnRequest(const CRequest& req)
 		net::SendError(id, req, 1006, "unknown request type");
 		return;
 	}
+}
+
+bool CEngineCenter::HandleWatchlistRequest(const CRequest& req, const std::string& strUser)
+{
+	db::_TyDBPtr pDB = CDBEngine::InstanceRef().GetDBPtr(db::em_database::mysql);
+	if (nullptr == pDB)
+	{
+		SendResponse(req, StorageUnavailable, "自选数据库暂不可用");
+		return false;
+	}
+	const db::CTable& userTable = pDB->ExecQuery("SELECT user_id FROM table_user WHERE user=" + utility::Utf8Literal(strUser) + " AND status=1 LIMIT 1");
+	if (userTable.m_rows.empty())
+	{
+		SendResponse(req, StorageUnavailable, "登录用户不存在或数据库不可用");
+		return false;
+	}
+	std::string strUserId = db::to_string(userTable.m_rows.front().at(0));
+	if (_TyRequest::WATCHLIST_QUERY != req.GetType())
+	{
+		std::istringstream stream(req.GetExtraData("securities"));
+		std::vector<std::string> securities;
+		std::unordered_set<std::string> unique;
+		std::string strSecurity;
+		while (std::getline(stream, strSecurity))
+		{
+			std::size_t nDot = strSecurity.find('.');
+			bool bValid = (std::string::npos != nDot) && (0 < nDot) && (32 >= strSecurity.size()) &&
+				(("SSE" == strSecurity.substr(nDot + 1)) || ("SZSE" == strSecurity.substr(nDot + 1)) ||
+				 ("BSE" == strSecurity.substr(nDot + 1)) || ("HKEX" == strSecurity.substr(nDot + 1))) &&
+				std::all_of(strSecurity.begin(), strSecurity.begin() + nDot, [](unsigned char ch)
+				{
+					return 0 != std::isdigit(ch);
+				});
+			if (!bValid)
+			{
+				SendResponse(req, InvalidRequest, "无效证券代码：" + strSecurity);
+				return false;
+			}
+			if (unique.emplace(strSecurity).second)
+			{
+				securities.emplace_back(strSecurity);
+			}
+			if (500 < securities.size())
+			{
+				SendResponse(req, InvalidRequest, "单次最多添加或删除 500 只证券");
+				return false;
+			}
+		}
+		if (securities.empty())
+		{
+			SendResponse(req, InvalidRequest, "证券列表不能为空");
+			return false;
+		}
+		std::string strSql;
+		if (_TyRequest::WATCHLIST_ADD == req.GetType())
+		{
+			strSql = "INSERT IGNORE INTO table_user_watchlist(user_id,security) VALUES ";
+			for (const std::string& strItem : securities)
+			{
+				if (' ' != strSql.back())
+				{
+					strSql += ',';
+				}
+				strSql += "(" + strUserId + "," + utility::Utf8Literal(strItem) + ")";
+			}
+		}
+		else
+		{
+			strSql = "DELETE FROM table_user_watchlist WHERE user_id=" + strUserId + " AND security IN (";
+			for (const std::string& strItem : securities)
+			{
+				if ('(' != strSql.back())
+				{
+					strSql += ',';
+				}
+				strSql += utility::Utf8Literal(strItem);
+			}
+			strSql += ')';
+		}
+		if (0 != pDB->ExecUpdate(strSql))
+		{
+			SendResponse(req, StorageUnavailable, "保存自选股失败");
+			return false;
+		}
+	}
+	const db::CTable& list = pDB->ExecQuery("SELECT security FROM table_user_watchlist WHERE user_id=" + strUserId + " ORDER BY created_at, security");
+	if (list.m_columns.empty())
+	{
+		SendResponse(req, StorageUnavailable, "读取自选股失败");
+		return false;
+	}
+	std::string strList;
+	for (const db::_TyRow& row : list.m_rows)
+	{
+		if (!strList.empty())
+		{
+			strList += '\n';
+		}
+		strList += db::to_string(row.at(0));
+	}
+	CRequest response;
+	response.SetId(req.GetId());
+	response.SetType(req.GetType());
+	response.SetExtraData("securities", strList);
+	return net::SendRequest(req.GetConnectionId(), response);
 }
 
 bool CEngineCenter::HandleHeartbeat(net::_TyConnectionId id, const CRequest& req)

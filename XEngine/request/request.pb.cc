@@ -1601,7 +1601,7 @@ const char descriptor_table_protodef_request_2eproto[] ABSL_ATTRIBUTE_SECTION_VA
     "_day\030\005 \001(\005\022)\n\006orders\030\006 \003(\0132\031.request.Tra"
     "deOrderRecord\022$\n\006trades\030\007 \003(\0132\024.request."
     "TradeRecord\022)\n\006events\030\010 \003(\0132\031.request.Tr"
-    "adeEventRecord*\270\007\n\013RequestType\022\013\n\007UNKNOW"
+    "adeEventRecord*\366\007\n\013RequestType\022\013\n\007UNKNOW"
     "N\020\000\022\016\n\nAUTH_LOGIN\020\001\022\021\n\rAUTH_REGISTER\020\003\022\r"
     "\n\tHEARTBEAT\020\006\022\027\n\023TRADE_ACCOUNT_LOGIN\020\010\022\034"
     "\n\030TRADE_ACCOUNT_LIST_QUERY\020\t\022\034\n\030TRADE_AC"
@@ -1622,14 +1622,16 @@ const char descriptor_table_protodef_request_2eproto[] ABSL_ATTRIBUTE_SECTION_VA
     "\034\n\030TRADE_ACCOUNT_STATE_PUSH\0206\022\024\n\020TRADE_O"
     "RDER_PUSH\0207\022\024\n\020TRADE_TRADE_PUSH\0208\022\033\n\027TRA"
     "DE_ACCOUNT_INFO_PUSH\0209\022\027\n\023TRADE_POSITION"
-    "_PUSH\020:\022\032\n\026SUPPORTED_BROKER_QUERY\020=\"\004\010\002\020"
-    "\002\"\004\010\004\020\004\"\004\010\005\020\005\"\004\010\007\020\007*\nQUERY_AUTH*\013UPDATE_"
-    "AUTH*\016QUERY_USERINFO*\010STRATEGY*\010HQMARKET"
-    "*\007ACCOUNT*\246\001\n\023TradingAccountState\022\030\n\024ACC"
-    "OUNT_DISCONNECTED\020\000\022\025\n\021ACCOUNT_CONNECTED"
-    "\020\001\022\021\n\rACCOUNT_ERROR\020\002\022\026\n\022ACCOUNT_CONNECT"
-    "ING\020\003\022\031\n\025ACCOUNT_SYNCHRONIZING\020\004\022\030\n\024ACCO"
-    "UNT_RECONNECTING\020\005b\006proto3"
+    "_PUSH\020:\022\032\n\026SUPPORTED_BROKER_QUERY\020=\022\023\n\017W"
+    "ATCHLIST_QUERY\020>\022\021\n\rWATCHLIST_ADD\020\?\022\024\n\020W"
+    "ATCHLIST_REMOVE\020@\"\004\010\002\020\002\"\004\010\004\020\004\"\004\010\005\020\005\"\004\010\007\020"
+    "\007*\nQUERY_AUTH*\013UPDATE_AUTH*\016QUERY_USERIN"
+    "FO*\010STRATEGY*\010HQMARKET*\007ACCOUNT*\246\001\n\023Trad"
+    "ingAccountState\022\030\n\024ACCOUNT_DISCONNECTED\020"
+    "\000\022\025\n\021ACCOUNT_CONNECTED\020\001\022\021\n\rACCOUNT_ERRO"
+    "R\020\002\022\026\n\022ACCOUNT_CONNECTING\020\003\022\031\n\025ACCOUNT_S"
+    "YNCHRONIZING\020\004\022\030\n\024ACCOUNT_RECONNECTING\020\005"
+    "b\006proto3"
 };
 static const ::_pbi::DescriptorTable* const descriptor_table_request_2eproto_deps[1] =
     {
@@ -1639,7 +1641,7 @@ static ::absl::once_flag descriptor_table_request_2eproto_once;
 PROTOBUF_CONSTINIT const ::_pbi::DescriptorTable descriptor_table_request_2eproto = {
     false,
     false,
-    7266,
+    7328,
     descriptor_table_protodef_request_2eproto,
     "request.proto",
     &descriptor_table_request_2eproto_once,
@@ -1658,9 +1660,9 @@ const ::google::protobuf::EnumDescriptor* RequestType_descriptor() {
   return file_level_enum_descriptors_request_2eproto[0];
 }
 PROTOBUF_CONSTINIT const uint32_t RequestType_internal_data_[] = {
-    131072u, 64u, 66853074u, 167772096u, };
+    131072u, 64u, 66853074u, 2046820288u, };
 bool RequestType_IsValid(int value) {
-  return 0 <= value && value <= 61 && ((2882302662272901963u >> value) & 1) != 0;
+  return ::_pbi::ValidateEnum(value, RequestType_internal_data_);
 }
 const ::google::protobuf::EnumDescriptor* TradingAccountState_descriptor() {
   ::google::protobuf::internal::AssignDescriptors(&descriptor_table_request_2eproto);

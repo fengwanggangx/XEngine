@@ -56,6 +56,9 @@ namespace request
 		TRADE_POSITION_PUSH = 58,
 
 		SUPPORTED_BROKER_QUERY = 61,
+		WATCHLIST_QUERY = 62,
+		WATCHLIST_ADD = 63,
+		WATCHLIST_REMOVE = 64,
 	};
 
 	class RequestData;

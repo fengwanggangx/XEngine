@@ -11,6 +11,15 @@ CREATE TABLE IF NOT EXISTS table_user
 	UNIQUE KEY uk_table_user_user (user)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin;
 
+CREATE TABLE IF NOT EXISTS table_user_watchlist
+(
+	user_id BIGINT UNSIGNED NOT NULL,
+	security VARCHAR(32) NOT NULL,
+	created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+	PRIMARY KEY (user_id, security),
+	CONSTRAINT fk_table_user_watchlist_user FOREIGN KEY (user_id) REFERENCES table_user(user_id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin;
+
 CREATE TABLE IF NOT EXISTS table_strategy
 (
 	strategy_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
