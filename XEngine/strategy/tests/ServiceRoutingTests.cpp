@@ -257,7 +257,7 @@ public:
 		request::TradeAccountRecord* record = catalogue.add_accounts();
 		record->set_broker_id(account.first);
 		record->set_account(account.second);
-		record->set_state(static_cast<request::TradingAccountState>(TradeAccountState::Connected));
+		record->set_state(static_cast<request::TradeAccountState>(TradeAccountState::Connected));
 		CRequest catalogueResponse;
 		catalogueResponse.SetData(catalogue);
 		accounts.OnAccountListReply(catalogueResponse, accounts.m_broker_connect_id);

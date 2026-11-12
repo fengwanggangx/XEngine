@@ -72,11 +72,11 @@ message StrategyList {
 }
 
 
-enum TradingAccountState { ACCOUNT_DISCONNECTED = 0; ACCOUNT_CONNECTED = 1; ACCOUNT_ERROR = 2; ACCOUNT_CONNECTING = 3; ACCOUNT_SYNCHRONIZING = 4; ACCOUNT_RECONNECTING = 5; }
+enum TradeAccountState { ACCOUNT_DISCONNECTED = 0; ACCOUNT_CONNECTED = 1; ACCOUNT_ERROR = 2; ACCOUNT_CONNECTING = 3; ACCOUNT_SYNCHRONIZING = 4; ACCOUNT_RECONNECTING = 5; }
 // Account display/response data only; login credentials belong in RequestData.extra.
 message TradeAccountRecord {
  uint64 broker_id = 1; string site = 2; string account = 3;
- string broker_name = 4; string name = 5; TradingAccountState state = 6; string last_error = 7;
+ string broker_name = 4; string name = 5; TradeAccountState state = 6; string last_error = 7;
 }
 message BrokerSite { string site = 1; string name = 2; }
 message BrokerRecord { uint64 broker_id = 1; string name = 2; repeated BrokerSite sites = 3; }

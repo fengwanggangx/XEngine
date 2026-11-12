@@ -215,42 +215,42 @@ inline bool RequestType_Parse(absl::string_view name, RequestType* value) {
   return ::google::protobuf::internal::ParseNamedEnum<RequestType>(
       RequestType_descriptor(), name, value);
 }
-enum TradingAccountState : int {
+enum TradeAccountState : int {
   ACCOUNT_DISCONNECTED = 0,
   ACCOUNT_CONNECTED = 1,
   ACCOUNT_ERROR = 2,
   ACCOUNT_CONNECTING = 3,
   ACCOUNT_SYNCHRONIZING = 4,
   ACCOUNT_RECONNECTING = 5,
-  TradingAccountState_INT_MIN_SENTINEL_DO_NOT_USE_ =
+  TradeAccountState_INT_MIN_SENTINEL_DO_NOT_USE_ =
       std::numeric_limits<::int32_t>::min(),
-  TradingAccountState_INT_MAX_SENTINEL_DO_NOT_USE_ =
+  TradeAccountState_INT_MAX_SENTINEL_DO_NOT_USE_ =
       std::numeric_limits<::int32_t>::max(),
 };
 
-bool TradingAccountState_IsValid(int value);
-extern const uint32_t TradingAccountState_internal_data_[];
-constexpr TradingAccountState TradingAccountState_MIN = static_cast<TradingAccountState>(0);
-constexpr TradingAccountState TradingAccountState_MAX = static_cast<TradingAccountState>(5);
-constexpr int TradingAccountState_ARRAYSIZE = 5 + 1;
+bool TradeAccountState_IsValid(int value);
+extern const uint32_t TradeAccountState_internal_data_[];
+constexpr TradeAccountState TradeAccountState_MIN = static_cast<TradeAccountState>(0);
+constexpr TradeAccountState TradeAccountState_MAX = static_cast<TradeAccountState>(5);
+constexpr int TradeAccountState_ARRAYSIZE = 5 + 1;
 const ::google::protobuf::EnumDescriptor*
-TradingAccountState_descriptor();
+TradeAccountState_descriptor();
 template <typename T>
-const std::string& TradingAccountState_Name(T value) {
-  static_assert(std::is_same<T, TradingAccountState>::value ||
+const std::string& TradeAccountState_Name(T value) {
+  static_assert(std::is_same<T, TradeAccountState>::value ||
                     std::is_integral<T>::value,
-                "Incorrect type passed to TradingAccountState_Name().");
-  return TradingAccountState_Name(static_cast<TradingAccountState>(value));
+                "Incorrect type passed to TradeAccountState_Name().");
+  return TradeAccountState_Name(static_cast<TradeAccountState>(value));
 }
 template <>
-inline const std::string& TradingAccountState_Name(TradingAccountState value) {
-  return ::google::protobuf::internal::NameOfDenseEnum<TradingAccountState_descriptor,
+inline const std::string& TradeAccountState_Name(TradeAccountState value) {
+  return ::google::protobuf::internal::NameOfDenseEnum<TradeAccountState_descriptor,
                                                  0, 5>(
       static_cast<int>(value));
 }
-inline bool TradingAccountState_Parse(absl::string_view name, TradingAccountState* value) {
-  return ::google::protobuf::internal::ParseNamedEnum<TradingAccountState>(
-      TradingAccountState_descriptor(), name, value);
+inline bool TradeAccountState_Parse(absl::string_view name, TradeAccountState* value) {
+  return ::google::protobuf::internal::ParseNamedEnum<TradeAccountState>(
+      TradeAccountState_descriptor(), name, value);
 }
 
 // ===================================================================
@@ -2048,14 +2048,14 @@ class TradeAccountRecord final : public ::google::protobuf::Message
   void _internal_set_broker_id(::uint64_t value);
 
   public:
-  // .request.TradingAccountState state = 6;
+  // .request.TradeAccountState state = 6;
   void clear_state() ;
-  ::request::TradingAccountState state() const;
-  void set_state(::request::TradingAccountState value);
+  ::request::TradeAccountState state() const;
+  void set_state(::request::TradeAccountState value);
 
   private:
-  ::request::TradingAccountState _internal_state() const;
-  void _internal_set_state(::request::TradingAccountState value);
+  ::request::TradeAccountState _internal_state() const;
+  void _internal_set_state(::request::TradeAccountState value);
 
   public:
   // @@protoc_insertion_point(class_scope:request.TradeAccountRecord)
@@ -8635,24 +8635,24 @@ inline void TradeAccountRecord::set_allocated_name(std::string* value) {
   // @@protoc_insertion_point(field_set_allocated:request.TradeAccountRecord.name)
 }
 
-// .request.TradingAccountState state = 6;
+// .request.TradeAccountState state = 6;
 inline void TradeAccountRecord::clear_state() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   _impl_.state_ = 0;
 }
-inline ::request::TradingAccountState TradeAccountRecord::state() const {
+inline ::request::TradeAccountState TradeAccountRecord::state() const {
   // @@protoc_insertion_point(field_get:request.TradeAccountRecord.state)
   return _internal_state();
 }
-inline void TradeAccountRecord::set_state(::request::TradingAccountState value) {
+inline void TradeAccountRecord::set_state(::request::TradeAccountState value) {
   _internal_set_state(value);
   // @@protoc_insertion_point(field_set:request.TradeAccountRecord.state)
 }
-inline ::request::TradingAccountState TradeAccountRecord::_internal_state() const {
+inline ::request::TradeAccountState TradeAccountRecord::_internal_state() const {
   ::google::protobuf::internal::TSanRead(&_impl_);
-  return static_cast<::request::TradingAccountState>(_impl_.state_);
+  return static_cast<::request::TradeAccountState>(_impl_.state_);
 }
-inline void TradeAccountRecord::_internal_set_state(::request::TradingAccountState value) {
+inline void TradeAccountRecord::_internal_set_state(::request::TradeAccountState value) {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   _impl_.state_ = value;
 }
@@ -15656,10 +15656,10 @@ inline const EnumDescriptor* GetEnumDescriptor<::request::RequestType>() {
   return ::request::RequestType_descriptor();
 }
 template <>
-struct is_proto_enum<::request::TradingAccountState> : std::true_type {};
+struct is_proto_enum<::request::TradeAccountState> : std::true_type {};
 template <>
-inline const EnumDescriptor* GetEnumDescriptor<::request::TradingAccountState>() {
-  return ::request::TradingAccountState_descriptor();
+inline const EnumDescriptor* GetEnumDescriptor<::request::TradeAccountState>() {
+  return ::request::TradeAccountState_descriptor();
 }
 
 }  // namespace protobuf

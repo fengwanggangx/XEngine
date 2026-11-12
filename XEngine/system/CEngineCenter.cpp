@@ -548,7 +548,7 @@ bool CEngineCenter::HandleTradeAccountRequest(net::_TyConnectionId id, const CRe
 			record->set_broker_name(db::to_string(row.at(3)));
 			record->set_name(db::to_string(row.at(4)));
 			CAccountInfo info = m_pAccountService->GetAccountInfo(FmtAccount(*record));
-			record->set_state(static_cast<request::TradingAccountState>(info.m_state));
+			record->set_state(static_cast<request::TradeAccountState>(info.m_state));
 			record->set_last_error(info.m_strLastError);
 		}
 		CRequest response;

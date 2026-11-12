@@ -241,7 +241,7 @@ namespace trade::protocol
 		payload.set_site(info.m_strSite);
 		payload.set_broker_name(info.m_strBrokerName);
 		payload.set_name(info.m_strName);
-		payload.set_state(static_cast<request::TradingAccountState>(info.m_state));
+		payload.set_state(static_cast<request::TradeAccountState>(info.m_state));
 		payload.set_last_error(info.m_strLastError);
 		return payload;
 	}
