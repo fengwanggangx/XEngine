@@ -103,3 +103,11 @@ BootLoader 持有指标运行时，策略服务和均线策略借用它。当前
 
 打开 `XEngine.sln`，选择 `XEngine/XEngine.vcxproj`，使用 VS Linux 远程构建，配置为 Debug 或 Release、平台 x64；需在 VS 中配置 Linux 连接及工程所需依赖。
 本次仅核对解决方案及工程文件，不执行编译、链接或运行测试。
+
+## 双均线交叉策略命名
+
+策略类型为 `dual_ma_cross`，实现类为 `CDualMaCrossStrategy`，中文名称为“双均线交叉策略”。XTrader 与 XEngine 需要配套升级；已有数据库策略记录的 `strategy_type` 如为 `moving_average`，需在升级时改为 `dual_ma_cross`。本次仅调整命名，仍使用实时报价样本计算 SMA，窗口和委托行为保持不变。
+
+## 四类策略实施进度
+
+统一快照及离线执行基础模块的实现、测试入口、接入契约和剩余工作见 [策略实施记录](STRATEGY_IMPLEMENTATION.md)。执行基础模块尚未替换实际下单路径；四类策略的新业务行为与客户端表单尚未接入。

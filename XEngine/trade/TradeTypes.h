@@ -194,6 +194,10 @@ namespace trade
 		std::vector<CPosition> m_positions;
 		std::vector<COrder> m_orders;
 		std::vector<CTrade> m_trades;
+		// Resource watermarks must not be inferred from an unrelated order event.
+		std::uint64_t m_fundsVersion{ 0 };
+		std::uint64_t m_positionsVersion{ 0 };
+		std::uint64_t m_ordersVersion{ 0 };
 	};
 	struct COperationReceipt
 	{

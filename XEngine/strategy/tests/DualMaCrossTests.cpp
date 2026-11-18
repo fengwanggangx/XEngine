@@ -1,4 +1,4 @@
-#include "../strategies/CMovingAverageStrategy.h"
+#include "../strategies/CDualMaCrossStrategy.h"
 #include "../IStrategyContext.h"
 #include "../../indicator/CIndicator.h"
 
@@ -20,7 +20,7 @@ namespace
 
 	class CContext final : public IStrategyContext
 	{
-	public:
+		public:
 		COrderSubmitResult SubmitOrder(const COrderIntent& intent) override
 		{
 			m_orders.emplace_back(intent);
@@ -60,7 +60,7 @@ namespace
 		return config;
 	}
 
-	void Feed(CMovingAverageStrategy& strategy, std::int64_t price, int exchange = 1, int scale = 2)
+	void Feed(CDualMaCrossStrategy& strategy, std::int64_t price, int exchange = 1, int scale = 2)
 	{
 		_TyQuoteData quote;
 		quote.mutable_security()->set_symbol("600000");
@@ -73,7 +73,7 @@ namespace
 	void TestLegacySignals(CIndicator& indicator)
 	{
 		CContext context;
-		CMovingAverageStrategy strategy(indicator);
+		CDualMaCrossStrategy strategy(indicator);
 		Check(strategy.Initialize(context, Configuration()), "initialize strategy");
 		strategy.OnStart();
 		std::vector<std::int64_t> prices{ 500, 400, 300, 600, 100, 100, 700, 800, 200, 100 };
@@ -117,9 +117,9 @@ namespace
 		CContext mixedContext;
 		CContext firstContext;
 		CContext secondContext;
-		CMovingAverageStrategy mixed(indicator);
-		CMovingAverageStrategy first(indicator);
-		CMovingAverageStrategy second(indicator);
+		CDualMaCrossStrategy mixed(indicator);
+		CDualMaCrossStrategy first(indicator);
+		CDualMaCrossStrategy second(indicator);
 		Check(mixed.Initialize(mixedContext, Configuration()) && first.Initialize(firstContext, Configuration()) && second.Initialize(secondContext, Configuration()), "initialize independent strategies");
 		mixed.OnStart();
 		first.OnStart();
@@ -159,7 +159,7 @@ namespace
 	void TestLifecycleAndPrecision(CIndicator& indicator)
 	{
 		CContext context;
-		CMovingAverageStrategy strategy(indicator);
+		CDualMaCrossStrategy strategy(indicator);
 		Check(strategy.Initialize(context, Configuration()), "initialize lifecycle strategy");
 		strategy.OnStart();
 		Feed(strategy, 500, 1, 2);
@@ -196,7 +196,7 @@ namespace
 		Check(indicator.Initialize(error), "restore runtime for remaining tests");
 		CStrategyConfig invalid = Configuration();
 		invalid.m_params["long_window"] = "100001";
-		Check(!CMovingAverageStrategy::ValidateParameters(invalid), "reject invalid disabled configuration before persistence");
+		Check(!CDualMaCrossStrategy::ValidateParameters(invalid), "reject invalid disabled configuration before persistence");
 		Check(!strategy.Initialize(context, invalid), "reject unsupported window before processing quotes");
 		invalid = Configuration();
 		invalid.m_params["short_window"] = "1";
@@ -206,7 +206,7 @@ namespace
 	void TestEqualBoundary(CIndicator& indicator)
 	{
 		CContext context;
-		CMovingAverageStrategy strategy(indicator);
+		CDualMaCrossStrategy strategy(indicator);
 		CStrategyConfig config = Configuration();
 		config.m_params["short_window"] = "1";
 		config.m_params["long_window"] = "2";
@@ -231,7 +231,7 @@ int main()
 		TestMultipleSecurities(indicator);
 		TestLifecycleAndPrecision(indicator);
 		TestEqualBoundary(indicator);
-		std::cout << "Moving-average tests passed\n";
+		std::cout << "Dual-MA-cross tests passed\n";
 		return 0;
 	}
 	catch (const std::exception& error)

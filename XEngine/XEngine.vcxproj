@@ -91,6 +91,8 @@
     <RemoteDeployDir>$(RemoteProjectDir)</RemoteDeployDir>
   </PropertyGroup>
   <ItemGroup>
+    <ClCompile Include="strategy\CStrategyExecution.cpp" />
+    <ClCompile Include="trade\StrategyAccountView.cpp" />
     <ClCompile Include="basic\CDistributor.cpp" />
     <ClCompile Include="system\CEngineCenter.cpp" />
     <ClCompile Include="system\CHQService.cpp" />
@@ -130,11 +132,13 @@
     <ClCompile Include="strategy\CAccountService.cpp" />
     <ClCompile Include="strategy\CTradeService.cpp" />
     <ClCompile Include="strategy\StrategyTypes.cpp" />
-    <ClCompile Include="strategy\strategies\CMovingAverageStrategy.cpp" />
+    <ClCompile Include="strategy\strategies\CDualMaCrossStrategy.cpp" />
     <ClCompile Include="thread\CThreadPool.cpp" />
     <ClCompile Include="system\CBootLoader.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="strategy\CStrategyExecution.h" />
+    <ClInclude Include="trade\StrategyAccountView.h" />
     <ClInclude Include="basic\CDistributor.h" />
     <ClInclude Include="request\RequestCenter.h" />
     <ClInclude Include="system\CEngineCenter.h" />
@@ -181,7 +185,7 @@
     <ClInclude Include="strategy\IStrategy.h" />
     <ClInclude Include="strategy\IStrategyContext.h" />
     <ClInclude Include="strategy\StrategyTypes.h" />
-    <ClInclude Include="strategy\strategies\CMovingAverageStrategy.h" />
+    <ClInclude Include="strategy\strategies\CDualMaCrossStrategy.h" />
     <ClInclude Include="system\CHostInfo.h" />
     <ClInclude Include="thread\CThreadPool.h" />
     <ClInclude Include="system\CBootLoader.h" />

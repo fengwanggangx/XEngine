@@ -1,4 +1,4 @@
-#include "CMovingAverageStrategy.h"
+#include "CDualMaCrossStrategy.h"
 
 #include "../IStrategyContext.h"
 #include "../../indicator/CIndicator.h"
@@ -9,11 +9,11 @@
 #include <charconv>
 #include <string>
 
-CMovingAverageStrategy::CMovingAverageStrategy(CIndicator& indicator) : m_indicator(indicator)
+CDualMaCrossStrategy::CDualMaCrossStrategy(CIndicator& indicator) : m_indicator(indicator)
 {
 }
 
-bool CMovingAverageStrategy::Initialize(IStrategyContext& context, const CStrategyConfig& config)
+bool CDualMaCrossStrategy::Initialize(IStrategyContext& context, const CStrategyConfig& config)
 {
 	std::size_t shortWindow = 5;
 	std::size_t longWindow = 20;
@@ -31,7 +31,7 @@ bool CMovingAverageStrategy::Initialize(IStrategyContext& context, const CStrate
 	}
 	if (m_states.empty())
 	{
-		context.WriteLog(LogLevel::Error, "Moving-average strategy requires a quote subscription");
+		context.WriteLog(LogLevel::Error, "Dual-MA-cross strategy requires a quote subscription");
 		return false;
 	}
 	m_bRunning = false;
@@ -42,17 +42,17 @@ bool CMovingAverageStrategy::Initialize(IStrategyContext& context, const CStrate
 	return true;
 }
 
-void CMovingAverageStrategy::OnStart()
+void CDualMaCrossStrategy::OnStart()
 {
 	m_bRunning = true;
 }
 
-void CMovingAverageStrategy::OnPause()
+void CDualMaCrossStrategy::OnPause()
 {
 	m_bRunning = false;
 }
 
-void CMovingAverageStrategy::OnStop()
+void CDualMaCrossStrategy::OnStop()
 {
 	m_bRunning = false;
 	for (auto& [key, state] : m_states)
@@ -65,7 +65,7 @@ void CMovingAverageStrategy::OnStop()
 	}
 }
 
-void CMovingAverageStrategy::OnQuote(const _TyQuoteData& data)
+void CDualMaCrossStrategy::OnQuote(const _TyQuoteData& data)
 {
 	if (!m_bRunning || (0 >= data.last_price()))
 	{
@@ -110,23 +110,23 @@ void CMovingAverageStrategy::OnQuote(const _TyQuoteData& data)
 	TryGenerateSignal(data, state);
 }
 
-void CMovingAverageStrategy::OnOrder(const COrderEvent& event)
+void CDualMaCrossStrategy::OnOrder(const COrderEvent& event)
 {
 	if ((nullptr != m_pContext) && (OrderStatus::Rejected == event.m_status))
 	{
-		m_pContext->WriteLog(LogLevel::Warning, "Moving-average order was rejected: " + event.m_strReason);
+		m_pContext->WriteLog(LogLevel::Warning, "Dual-MA-cross order was rejected: " + event.m_strReason);
 	}
 }
 
-void CMovingAverageStrategy::OnTrade(const CTradeEvent& event)
+void CDualMaCrossStrategy::OnTrade(const CTradeEvent& event)
 {
 	if (nullptr != m_pContext)
 	{
-		m_pContext->WriteLog(LogLevel::Info, "Moving-average order traded: " + event.m_strTradeId);
+		m_pContext->WriteLog(LogLevel::Info, "Dual-MA-cross order traded: " + event.m_strTradeId);
 	}
 }
 
-void CMovingAverageStrategy::TryGenerateSignal(const _TyQuoteData& data, CSecurityState& state)
+void CDualMaCrossStrategy::TryGenerateSignal(const _TyQuoteData& data, CSecurityState& state)
 {
 	if (nullptr == m_pContext)
 	{
@@ -139,7 +139,7 @@ void CMovingAverageStrategy::TryGenerateSignal(const _TyQuoteData& data, CSecuri
 	{
 		if (!state.m_bCalculationFailed)
 		{
-			m_pContext->WriteLog(LogLevel::Error, "Moving-average calculation failed for " + data.security().symbol() + ": " + error);
+			m_pContext->WriteLog(LogLevel::Error, "Dual-MA-cross calculation failed for " + data.security().symbol() + ": " + error);
 			state.m_bCalculationFailed = true;
 		}
 		return;
@@ -167,12 +167,12 @@ void CMovingAverageStrategy::TryGenerateSignal(const _TyQuoteData& data, CSecuri
 	COrderSubmitResult result = m_pContext->SubmitOrder(intent);
 	if (!result.m_bAccepted)
 	{
-		m_pContext->WriteLog(LogLevel::Warning, "Moving-average signal was rejected: " + result.m_strReason);
+		m_pContext->WriteLog(LogLevel::Warning, "Dual-MA-cross signal was rejected: " + result.m_strReason);
 	}
 	state.m_lastRelation = relation;
 }
 
-bool CMovingAverageStrategy::ValidateParameters(const CStrategyConfig& config)
+bool CDualMaCrossStrategy::ValidateParameters(const CStrategyConfig& config)
 {
 	std::size_t shortWindow = 5;
 	std::size_t longWindow = 20;
@@ -182,12 +182,12 @@ bool CMovingAverageStrategy::ValidateParameters(const CStrategyConfig& config)
 	});
 }
 
-bool CMovingAverageStrategy::ReadWindows(const CStrategyConfig& config, std::size_t& shortWindow, std::size_t& longWindow)
+bool CDualMaCrossStrategy::ReadWindows(const CStrategyConfig& config, std::size_t& shortWindow, std::size_t& longWindow)
 {
 	return ReadWindow(config, "short_window", shortWindow) && ReadWindow(config, "long_window", longWindow) && (shortWindow < longWindow);
 }
 
-bool CMovingAverageStrategy::ReadWindow(const CStrategyConfig& config, const std::string& strName, std::size_t& window)
+bool CDualMaCrossStrategy::ReadWindow(const CStrategyConfig& config, const std::string& strName, std::size_t& window)
 {
 	const auto mIter = config.m_params.find(strName);
 	if (config.m_params.end() == mIter)

@@ -69,10 +69,10 @@ target_link_libraries(indicator_tests PRIVATE xengine_services)
 add_test(NAME indicator_tests COMMAND indicator_tests)
 set_tests_properties(indicator_tests PROPERTIES TIMEOUT 30)
 
-add_executable(moving_average_tests strategy/tests/MovingAverageTests.cpp)
-target_link_libraries(moving_average_tests PRIVATE xengine_services)
-add_test(NAME moving_average_tests COMMAND moving_average_tests)
-set_tests_properties(moving_average_tests PROPERTIES TIMEOUT 30)
+add_executable(dual_ma_cross_tests strategy/tests/DualMaCrossTests.cpp)
+target_link_libraries(dual_ma_cross_tests PRIVATE xengine_services)
+add_test(NAME dual_ma_cross_tests COMMAND dual_ma_cross_tests)
+set_tests_properties(dual_ma_cross_tests PROPERTIES TIMEOUT 30)
 
 # Deliberately replace only the TA-Lib entry points for initialization failure.
 add_executable(indicator_failure_tests indicator/tests/IndicatorFailureTests.cpp indicator/CIndicator.cpp)
@@ -80,3 +80,6 @@ target_include_directories(indicator_failure_tests PRIVATE "${CMAKE_CURRENT_SOUR
 target_link_libraries(indicator_failure_tests PRIVATE Threads::Threads)
 add_test(NAME indicator_failure_tests COMMAND indicator_failure_tests)
 set_tests_properties(indicator_failure_tests PROPERTIES TIMEOUT 30)
+
+# The execution foundation can also be built standalone without network services.
+add_subdirectory(strategy/tests)

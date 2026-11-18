@@ -1,6 +1,12 @@
 <?xml version='1.0' encoding='utf-8'?>
 <Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003" ToolsVersion="4.0">
   <ItemGroup>
+    <ClCompile Include="strategy\CStrategyExecution.cpp">
+      <Filter>strategy</Filter>
+    </ClCompile>
+    <ClCompile Include="trade\StrategyAccountView.cpp">
+      <Filter>trade</Filter>
+    </ClCompile>
     <ClCompile Include="main.cpp" />
     <ClCompile Include="common\datetime.cpp">
       <Filter>common</Filter>
@@ -116,7 +122,7 @@
     <ClCompile Include="strategy\StrategyTypes.cpp">
       <Filter>strategy</Filter>
     </ClCompile>
-    <ClCompile Include="strategy\strategies\CMovingAverageStrategy.cpp">
+    <ClCompile Include="strategy\strategies\CDualMaCrossStrategy.cpp">
       <Filter>strategy\strategies</Filter>
     </ClCompile>
   </ItemGroup>
@@ -156,6 +162,12 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="strategy\CStrategyExecution.h">
+      <Filter>strategy</Filter>
+    </ClInclude>
+    <ClInclude Include="trade\StrategyAccountView.h">
+      <Filter>trade</Filter>
+    </ClInclude>
     <ClInclude Include="common\datetime.h">
       <Filter>common</Filter>
     </ClInclude>
@@ -300,7 +312,7 @@
     <ClInclude Include="strategy\StrategyTypes.h">
       <Filter>strategy</Filter>
     </ClInclude>
-    <ClInclude Include="strategy\strategies\CMovingAverageStrategy.h">
+    <ClInclude Include="strategy\strategies\CDualMaCrossStrategy.h">
       <Filter>strategy\strategies</Filter>
     </ClInclude>
   </ItemGroup>

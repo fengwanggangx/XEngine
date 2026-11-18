@@ -112,6 +112,11 @@ struct CPositionSnapshot
 	std::int64_t m_availableQuantity{ 0 };
 	std::int64_t m_frozenQuantity{ 0 };
 	std::int64_t m_averageCost{ 0 };
+	// Cost is a total amount in cents; divide only at the final comparison.
+	std::int64_t m_totalCost{ 0 };
+	int m_moneyScale{ 2 };
+	bool m_bCostKnown{ false };
+	bool m_bFrozenKnown{ false };
 };
 
 struct CAccountSnapshot
@@ -123,4 +128,5 @@ struct CAccountSnapshot
 	std::int64_t m_available{ 0 };
 	std::int64_t m_frozen{ 0 };
 	std::int64_t m_marketValue{ 0 };
+	bool m_bFrozenKnown{ false };
 };

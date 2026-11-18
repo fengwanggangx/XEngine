@@ -1,6 +1,7 @@
 #pragma once
 #include "CAccountService.h"
 #include "../trade/TradingTypes.h"
+#include "../trade/StrategyAccountView.h"
 #include <array>
 #include <optional>
 #include <unordered_map>
@@ -32,6 +33,7 @@ public:
 	std::vector<trade::COrder> GetOrders(const _TyAccount& account) const;
 	void OnBrokerState(SessionState state, const std::string& reason = {});
 	CPositionSnapshot GetPosition(const _TyAccount& account, const CSecurity& security) const;
+	CStrategyAccountView GetStrategyAccountView(const _TyAccount& account, const CSecurity& security) const;
 	const std::string& GetLastError() const;
 	bool OnRequest(const CRequest& req);
 	trade::CResult SendStrategyRequest(CRequest&& request);

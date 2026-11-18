@@ -1,5 +1,5 @@
-#ifndef XENGINE_STRATEGY_STRATEGIES_CMOVINGAVERAGESTRATEGY_H
-#define XENGINE_STRATEGY_STRATEGIES_CMOVINGAVERAGESTRATEGY_H
+#ifndef XENGINE_STRATEGY_STRATEGIES_CDUALMACROSSSTRATEGY_H
+#define XENGINE_STRATEGY_STRATEGIES_CDUALMACROSSSTRATEGY_H
 
 #include "../IStrategy.h"
 
@@ -10,10 +10,10 @@
 
 class CIndicator;
 
-class CMovingAverageStrategy final : public IStrategy
+class CDualMaCrossStrategy final : public IStrategy
 {
-public:
-	explicit CMovingAverageStrategy(CIndicator& indicator);
+	public:
+	explicit CDualMaCrossStrategy(CIndicator& indicator);
 	static bool ValidateParameters(const CStrategyConfig& config);
 
 	void OnStop() override;
@@ -24,7 +24,7 @@ public:
 	void OnTrade(const CTradeEvent& event) override;
 	bool Initialize(IStrategyContext& context, const CStrategyConfig& config) override;
 
-private:
+	private:
 	struct CSecurityState
 	{
 		std::vector<double> m_prices;
@@ -39,7 +39,7 @@ private:
 	static bool ReadWindow(const CStrategyConfig& config, const std::string& strName, std::size_t& window);
 	static bool ReadWindows(const CStrategyConfig& config, std::size_t& shortWindow, std::size_t& longWindow);
 
-private:
+	private:
 	CIndicator& m_indicator;
 	IStrategyContext* m_pContext{ nullptr };
 	_TyStrategyId m_id{ 0 };

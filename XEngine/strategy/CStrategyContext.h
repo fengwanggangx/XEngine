@@ -19,6 +19,7 @@ public:
 	CAccountSnapshot GetAccount() const override;
 	void WriteLog(LogLevel level, const std::string& strMessage) override;
 	bool IsMarketAvailable() const override;
+	CStrategyAccountView GetTradingSnapshot(const CSecurity& security) const override;
 
 	void Disable();
 

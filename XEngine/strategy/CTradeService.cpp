@@ -143,52 +143,17 @@ bool CTradeService::HasActiveOrders(const _TyAccount& account) const
 
 CAccountSnapshot CTradeService::GetAccount(const _TyAccount& account) const
 {
-	CAccountSnapshot result;
-	if (!m_pAccountService->IsConnected(account))
-	{
-		return result;
-	}
-	trade::CAccountData snapshot = Snapshot(account);
-	result.m_bReady = snapshot.m_bReady;
-	result.m_version = snapshot.m_version;
-	result.m_nTime = snapshot.m_nTime;
-	if (!IsAccountValid(snapshot.m_account.m_account) || !snapshot.m_account.m_bConnected)
-	{
-		result.m_bReady = false;
-		return result;
-	}
-	result.m_balance = snapshot.m_account.m_nBalance;
-	result.m_frozen = snapshot.m_account.m_nFrozen;
-	result.m_available = snapshot.m_account.m_bExplicitAvailable ? snapshot.m_account.m_nAvailable : result.m_balance - result.m_frozen;
-	result.m_bReady = result.m_bReady && snapshot.m_account.m_bFundsValid;
-	return result;
+	return GetStrategyAccountView(account, {}).m_account;
 }
 
 CPositionSnapshot CTradeService::GetPosition(const _TyAccount& account, const CSecurity& security) const
 {
-	if (m_pAccountService->IsConnected(account))
-	{
-		trade::CAccountData state = Snapshot(account);
-		CPositionSnapshot snapshot;
-		snapshot.m_security = security;
-		snapshot.m_bReady = GetAccount(account).m_bReady;
-		snapshot.m_version = state.m_version;
-		snapshot.m_nTime = state.m_nTime;
-		for (const auto& position : state.m_positions)
-		{
-			if (security.String() == position.m_strSecurity)
-			{
-				snapshot.m_totalQuantity = position.m_nTotal;
-				snapshot.m_availableQuantity = position.m_nAvailable;
-				snapshot.m_frozenQuantity = position.m_nFrozen;
-				snapshot.m_averageCost = 0 == position.m_nTotal ? 0 : position.m_nCost / position.m_nTotal;
-			}
-		}
-		return snapshot;
-	}
-	CPositionSnapshot snapshot;
-	snapshot.m_security = security;
-	return snapshot;
+	return GetStrategyAccountView(account, security).m_position;
+}
+
+CStrategyAccountView CTradeService::GetStrategyAccountView(const _TyAccount& account, const CSecurity& security) const
+{
+	return MakeStrategyAccountView(Snapshot(account), security);
 }
 
 std::vector<trade::COrder> CTradeService::GetOrders(const _TyAccount& account) const
@@ -298,12 +263,15 @@ void CTradeService::CompleteQuery(const trade::CCounterReply& reply, std::uint64
 		{
 		case trade::Operation::Funds:
 			data.m_account = std::get<trade::CFunds>(reply.m_data);
+			data.m_fundsVersion = reply.m_version;
 			break;
 		case trade::Operation::Positions:
 			data.m_positions = std::get<std::vector<trade::CPosition>>(reply.m_data);
+			data.m_positionsVersion = reply.m_version;
 			break;
 		case trade::Operation::Orders:
 			data.m_orders = std::get<std::vector<trade::COrder>>(reply.m_data);
+			data.m_ordersVersion = reply.m_version;
 			break;
 		case trade::Operation::Trades:
 			data.m_trades = std::get<std::vector<trade::CTrade>>(reply.m_data);
@@ -427,6 +395,19 @@ trade::CAccountData CTradeService::Snapshot(const _TyAccount& account) const
 
 void CTradeService::ApplyEvent(trade::CAccountData& data, trade::CCounterEvent& ev)
 {
+	if (ev.m_bAccountValid && (0 != ev.m_sequence))
+	{
+		data.m_fundsVersion = std::max(data.m_fundsVersion, ev.m_sequence);
+	}
+	if ((trade::EventTy::Position == ev.m_kind) && (0 != ev.m_sequence))
+	{
+		data.m_positionsVersion = std::max(data.m_positionsVersion, ev.m_sequence);
+	}
+	if ((trade::EventTy::Order == ev.m_kind) && (0 != ev.m_sequence))
+	{
+		data.m_ordersVersion = std::max(data.m_ordersVersion, ev.m_sequence);
+	}
+
 	if (trade::EventTy::Funds != ev.m_kind && !ev.m_bAccountValid)
 	{
 		bool bConnected = ev.m_funds.m_bConnected;

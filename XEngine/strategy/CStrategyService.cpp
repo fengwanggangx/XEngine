@@ -15,7 +15,7 @@
 #include "CTradeService.h"
 #include "../trade/TradeProtocol.h"
 #include "../common/container.h"
-#include "strategies/CMovingAverageStrategy.h"
+#include "strategies/CDualMaCrossStrategy.h"
 
 #include <algorithm>
 #include <charconv>
@@ -153,7 +153,7 @@ namespace
 			}
 			cfg.m_subscriptions.emplace_back(std::move(quote));
 		}
-		return cfg.IsValid() && (("moving_average" != cfg.m_strType) || CMovingAverageStrategy::ValidateParameters(cfg));
+		return cfg.IsValid() && (("dual_ma_cross" != cfg.m_strType) || CDualMaCrossStrategy::ValidateParameters(cfg));
 	}
 
 	std::string SerializeParameters(const request::StrategyInfo& info)
@@ -815,9 +815,9 @@ bool CStrategyService::LoadStrategies()
 
 std::unique_ptr<IStrategy> CStrategyService::CreateStrategy(const std::string& strType) const
 {
-	if ("moving_average" == strType)
+	if ("dual_ma_cross" == strType)
 	{
-		return std::make_unique<CMovingAverageStrategy>(m_indicator);
+		return std::make_unique<CDualMaCrossStrategy>(m_indicator);
 	}
 	return nullptr;
 }

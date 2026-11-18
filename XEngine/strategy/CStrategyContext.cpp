@@ -67,3 +67,8 @@ void CStrategyContext::Disable()
 {
 	m_bEnabled.store(false);
 }
+
+CStrategyAccountView CStrategyContext::GetTradingSnapshot(const CSecurity& security) const
+{
+	return nullptr == m_pSnapshotProvider ? CStrategyAccountView{} : m_pSnapshotProvider->GetStrategyAccountView(m_account, security);
+}
