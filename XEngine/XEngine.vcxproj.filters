@@ -1220,4 +1220,29 @@
       <Filter>indicator\talib</Filter>
     </ClInclude>
   </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="strategy\strategies\CConfiguredStrategy.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="strategy\StrategySettings.h" />
+    <ClInclude Include="common\numeric.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="trade\OrderRules.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="trade\ExecutionRulesWire.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="strategy\strategies\CConfiguredStrategy.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="strategy\strategies\CTakeProfitStopLossStrategy.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="strategy\strategies\CTrailingTakeProfitStrategy.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="strategy\strategies\CPriceBreakoutStrategy.h" />
+  </ItemGroup>
 </Project>

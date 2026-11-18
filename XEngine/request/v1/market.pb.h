@@ -3020,6 +3020,7 @@ class BarData final : public ::google::protobuf::Message
   enum : int {
     kAdjustmentFieldNumber = 11,
     kSourceFieldNumber = 12,
+    kBasisVersionFieldNumber = 16,
     kSecurityFieldNumber = 1,
     kBeginTimeMsFieldNumber = 3,
     kOpenPriceFieldNumber = 4,
@@ -3030,6 +3031,9 @@ class BarData final : public ::google::protobuf::Message
     kClosePriceFieldNumber = 7,
     kVolumeFieldNumber = 8,
     kTurnoverFieldNumber = 9,
+    kEndTimeMsFieldNumber = 13,
+    kDataVersionFieldNumber = 15,
+    kCompletedFieldNumber = 14,
   };
   // string adjustment = 11;
   void clear_adjustment() ;
@@ -3061,6 +3065,22 @@ class BarData final : public ::google::protobuf::Message
   inline PROTOBUF_ALWAYS_INLINE void _internal_set_source(
       const std::string& value);
   std::string* _internal_mutable_source();
+
+  public:
+  // string basis_version = 16;
+  void clear_basis_version() ;
+  const std::string& basis_version() const;
+  template <typename Arg_ = const std::string&, typename... Args_>
+  void set_basis_version(Arg_&& arg, Args_... args);
+  std::string* mutable_basis_version();
+  PROTOBUF_NODISCARD std::string* release_basis_version();
+  void set_allocated_basis_version(std::string* value);
+
+  private:
+  const std::string& _internal_basis_version() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_basis_version(
+      const std::string& value);
+  std::string* _internal_mutable_basis_version();
 
   public:
   // .hqmarket.market.v1.Security security = 1;
@@ -3168,13 +3188,43 @@ class BarData final : public ::google::protobuf::Message
   void _internal_set_turnover(::int64_t value);
 
   public:
+  // int64 end_time_ms = 13;
+  void clear_end_time_ms() ;
+  ::int64_t end_time_ms() const;
+  void set_end_time_ms(::int64_t value);
+
+  private:
+  ::int64_t _internal_end_time_ms() const;
+  void _internal_set_end_time_ms(::int64_t value);
+
+  public:
+  // uint64 data_version = 15;
+  void clear_data_version() ;
+  ::uint64_t data_version() const;
+  void set_data_version(::uint64_t value);
+
+  private:
+  ::uint64_t _internal_data_version() const;
+  void _internal_set_data_version(::uint64_t value);
+
+  public:
+  // bool completed = 14;
+  void clear_completed() ;
+  bool completed() const;
+  void set_completed(bool value);
+
+  private:
+  bool _internal_completed() const;
+  void _internal_set_completed(bool value);
+
+  public:
   // @@protoc_insertion_point(class_scope:hqmarket.market.v1.BarData)
  private:
   class _Internal;
   friend class ::google::protobuf::internal::TcParser;
   static const ::google::protobuf::internal::TcParseTable<
-      4, 12, 1,
-      59, 2>
+      4, 16, 1,
+      80, 2>
       _table_;
 
   friend class ::google::protobuf::MessageLite;
@@ -3195,6 +3245,7 @@ class BarData final : public ::google::protobuf::Message
     ::google::protobuf::internal::CachedSize _cached_size_;
     ::google::protobuf::internal::ArenaStringPtr adjustment_;
     ::google::protobuf::internal::ArenaStringPtr source_;
+    ::google::protobuf::internal::ArenaStringPtr basis_version_;
     ::hqmarket::market::v1::Security* security_;
     ::int64_t begin_time_ms_;
     ::int64_t open_price_;
@@ -3205,6 +3256,9 @@ class BarData final : public ::google::protobuf::Message
     ::int64_t close_price_;
     ::int64_t volume_;
     ::int64_t turnover_;
+    ::int64_t end_time_ms_;
+    ::uint64_t data_version_;
+    bool completed_;
     PROTOBUF_TSAN_DECLARE_MEMBER
   };
   union { Impl_ _impl_; };
@@ -6158,6 +6212,120 @@ inline void TradeData::set_allocated_source(std::string* value) {
 // -------------------------------------------------------------------
 
 // BarData
+
+// int64 end_time_ms = 13;
+inline void BarData::clear_end_time_ms() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.end_time_ms_ = ::int64_t{0};
+}
+inline ::int64_t BarData::end_time_ms() const {
+  // @@protoc_insertion_point(field_get:hqmarket.market.v1.BarData.end_time_ms)
+  return _internal_end_time_ms();
+}
+inline void BarData::set_end_time_ms(::int64_t value) {
+  _internal_set_end_time_ms(value);
+  // @@protoc_insertion_point(field_set:hqmarket.market.v1.BarData.end_time_ms)
+}
+inline ::int64_t BarData::_internal_end_time_ms() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.end_time_ms_;
+}
+inline void BarData::_internal_set_end_time_ms(::int64_t value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.end_time_ms_ = value;
+}
+
+// bool completed = 14;
+inline void BarData::clear_completed() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.completed_ = false;
+}
+inline bool BarData::completed() const {
+  // @@protoc_insertion_point(field_get:hqmarket.market.v1.BarData.completed)
+  return _internal_completed();
+}
+inline void BarData::set_completed(bool value) {
+  _internal_set_completed(value);
+  // @@protoc_insertion_point(field_set:hqmarket.market.v1.BarData.completed)
+}
+inline bool BarData::_internal_completed() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.completed_;
+}
+inline void BarData::_internal_set_completed(bool value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.completed_ = value;
+}
+
+// uint64 data_version = 15;
+inline void BarData::clear_data_version() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.data_version_ = ::uint64_t{0u};
+}
+inline ::uint64_t BarData::data_version() const {
+  // @@protoc_insertion_point(field_get:hqmarket.market.v1.BarData.data_version)
+  return _internal_data_version();
+}
+inline void BarData::set_data_version(::uint64_t value) {
+  _internal_set_data_version(value);
+  // @@protoc_insertion_point(field_set:hqmarket.market.v1.BarData.data_version)
+}
+inline ::uint64_t BarData::_internal_data_version() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.data_version_;
+}
+inline void BarData::_internal_set_data_version(::uint64_t value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.data_version_ = value;
+}
+
+// string basis_version = 16;
+inline void BarData::clear_basis_version() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.basis_version_.ClearToEmpty();
+}
+inline const std::string& BarData::basis_version() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:hqmarket.market.v1.BarData.basis_version)
+  return _internal_basis_version();
+}
+template <typename Arg_, typename... Args_>
+inline PROTOBUF_ALWAYS_INLINE void BarData::set_basis_version(Arg_&& arg,
+                                                     Args_... args) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.basis_version_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:hqmarket.market.v1.BarData.basis_version)
+}
+inline std::string* BarData::mutable_basis_version() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  std::string* _s = _internal_mutable_basis_version();
+  // @@protoc_insertion_point(field_mutable:hqmarket.market.v1.BarData.basis_version)
+  return _s;
+}
+inline const std::string& BarData::_internal_basis_version() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.basis_version_.Get();
+}
+inline void BarData::_internal_set_basis_version(const std::string& value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.basis_version_.Set(value, GetArena());
+}
+inline std::string* BarData::_internal_mutable_basis_version() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  return _impl_.basis_version_.Mutable( GetArena());
+}
+inline std::string* BarData::release_basis_version() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  // @@protoc_insertion_point(field_release:hqmarket.market.v1.BarData.basis_version)
+  return _impl_.basis_version_.Release();
+}
+inline void BarData::set_allocated_basis_version(std::string* value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.basis_version_.SetAllocated(value, GetArena());
+  if (::google::protobuf::internal::DebugHardenForceCopyDefaultString() && _impl_.basis_version_.IsDefault()) {
+    _impl_.basis_version_.Set("", GetArena());
+  }
+  // @@protoc_insertion_point(field_set_allocated:hqmarket.market.v1.BarData.basis_version)
+}
 
 // .hqmarket.market.v1.Security security = 1;
 inline bool BarData::has_security() const {

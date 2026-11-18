@@ -363,6 +363,9 @@ inline constexpr BarData::Impl_::Impl_(
         source_(
             &::google::protobuf::internal::fixed_address_empty_string,
             ::_pbi::ConstantInitialized()),
+        basis_version_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
         security_{nullptr},
         begin_time_ms_{::int64_t{0}},
         open_price_{::int64_t{0}},
@@ -372,7 +375,10 @@ inline constexpr BarData::Impl_::Impl_(
         price_scale_{0},
         close_price_{::int64_t{0}},
         volume_{::int64_t{0}},
-        turnover_{::int64_t{0}} {}
+        turnover_{::int64_t{0}},
+        end_time_ms_{::int64_t{0}},
+        data_version_{::uint64_t{0u}},
+        completed_{false} {}
 
 template <typename>
 PROTOBUF_CONSTEXPR BarData::BarData(::_pbi::ConstantInitialized)
@@ -703,6 +709,10 @@ const ::uint32_t
         ~0u,  // no _inlined_string_donated_
         ~0u,  // no _split_
         ~0u,  // no sizeof(Split)
+        PROTOBUF_FIELD_OFFSET(::hqmarket::market::v1::BarData, _impl_.end_time_ms_),
+        PROTOBUF_FIELD_OFFSET(::hqmarket::market::v1::BarData, _impl_.completed_),
+        PROTOBUF_FIELD_OFFSET(::hqmarket::market::v1::BarData, _impl_.data_version_),
+        PROTOBUF_FIELD_OFFSET(::hqmarket::market::v1::BarData, _impl_.basis_version_),
         PROTOBUF_FIELD_OFFSET(::hqmarket::market::v1::BarData, _impl_.security_),
         PROTOBUF_FIELD_OFFSET(::hqmarket::market::v1::BarData, _impl_.channel_),
         PROTOBUF_FIELD_OFFSET(::hqmarket::market::v1::BarData, _impl_.begin_time_ms_),
@@ -715,6 +725,10 @@ const ::uint32_t
         PROTOBUF_FIELD_OFFSET(::hqmarket::market::v1::BarData, _impl_.price_scale_),
         PROTOBUF_FIELD_OFFSET(::hqmarket::market::v1::BarData, _impl_.adjustment_),
         PROTOBUF_FIELD_OFFSET(::hqmarket::market::v1::BarData, _impl_.source_),
+        ~0u,
+        ~0u,
+        ~0u,
+        ~0u,
         0,
         ~0u,
         ~0u,
@@ -840,13 +854,13 @@ static const ::_pbi::MigrationSchema
         {74, 95, -1, sizeof(::hqmarket::market::v1::QuoteData)},
         {108, 123, -1, sizeof(::hqmarket::market::v1::DepthData)},
         {130, 145, -1, sizeof(::hqmarket::market::v1::TradeData)},
-        {152, 172, -1, sizeof(::hqmarket::market::v1::BarData)},
-        {184, -1, -1, sizeof(::hqmarket::market::v1::MarketStatusData)},
-        {195, -1, -1, sizeof(::hqmarket::market::v1::ProviderStatusData)},
-        {206, 219, -1, sizeof(::hqmarket::market::v1::QueryResponse)},
-        {224, 243, -1, sizeof(::hqmarket::market::v1::SectorInfo)},
-        {254, -1, -1, sizeof(::hqmarket::market::v1::SectorList)},
-        {266, 279, -1, sizeof(::hqmarket::market::v1::SectorConstituents)},
+        {152, 176, -1, sizeof(::hqmarket::market::v1::BarData)},
+        {192, -1, -1, sizeof(::hqmarket::market::v1::MarketStatusData)},
+        {203, -1, -1, sizeof(::hqmarket::market::v1::ProviderStatusData)},
+        {214, 227, -1, sizeof(::hqmarket::market::v1::QueryResponse)},
+        {232, 251, -1, sizeof(::hqmarket::market::v1::SectorInfo)},
+        {262, -1, -1, sizeof(::hqmarket::market::v1::SectorList)},
+        {274, 287, -1, sizeof(::hqmarket::market::v1::SectorConstituents)},
 };
 static const ::_pb::Message* const file_default_instances[] = {
     &::hqmarket::market::v1::_Security_default_instance_._instance,
@@ -901,58 +915,61 @@ const char descriptor_table_protodef_v1_2fmarket_2eproto[] ABSL_ATTRIBUTE_SECTIO
     "curity\030\001 \001(\0132\034.hqmarket.market.v1.Securi"
     "ty\022\030\n\020exchange_time_ms\030\002 \001(\003\022\r\n\005price\030\003 "
     "\001(\003\022\016\n\006volume\030\004 \001(\003\022\023\n\013price_scale\030\005 \001(\005"
-    "\022\020\n\010trade_id\030\006 \001(\t\022\016\n\006source\030\007 \001(\t\"\251\002\n\007B"
-    "arData\022.\n\010security\030\001 \001(\0132\034.hqmarket.mark"
-    "et.v1.Security\022,\n\007channel\030\002 \001(\0162\033.hqmark"
-    "et.market.v1.Channel\022\025\n\rbegin_time_ms\030\003 "
-    "\001(\003\022\022\n\nopen_price\030\004 \001(\003\022\022\n\nhigh_price\030\005 "
-    "\001(\003\022\021\n\tlow_price\030\006 \001(\003\022\023\n\013close_price\030\007 "
-    "\001(\003\022\016\n\006volume\030\010 \001(\003\022\020\n\010turnover\030\t \001(\003\022\023\n"
-    "\013price_scale\030\n \001(\005\022\022\n\nadjustment\030\013 \001(\t\022\016"
-    "\n\006source\030\014 \001(\t\"l\n\020MarketStatusData\022.\n\010ex"
-    "change\030\001 \001(\0162\034.hqmarket.market.v1.Exchan"
-    "ge\022\016\n\006status\030\002 \001(\t\022\030\n\020exchange_time_ms\030\003"
-    " \001(\003\"G\n\022ProviderStatusData\022\020\n\010provider\030\001"
-    " \001(\t\022\017\n\007healthy\030\002 \001(\010\022\016\n\006detail\030\003 \001(\t\"\325\001"
-    "\n\rQueryResponse\022.\n\010security\030\001 \001(\0132\034.hqma"
-    "rket.market.v1.Security\022,\n\007channel\030\002 \001(\016"
-    "2\033.hqmarket.market.v1.Channel\022,\n\005quote\030\003"
-    " \001(\0132\035.hqmarket.market.v1.QuoteData\022)\n\004b"
-    "ars\030\004 \003(\0132\033.hqmarket.market.v1.BarData\022\r"
-    "\n\005found\030\005 \001(\010\"\226\002\n\nSectorInfo\022\014\n\004code\030\001 \001"
-    "(\t\022\014\n\004name\030\002 \001(\t\022\026\n\016change_percent\030\003 \001(\003"
-    "\022\025\n\rpercent_scale\030\004 \001(\005\022\024\n\014rising_count\030"
-    "\005 \001(\005\022\025\n\rfalling_count\030\006 \001(\005\022\022\n\nflat_cou"
-    "nt\030\007 \001(\005\022\024\n\014member_count\030\010 \001(\005\0226\n\020leadin"
-    "g_security\030\t \001(\0132\034.hqmarket.market.v1.Se"
-    "curity\022\024\n\014leading_name\030\n \001(\t\022\030\n\020snapshot"
-    "_time_ms\030\013 \001(\003\"\225\001\n\nSectorList\022,\n\004type\030\001 "
-    "\001(\0162\036.hqmarket.market.v1.SectorType\022/\n\007s"
-    "ectors\030\002 \003(\0132\036.hqmarket.market.v1.Sector"
-    "Info\022\030\n\020snapshot_time_ms\030\003 \001(\003\022\016\n\006source"
-    "\030\004 \001(\t\"\322\001\n\022SectorConstituents\022,\n\004type\030\001 "
-    "\001(\0162\036.hqmarket.market.v1.SectorType\022.\n\006s"
-    "ector\030\002 \001(\0132\036.hqmarket.market.v1.SectorI"
-    "nfo\0224\n\nsecurities\030\003 \003(\0132 .hqmarket.marke"
-    "t.v1.SecurityInfo\022\030\n\020snapshot_time_ms\030\004 "
-    "\001(\003\022\016\n\006source\030\005 \001(\t*\247\001\n\010Exchange\022\030\n\024EXCH"
-    "ANGE_UNSPECIFIED\020\000\022\007\n\003SSE\020\001\022\010\n\004SZSE\020\002\022\007\n"
-    "\003BSE\020\003\022\010\n\004HKEX\020\004\022\t\n\005CFFEX\020\005\022\010\n\004SHFE\020\006\022\007\n"
-    "\003DCE\020\007\022\010\n\004CZCE\020\010\022\007\n\003INE\020\t\022\010\n\004GFEX\020\n\022\n\n\006N"
-    "ASDAQ\020\013\022\010\n\004NYSE\020\014\022\n\n\006CRYPTO\020\r*\236\001\n\007Channe"
-    "l\022\027\n\023CHANNEL_UNSPECIFIED\020\000\022\021\n\rCHANNEL_QU"
-    "OTE\020\001\022\021\n\rCHANNEL_DEPTH\020\002\022\021\n\rCHANNEL_TRAD"
-    "E\020\003\022\022\n\016CHANNEL_BAR_1M\020\004\022\022\n\016CHANNEL_BAR_1"
-    "D\020\005\022\031\n\025CHANNEL_MARKET_STATUS\020\006*t\n\nSector"
-    "Type\022\033\n\027SECTOR_TYPE_UNSPECIFIED\020\000\022\030\n\024SEC"
-    "TOR_TYPE_INDUSTRY\020\001\022\027\n\023SECTOR_TYPE_CONCE"
-    "PT\020\002\022\026\n\022SECTOR_TYPE_REGION\020\003b\006proto3"
+    "\022\020\n\010trade_id\030\006 \001(\t\022\016\n\006source\030\007 \001(\t\"\376\002\n\007B"
+    "arData\022\023\n\013end_time_ms\030\r \001(\003\022\021\n\tcompleted"
+    "\030\016 \001(\010\022\024\n\014data_version\030\017 \001(\004\022\025\n\rbasis_ve"
+    "rsion\030\020 \001(\t\022.\n\010security\030\001 \001(\0132\034.hqmarket"
+    ".market.v1.Security\022,\n\007channel\030\002 \001(\0162\033.h"
+    "qmarket.market.v1.Channel\022\025\n\rbegin_time_"
+    "ms\030\003 \001(\003\022\022\n\nopen_price\030\004 \001(\003\022\022\n\nhigh_pri"
+    "ce\030\005 \001(\003\022\021\n\tlow_price\030\006 \001(\003\022\023\n\013close_pri"
+    "ce\030\007 \001(\003\022\016\n\006volume\030\010 \001(\003\022\020\n\010turnover\030\t \001"
+    "(\003\022\023\n\013price_scale\030\n \001(\005\022\022\n\nadjustment\030\013 "
+    "\001(\t\022\016\n\006source\030\014 \001(\t\"l\n\020MarketStatusData\022"
+    ".\n\010exchange\030\001 \001(\0162\034.hqmarket.market.v1.E"
+    "xchange\022\016\n\006status\030\002 \001(\t\022\030\n\020exchange_time"
+    "_ms\030\003 \001(\003\"G\n\022ProviderStatusData\022\020\n\010provi"
+    "der\030\001 \001(\t\022\017\n\007healthy\030\002 \001(\010\022\016\n\006detail\030\003 \001"
+    "(\t\"\325\001\n\rQueryResponse\022.\n\010security\030\001 \001(\0132\034"
+    ".hqmarket.market.v1.Security\022,\n\007channel\030"
+    "\002 \001(\0162\033.hqmarket.market.v1.Channel\022,\n\005qu"
+    "ote\030\003 \001(\0132\035.hqmarket.market.v1.QuoteData"
+    "\022)\n\004bars\030\004 \003(\0132\033.hqmarket.market.v1.BarD"
+    "ata\022\r\n\005found\030\005 \001(\010\"\226\002\n\nSectorInfo\022\014\n\004cod"
+    "e\030\001 \001(\t\022\014\n\004name\030\002 \001(\t\022\026\n\016change_percent\030"
+    "\003 \001(\003\022\025\n\rpercent_scale\030\004 \001(\005\022\024\n\014rising_c"
+    "ount\030\005 \001(\005\022\025\n\rfalling_count\030\006 \001(\005\022\022\n\nfla"
+    "t_count\030\007 \001(\005\022\024\n\014member_count\030\010 \001(\005\0226\n\020l"
+    "eading_security\030\t \001(\0132\034.hqmarket.market."
+    "v1.Security\022\024\n\014leading_name\030\n \001(\t\022\030\n\020sna"
+    "pshot_time_ms\030\013 \001(\003\"\225\001\n\nSectorList\022,\n\004ty"
+    "pe\030\001 \001(\0162\036.hqmarket.market.v1.SectorType"
+    "\022/\n\007sectors\030\002 \003(\0132\036.hqmarket.market.v1.S"
+    "ectorInfo\022\030\n\020snapshot_time_ms\030\003 \001(\003\022\016\n\006s"
+    "ource\030\004 \001(\t\"\322\001\n\022SectorConstituents\022,\n\004ty"
+    "pe\030\001 \001(\0162\036.hqmarket.market.v1.SectorType"
+    "\022.\n\006sector\030\002 \001(\0132\036.hqmarket.market.v1.Se"
+    "ctorInfo\0224\n\nsecurities\030\003 \003(\0132 .hqmarket."
+    "market.v1.SecurityInfo\022\030\n\020snapshot_time_"
+    "ms\030\004 \001(\003\022\016\n\006source\030\005 \001(\t*\247\001\n\010Exchange\022\030\n"
+    "\024EXCHANGE_UNSPECIFIED\020\000\022\007\n\003SSE\020\001\022\010\n\004SZSE"
+    "\020\002\022\007\n\003BSE\020\003\022\010\n\004HKEX\020\004\022\t\n\005CFFEX\020\005\022\010\n\004SHFE"
+    "\020\006\022\007\n\003DCE\020\007\022\010\n\004CZCE\020\010\022\007\n\003INE\020\t\022\010\n\004GFEX\020\n"
+    "\022\n\n\006NASDAQ\020\013\022\010\n\004NYSE\020\014\022\n\n\006CRYPTO\020\r*\236\001\n\007C"
+    "hannel\022\027\n\023CHANNEL_UNSPECIFIED\020\000\022\021\n\rCHANN"
+    "EL_QUOTE\020\001\022\021\n\rCHANNEL_DEPTH\020\002\022\021\n\rCHANNEL"
+    "_TRADE\020\003\022\022\n\016CHANNEL_BAR_1M\020\004\022\022\n\016CHANNEL_"
+    "BAR_1D\020\005\022\031\n\025CHANNEL_MARKET_STATUS\020\006*t\n\nS"
+    "ectorType\022\033\n\027SECTOR_TYPE_UNSPECIFIED\020\000\022\030"
+    "\n\024SECTOR_TYPE_INDUSTRY\020\001\022\027\n\023SECTOR_TYPE_"
+    "CONCEPT\020\002\022\026\n\022SECTOR_TYPE_REGION\020\003b\006proto"
+    "3"
 };
 static ::absl::once_flag descriptor_table_v1_2fmarket_2eproto_once;
 PROTOBUF_CONSTINIT const ::_pbi::DescriptorTable descriptor_table_v1_2fmarket_2eproto = {
     false,
     false,
-    3156,
+    3241,
     descriptor_table_protodef_v1_2fmarket_2eproto,
     "v1/market.proto",
     &descriptor_table_v1_2fmarket_2eproto_once,
@@ -4201,7 +4218,8 @@ inline PROTOBUF_NDEBUG_INLINE BarData::Impl_::Impl_(
       : _has_bits_{from._has_bits_},
         _cached_size_{0},
         adjustment_(arena, from.adjustment_),
-        source_(arena, from.source_) {}
+        source_(arena, from.source_),
+        basis_version_(arena, from.basis_version_) {}
 
 BarData::BarData(
     ::google::protobuf::Arena* arena,
@@ -4224,9 +4242,9 @@ BarData::BarData(
                offsetof(Impl_, begin_time_ms_),
            reinterpret_cast<const char *>(&from._impl_) +
                offsetof(Impl_, begin_time_ms_),
-           offsetof(Impl_, turnover_) -
+           offsetof(Impl_, completed_) -
                offsetof(Impl_, begin_time_ms_) +
-               sizeof(Impl_::turnover_));
+               sizeof(Impl_::completed_));
 
   // @@protoc_insertion_point(copy_constructor:hqmarket.market.v1.BarData)
 }
@@ -4235,16 +4253,17 @@ inline PROTOBUF_NDEBUG_INLINE BarData::Impl_::Impl_(
     ::google::protobuf::Arena* arena)
       : _cached_size_{0},
         adjustment_(arena),
-        source_(arena) {}
+        source_(arena),
+        basis_version_(arena) {}
 
 inline void BarData::SharedCtor(::_pb::Arena* arena) {
   new (&_impl_) Impl_(internal_visibility(), arena);
   ::memset(reinterpret_cast<char *>(&_impl_) +
                offsetof(Impl_, security_),
            0,
-           offsetof(Impl_, turnover_) -
+           offsetof(Impl_, completed_) -
                offsetof(Impl_, security_) +
-               sizeof(Impl_::turnover_));
+               sizeof(Impl_::completed_));
 }
 BarData::~BarData() {
   // @@protoc_insertion_point(destructor:hqmarket.market.v1.BarData)
@@ -4256,6 +4275,7 @@ inline void BarData::SharedDtor(MessageLite& self) {
   ABSL_DCHECK(this_.GetArena() == nullptr);
   this_._impl_.adjustment_.Destroy();
   this_._impl_.source_.Destroy();
+  this_._impl_.basis_version_.Destroy();
   delete this_._impl_.security_;
   this_._impl_.~Impl_();
 }
@@ -4296,15 +4316,15 @@ const ::google::protobuf::internal::ClassData* BarData::GetClassData() const {
   return _class_data_.base();
 }
 PROTOBUF_CONSTINIT PROTOBUF_ATTRIBUTE_INIT_PRIORITY1
-const ::_pbi::TcParseTable<4, 12, 1, 59, 2> BarData::_table_ = {
+const ::_pbi::TcParseTable<4, 16, 1, 80, 2> BarData::_table_ = {
   {
     PROTOBUF_FIELD_OFFSET(BarData, _impl_._has_bits_),
     0, // no _extensions_
-    12, 120,  // max_field_number, fast_idx_mask
+    16, 120,  // max_field_number, fast_idx_mask
     offsetof(decltype(_table_), field_lookup_table),
-    4294963200,  // skipmap
+    4294901760,  // skipmap
     offsetof(decltype(_table_), field_entries),
-    12,  // num_field_entries
+    16,  // num_field_entries
     1,  // num_aux_entries
     offsetof(decltype(_table_), aux_entries),
     _class_data_.base(),
@@ -4314,7 +4334,9 @@ const ::_pbi::TcParseTable<4, 12, 1, 59, 2> BarData::_table_ = {
     ::_pbi::TcParser::GetTable<::hqmarket::market::v1::BarData>(),  // to_prefetch
     #endif  // PROTOBUF_PREFETCH_PARSE_TABLE
   }, {{
-    {::_pbi::TcParser::MiniParse, {}},
+    // string basis_version = 16;
+    {::_pbi::TcParser::FastUS2,
+     {386, 63, 0, PROTOBUF_FIELD_OFFSET(BarData, _impl_.basis_version_)}},
     // .hqmarket.market.v1.Security security = 1;
     {::_pbi::TcParser::FastMtS1,
      {10, 0, 0, PROTOBUF_FIELD_OFFSET(BarData, _impl_.security_)}},
@@ -4351,9 +4373,15 @@ const ::_pbi::TcParseTable<4, 12, 1, 59, 2> BarData::_table_ = {
     // string source = 12;
     {::_pbi::TcParser::FastUS1,
      {98, 63, 0, PROTOBUF_FIELD_OFFSET(BarData, _impl_.source_)}},
-    {::_pbi::TcParser::MiniParse, {}},
-    {::_pbi::TcParser::MiniParse, {}},
-    {::_pbi::TcParser::MiniParse, {}},
+    // int64 end_time_ms = 13;
+    {::_pbi::TcParser::SingularVarintNoZag1<::uint64_t, offsetof(BarData, _impl_.end_time_ms_), 63>(),
+     {104, 63, 0, PROTOBUF_FIELD_OFFSET(BarData, _impl_.end_time_ms_)}},
+    // bool completed = 14;
+    {::_pbi::TcParser::SingularVarintNoZag1<bool, offsetof(BarData, _impl_.completed_), 63>(),
+     {112, 63, 0, PROTOBUF_FIELD_OFFSET(BarData, _impl_.completed_)}},
+    // uint64 data_version = 15;
+    {::_pbi::TcParser::SingularVarintNoZag1<::uint64_t, offsetof(BarData, _impl_.data_version_), 63>(),
+     {120, 63, 0, PROTOBUF_FIELD_OFFSET(BarData, _impl_.data_version_)}},
   }}, {{
     65535, 65535
   }}, {{
@@ -4393,13 +4421,26 @@ const ::_pbi::TcParseTable<4, 12, 1, 59, 2> BarData::_table_ = {
     // string source = 12;
     {PROTOBUF_FIELD_OFFSET(BarData, _impl_.source_), -1, 0,
     (0 | ::_fl::kFcSingular | ::_fl::kUtf8String | ::_fl::kRepAString)},
+    // int64 end_time_ms = 13;
+    {PROTOBUF_FIELD_OFFSET(BarData, _impl_.end_time_ms_), -1, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kInt64)},
+    // bool completed = 14;
+    {PROTOBUF_FIELD_OFFSET(BarData, _impl_.completed_), -1, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kBool)},
+    // uint64 data_version = 15;
+    {PROTOBUF_FIELD_OFFSET(BarData, _impl_.data_version_), -1, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kUInt64)},
+    // string basis_version = 16;
+    {PROTOBUF_FIELD_OFFSET(BarData, _impl_.basis_version_), -1, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kUtf8String | ::_fl::kRepAString)},
   }}, {{
     {::_pbi::TcParser::GetTable<::hqmarket::market::v1::Security>()},
   }}, {{
-    "\32\0\0\0\0\0\0\0\0\0\0\12\6\0\0\0"
+    "\32\0\0\0\0\0\0\0\0\0\0\12\6\0\0\0\15\0\0\0\0\0\0\0"
     "hqmarket.market.v1.BarData"
     "adjustment"
     "source"
+    "basis_version"
   }},
 };
 
@@ -4412,14 +4453,15 @@ PROTOBUF_NOINLINE void BarData::Clear() {
 
   _impl_.adjustment_.ClearToEmpty();
   _impl_.source_.ClearToEmpty();
+  _impl_.basis_version_.ClearToEmpty();
   cached_has_bits = _impl_._has_bits_[0];
   if (cached_has_bits & 0x00000001u) {
     ABSL_DCHECK(_impl_.security_ != nullptr);
     _impl_.security_->Clear();
   }
   ::memset(&_impl_.begin_time_ms_, 0, static_cast<::size_t>(
-      reinterpret_cast<char*>(&_impl_.turnover_) -
-      reinterpret_cast<char*>(&_impl_.begin_time_ms_)) + sizeof(_impl_.turnover_));
+      reinterpret_cast<char*>(&_impl_.completed_) -
+      reinterpret_cast<char*>(&_impl_.begin_time_ms_)) + sizeof(_impl_.completed_));
   _impl_._has_bits_.Clear();
   _internal_metadata_.Clear<::google::protobuf::UnknownFieldSet>();
 }
@@ -4526,6 +4568,35 @@ PROTOBUF_NOINLINE void BarData::Clear() {
             target = stream->WriteStringMaybeAliased(12, _s, target);
           }
 
+          // int64 end_time_ms = 13;
+          if (this_._internal_end_time_ms() != 0) {
+            target = ::google::protobuf::internal::WireFormatLite::
+                WriteInt64ToArrayWithField<13>(
+                    stream, this_._internal_end_time_ms(), target);
+          }
+
+          // bool completed = 14;
+          if (this_._internal_completed() != 0) {
+            target = stream->EnsureSpace(target);
+            target = ::_pbi::WireFormatLite::WriteBoolToArray(
+                14, this_._internal_completed(), target);
+          }
+
+          // uint64 data_version = 15;
+          if (this_._internal_data_version() != 0) {
+            target = stream->EnsureSpace(target);
+            target = ::_pbi::WireFormatLite::WriteUInt64ToArray(
+                15, this_._internal_data_version(), target);
+          }
+
+          // string basis_version = 16;
+          if (!this_._internal_basis_version().empty()) {
+            const std::string& _s = this_._internal_basis_version();
+            ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+                _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "hqmarket.market.v1.BarData.basis_version");
+            target = stream->WriteStringMaybeAliased(16, _s, target);
+          }
+
           if (PROTOBUF_PREDICT_FALSE(this_._internal_metadata_.have_unknown_fields())) {
             target =
                 ::_pbi::WireFormat::InternalSerializeUnknownFieldsToArray(
@@ -4560,6 +4631,11 @@ PROTOBUF_NOINLINE void BarData::Clear() {
             if (!this_._internal_source().empty()) {
               total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
                                               this_._internal_source());
+            }
+            // string basis_version = 16;
+            if (!this_._internal_basis_version().empty()) {
+              total_size += 2 + ::google::protobuf::internal::WireFormatLite::StringSize(
+                                              this_._internal_basis_version());
             }
           }
            {
@@ -4616,6 +4692,20 @@ PROTOBUF_NOINLINE void BarData::Clear() {
               total_size += ::_pbi::WireFormatLite::Int64SizePlusOne(
                   this_._internal_turnover());
             }
+            // int64 end_time_ms = 13;
+            if (this_._internal_end_time_ms() != 0) {
+              total_size += ::_pbi::WireFormatLite::Int64SizePlusOne(
+                  this_._internal_end_time_ms());
+            }
+            // uint64 data_version = 15;
+            if (this_._internal_data_version() != 0) {
+              total_size += ::_pbi::WireFormatLite::UInt64SizePlusOne(
+                  this_._internal_data_version());
+            }
+            // bool completed = 14;
+            if (this_._internal_completed() != 0) {
+              total_size += 2;
+            }
           }
           return this_.MaybeComputeUnknownFieldsSize(total_size,
                                                      &this_._impl_._cached_size_);
@@ -4635,6 +4725,9 @@ void BarData::MergeImpl(::google::protobuf::MessageLite& to_msg, const ::google:
   }
   if (!from._internal_source().empty()) {
     _this->_internal_set_source(from._internal_source());
+  }
+  if (!from._internal_basis_version().empty()) {
+    _this->_internal_set_basis_version(from._internal_basis_version());
   }
   cached_has_bits = from._impl_._has_bits_[0];
   if (cached_has_bits & 0x00000001u) {
@@ -4673,6 +4766,15 @@ void BarData::MergeImpl(::google::protobuf::MessageLite& to_msg, const ::google:
   if (from._internal_turnover() != 0) {
     _this->_impl_.turnover_ = from._impl_.turnover_;
   }
+  if (from._internal_end_time_ms() != 0) {
+    _this->_impl_.end_time_ms_ = from._impl_.end_time_ms_;
+  }
+  if (from._internal_data_version() != 0) {
+    _this->_impl_.data_version_ = from._impl_.data_version_;
+  }
+  if (from._internal_completed() != 0) {
+    _this->_impl_.completed_ = from._impl_.completed_;
+  }
   _this->_impl_._has_bits_[0] |= cached_has_bits;
   _this->_internal_metadata_.MergeFrom<::google::protobuf::UnknownFieldSet>(from._internal_metadata_);
 }
@@ -4693,9 +4795,10 @@ void BarData::InternalSwap(BarData* PROTOBUF_RESTRICT other) {
   swap(_impl_._has_bits_[0], other->_impl_._has_bits_[0]);
   ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.adjustment_, &other->_impl_.adjustment_, arena);
   ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.source_, &other->_impl_.source_, arena);
+  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.basis_version_, &other->_impl_.basis_version_, arena);
   ::google::protobuf::internal::memswap<
-      PROTOBUF_FIELD_OFFSET(BarData, _impl_.turnover_)
-      + sizeof(BarData::_impl_.turnover_)
+      PROTOBUF_FIELD_OFFSET(BarData, _impl_.completed_)
+      + sizeof(BarData::_impl_.completed_)
       - PROTOBUF_FIELD_OFFSET(BarData, _impl_.security_)>(
           reinterpret_cast<char*>(&_impl_.security_),
           reinterpret_cast<char*>(&other->_impl_.security_));

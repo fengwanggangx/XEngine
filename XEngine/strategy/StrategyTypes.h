@@ -49,6 +49,7 @@ struct CStrategyConfig
 	_TyAccount m_account{};
 	_TyStrategyId m_id{ 0 };
 	std::string m_strType;
+	std::uint64_t m_revision{ 1 };
 	std::string m_strName;
 	std::unordered_map<std::string, std::string> m_params;
 	std::vector<CQuoteInfo> m_subscriptions;
@@ -62,6 +63,7 @@ struct CTimerEvent
 {
 	_TyTimerId m_timerId{ 0 };
 	std::chrono::steady_clock::time_point m_fireTime;
+	bool m_zeroPosition{ false };
 };
 
 struct CStrategySnapshot
@@ -78,6 +80,8 @@ struct CStrategySnapshot
 	std::int64_t m_lastCallbackDurationUs{ 0 };
 	std::int64_t m_maxCallbackDurationUs{ 0 };
 	std::string m_strLastError;
+	std::string m_businessState;
+	std::string m_detailsJson;
 };
 
 #endif

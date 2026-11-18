@@ -35,6 +35,7 @@ namespace request
 		STRATEGY_START = 25,
 		STRATEGY_PAUSE = 26,
 		STRATEGY_STOP = 27,
+		STRATEGY_ACTION = 28,
 		MARKET_SUBSCRIBE = 40,
 		MARKET_UNSUBSCRIBE = 41,
 		MARKET_QUOTE_QUERY = 42,
@@ -61,8 +62,10 @@ namespace request
 		WATCHLIST_REMOVE = 64,
 		TRADE_ACCOUNT_ADD = 65,
 		TRADE_ACCOUNT_REMOVE = 66,
+		TRADE_EXECUTION_RULES_QUERY = 67,
 	};
 
+	class ExecutionRules;
 	class RequestData;
 	class TradeOrderList;
 	class TradeList;
@@ -140,6 +143,7 @@ public:
 	void SetData(const request::TradePositionList& value);
 	void SetData(const request::TradeCounterReply& value);
 	void SetData(const request::BrokerList& value);
+	void SetData(const request::ExecutionRules& value);
 	const _TyReqData& GetData() const;
 	void SetEventAccount(const request::TradeAccountInfo& value);
 

@@ -319,6 +319,7 @@ void CEngineCenter::OnRequest(const CRequest& req)
 	case _TyRequest::TRADE_ORDER_QUERY:
 	case _TyRequest::TRADE_DEAL_QUERY:
 	case _TyRequest::SUPPORTED_BROKER_QUERY:
+	case _TyRequest::TRADE_EXECUTION_RULES_QUERY:
 	case _TyRequest::TRADE_FUNDS_QUERY:
 		HandleTradeRequest(id, req);
 		return;
@@ -361,6 +362,7 @@ void CEngineCenter::OnRequest(const CRequest& req)
 	case _TyRequest::STRATEGY_RUNTIME_QUERY:
 	case _TyRequest::STRATEGY_START:
 	case _TyRequest::STRATEGY_PAUSE:
+	case _TyRequest::STRATEGY_ACTION:
 	case _TyRequest::STRATEGY_STOP:
 		HandleStrategyRequest(id, req);
 		return;

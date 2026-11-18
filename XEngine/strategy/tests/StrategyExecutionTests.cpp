@@ -295,6 +295,21 @@ namespace
 		Check(journal.Prepare(Intent(), MakeStrategyAccountView(Data(), Security()), 100500).m_bAccepted, "buy reopens only after all locks release");
 	}
 
+	void TestCheckpointOwnership()
+	{
+		CStrategyExecution journal;
+		Check(journal.Open(":memory:"), "open checkpoint journal");
+		std::uint64_t first = journal.AllocateSignal();
+		Check(0 != first && first < journal.AllocateSignal(), "durable signal sequence increases");
+		Check(journal.SaveCheckpoint(42, Account(), Security(), "active-task", true), "checkpoint and protection are atomic");
+		Check("active-task" == journal.LoadCheckpoint(42), "load strategy checkpoint");
+		Check(journal.ClaimExit(Account(), Security(), 42), "protected task claims symbol exit");
+		Check(!journal.UnlockBuys(Account(), Security(), 42), "active exit owner blocks unlock");
+		Check(!journal.ClaimExit(Account(), Security(), 43), "other task cannot claim owned exit");
+		Check(journal.ReleaseExit(Account(), Security(), 42), "release completed exit ownership");
+		Check(journal.UnlockBuys(Account(), Security(), 42), "unlock after ownership released");
+	}
+
 	void TestConflict()
 	{
 		CStrategyExecution journal;
@@ -347,6 +362,7 @@ int main(int argc, char** argv)
 		TestDuplicateBrokerIdentity();
 		TestRecovery(path);
 		TestProtection();
+		TestCheckpointOwnership();
 		TestConflict();
 		TestWriteFailure(path.string() + ".failure");
 		std::cout << "Strategy execution tests passed: snapshots, reservations, resource fences, concurrency, durable recovery, locks and conflicts\n";

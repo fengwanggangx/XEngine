@@ -72,3 +72,95 @@ CStrategyAccountView CStrategyContext::GetTradingSnapshot(const CSecurity& secur
 {
 	return nullptr == m_pSnapshotProvider ? CStrategyAccountView{} : m_pSnapshotProvider->GetStrategyAccountView(m_account, security);
 }
+
+std::optional<trade::CExecutionRule> CStrategyContext::GetRules(const CSecurity& security)
+{
+	return nullptr == m_pSnapshotProvider ? std::nullopt : m_pSnapshotProvider->GetExecutionRules(m_account, security);
+}
+std::string CStrategyContext::LoadCheckpoint() const
+{
+	return m_pStrategyService->m_execution.LoadCheckpoint(m_id);
+}
+std::uint64_t CStrategyContext::AllocateSignal()
+{
+	return m_pStrategyService->m_execution.AllocateSignal();
+}
+std::optional<CExecutionRecord> CStrategyContext::FindExecution(std::uint64_t id) const
+{
+	return m_pStrategyService->m_execution.FindExecution(id);
+}
+std::optional<CExecutionRecord> CStrategyContext::FindSignal(std::uint64_t id) const
+{
+	return m_pStrategyService->m_execution.FindSignal(m_id, id);
+}
+bool CStrategyContext::SaveCheckpoint(const std::string& data, bool protect)
+{
+	std::shared_ptr<CStrategyRuntime> runtime = m_pStrategyService->FindRuntime(m_id);
+	if (nullptr == runtime)
+	{
+		return false;
+	}
+	return m_pStrategyService->m_execution.SaveCheckpoint(m_id, m_account, runtime->m_config.m_subscriptions.front().m_security, data, protect);
+}
+bool CStrategyContext::ClaimExit()
+{
+	std::shared_ptr<CStrategyRuntime> runtime = m_pStrategyService->FindRuntime(m_id);
+	return (nullptr != runtime) && m_pStrategyService->m_execution.ClaimExit(m_account, runtime->m_config.m_subscriptions.front().m_security, m_id);
+}
+bool CStrategyContext::ReleaseExit(bool unlock)
+{
+	std::shared_ptr<CStrategyRuntime> runtime = m_pStrategyService->FindRuntime(m_id);
+	if (nullptr == runtime)
+	{
+		return false;
+	}
+	const CSecurity& security = runtime->m_config.m_subscriptions.front().m_security;
+	return m_pStrategyService->m_execution.ReleaseExit(m_account, security, m_id) && (!unlock || m_pStrategyService->m_execution.UnlockBuys(m_account, security, m_id));
+}
+bool CStrategyContext::CancelConflicts(bool reset)
+{
+	if (reset)
+	{
+		m_cancelled.clear();
+	}
+	std::shared_ptr<CStrategyRuntime> runtime = m_pStrategyService->FindRuntime(m_id);
+	if (nullptr == runtime)
+	{
+		return false;
+	}
+	bool success = true;
+	for (const auto& order : m_pSnapshotProvider->GetOrders(m_account))
+	{
+		if ((order.m_strSecurity == runtime->m_config.m_subscriptions.front().m_security.String()) && trade::IsActive(order.m_status) && !order.m_bCancelPending && !m_cancelled.contains(order.m_orderId))
+		{
+			if (m_pStrategyService->CancelOrder(order.m_id, order.m_orderId))
+			{
+				m_cancelled.emplace(order.m_orderId);
+			}
+			else
+			{
+				success = false;
+			}
+		}
+	}
+	return success;
+}
+bool CStrategyContext::RequestHistory(std::int64_t begin)
+{
+	return m_pStrategyService->RequestHistory(m_id, begin);
+}
+std::int64_t CStrategyContext::AvailableFunds(const CStrategyAccountView& view) const
+{
+	return m_pStrategyService->m_execution.AvailableFunds(m_account, view);
+}
+void CStrategyContext::PublishBusiness(const std::string& phase, const std::string& details)
+{
+	std::shared_ptr<CStrategyRuntime> runtime = m_pStrategyService->FindRuntime(m_id);
+	if (nullptr == runtime)
+	{
+		return;
+	}
+	std::lock_guard<std::mutex> lock(runtime->m_mtx_metrics);
+	runtime->m_businessState = phase;
+	runtime->m_detailsJson = details;
+}

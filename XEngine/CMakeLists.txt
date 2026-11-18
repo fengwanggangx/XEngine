@@ -69,11 +69,6 @@ target_link_libraries(indicator_tests PRIVATE xengine_services)
 add_test(NAME indicator_tests COMMAND indicator_tests)
 set_tests_properties(indicator_tests PROPERTIES TIMEOUT 30)
 
-add_executable(dual_ma_cross_tests strategy/tests/DualMaCrossTests.cpp)
-target_link_libraries(dual_ma_cross_tests PRIVATE xengine_services)
-add_test(NAME dual_ma_cross_tests COMMAND dual_ma_cross_tests)
-set_tests_properties(dual_ma_cross_tests PROPERTIES TIMEOUT 30)
-
 # Deliberately replace only the TA-Lib entry points for initialization failure.
 add_executable(indicator_failure_tests indicator/tests/IndicatorFailureTests.cpp indicator/CIndicator.cpp)
 target_include_directories(indicator_failure_tests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/indicator/talib/include")

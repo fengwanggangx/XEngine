@@ -5,6 +5,7 @@
 #include <filesystem>
 #include <map>
 #include <mutex>
+#include <optional>
 #include <tuple>
 
 struct sqlite3;
@@ -29,6 +30,8 @@ struct CExecutionRecord
 	std::uint64_t m_evidenceVersion{ 0 };
 	bool m_bBrokerCovered{ false };
 	std::string m_message;
+	std::int64_t m_filledQuantity{ 0 };
+	trade::Status m_brokerStatus{ trade::Status::Unknown };
 };
 
 // One journal has one owning engine. No network calls are made under its lock.
@@ -53,6 +56,15 @@ public:
 	bool IsBuyLocked(const _TyAccount& account, const CSecurity& security) const;
 	bool LockBuys(const _TyAccount& account, const CSecurity& security, _TyStrategyId ownerId, const std::string& reason);
 	bool UnlockBuys(const _TyAccount& account, const CSecurity& security, _TyStrategyId ownerId);
+	std::uint64_t AllocateSignal();
+	std::optional<CExecutionRecord> FindSignal(_TyStrategyId id, std::uint64_t signalId) const;
+	bool RejectBeforeAcceptance(std::uint64_t clientId, const std::string& reason);
+	std::optional<CExecutionRecord> FindExecution(std::uint64_t clientId) const;
+	std::string LoadCheckpoint(_TyStrategyId id) const;
+	bool SaveCheckpoint(_TyStrategyId id, const _TyAccount& account, const CSecurity& security, const std::string& data, bool protect);
+	bool ClaimExit(const _TyAccount& account, const CSecurity& security, _TyStrategyId id);
+	bool ReleaseExit(const _TyAccount& account, const CSecurity& security, _TyStrategyId id);
+	std::int64_t AvailableFunds(const _TyAccount& account, const CStrategyAccountView& view) const;
 
 private:
 	using _TyLockKey = std::tuple<_TyAccount, std::string, _TyStrategyId>;
@@ -69,4 +81,6 @@ private:
 	std::map<std::uint64_t, CExecutionRecord> m_records;
 	std::map<_TyLockKey, std::string> m_locks;
 	std::map<_TyAccount, std::uint64_t> m_snapshotVersions;
+	std::map<_TyAccount, std::uint64_t> m_snapshotEpochs;
+	std::map<std::pair<_TyAccount, std::string>, _TyStrategyId> m_exitOwners;
 };

@@ -2,6 +2,7 @@
 #define XENGINE_STRATEGY_CSTRATEGYSERVICE_H
 
 #include "IStrategy.h"
+#include "CStrategyExecution.h"
 #include "../trade/TradeTypes.h"
 
 #include <atomic>
@@ -38,10 +39,13 @@ enum class StrategyEventType
 	Bar,
 	Order,
 	Trade,
-	Timer
+	Timer,
+	Action,
+	History,
+	MarketState
 };
 
-using _TyStrategyEventData = std::variant<std::monostate, _TyQuoteData, _TyDepthData, _TyMarketTradeData, _TyBarData, COrderEvent, CTradeEvent, CTimerEvent>;
+using _TyStrategyEventData = std::variant<std::monostate, _TyQuoteData, _TyDepthData, _TyMarketTradeData, _TyBarData, COrderEvent, CTradeEvent, CTimerEvent, std::vector<_TyBarData>, bool>;
 
 struct CStrategyEvent
 {
@@ -50,6 +54,7 @@ struct CStrategyEvent
 	std::uint64_t m_sequence{ 0 };
 	_TyStrategyEventData m_data;
 	std::shared_ptr<std::promise<bool>> m_completion;
+	std::string m_action;
 
 	bool IsMarketEvent() const;
 };
@@ -79,6 +84,8 @@ struct CStrategyRuntime
 	std::int64_t m_lastCallbackDurationUs{ 0 };
 	std::int64_t m_maxCallbackDurationUs{ 0 };
 	std::string m_strLastError;
+	std::string m_businessState;
+	std::string m_detailsJson;
 };
 
 struct CSignalKey
@@ -151,6 +158,8 @@ private:
 
 private:
 	bool LoadStrategy();
+	bool ActionStrategy(const CRequest& req);
+	bool RequestHistory(_TyStrategyId id, std::int64_t begin);
 	bool AddStrategy(const CRequest& req);
 	bool ModifyStrategy(const CRequest& req);
 	bool DeleteStrategy(const CRequest& req);
@@ -179,6 +188,7 @@ private:
 	std::map<_TyAccount, std::unordered_set<_TyStrategyId>> m_runningStrategies;
 	std::mutex m_mtx_operations;
 	CIndicator& m_indicator;
+	CStrategyExecution m_execution;
 	CHQService* m_pHQService{ nullptr };
 	// Borrowed from CBootLoader; trading callbacks are stopped before destruction.
 	CTradeService* m_pTradeService{ nullptr };

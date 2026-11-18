@@ -10,6 +10,7 @@ struct CStrategyAccountView
 	CAccountSnapshot m_account;
 	CPositionSnapshot m_position;
 	std::vector<trade::COrder> m_orders;
+	std::uint64_t m_connectionEpoch{ 0 };
 	std::uint64_t m_fundsVersion{ 0 };
 	std::uint64_t m_positionsVersion{ 0 };
 	std::uint64_t m_ordersVersion{ 0 };

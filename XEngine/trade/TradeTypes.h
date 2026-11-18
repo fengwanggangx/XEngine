@@ -195,6 +195,7 @@ namespace trade
 		std::vector<COrder> m_orders;
 		std::vector<CTrade> m_trades;
 		// Resource watermarks must not be inferred from an unrelated order event.
+		std::uint64_t m_connectionEpoch{ 0 };
 		std::uint64_t m_fundsVersion{ 0 };
 		std::uint64_t m_positionsVersion{ 0 };
 		std::uint64_t m_ordersVersion{ 0 };
@@ -226,6 +227,13 @@ namespace trade
 	{
 		int m_nDay{ 0 };
 		std::int64_t m_nOpen{ 0 }, m_nBreak{ 0 }, m_nResume{ 0 }, m_nClose{ 0 };
+	};
+	struct CExecutionRule
+	{
+		CRule m_rule;
+		CCalendar m_calendar;
+		bool m_reliableQuery{ false };
+		bool m_idempotentClientId{ false };
 	};
 	struct CLevel
 	{

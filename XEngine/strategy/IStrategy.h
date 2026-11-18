@@ -14,6 +14,20 @@ class IStrategy
 	virtual void OnStart() = 0;
 	virtual void OnPause() = 0;
 	virtual void OnStop() = 0;
+	virtual bool OnAction(const std::string&)
+	{
+		return false;
+	}
+	virtual void OnHistory(const std::vector<_TyBarData>&)
+	{
+	}
+	virtual void OnMarketState(bool)
+	{
+	}
+	virtual int QuotePriority(const _TyQuoteData&) const
+	{
+		return 3;
+	}
 
 	virtual void OnQuote(const _TyQuoteData& data)
 	{

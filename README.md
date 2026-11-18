@@ -102,12 +102,12 @@ BootLoader 持有指标运行时，策略服务和均线策略借用它。当前
 正式程序统一从 Visual Studio 解决方案构建，以 `.vcxproj` 为准。仓库中的 CMake 入口仅用于辅助验证，不作为正式程序构建、发布或验收依据。
 
 打开 `XEngine.sln`，选择 `XEngine/XEngine.vcxproj`，使用 VS Linux 远程构建，配置为 Debug 或 Release、平台 x64；需在 VS 中配置 Linux 连接及工程所需依赖。
-本次仅核对解决方案及工程文件，不执行编译、链接或运行测试。
+正式 Linux 远程构建需要配置生成主机；当前环境未配置，离线构建与测试结果见策略实施记录。
 
 ## 双均线交叉策略命名
 
-策略类型为 `dual_ma_cross`，实现类为 `CDualMaCrossStrategy`，中文名称为“双均线交叉策略”。XTrader 与 XEngine 需要配套升级；已有数据库策略记录的 `strategy_type` 如为 `moving_average`，需在升级时改为 `dual_ma_cross`。本次仅调整命名，仍使用实时报价样本计算 SMA，窗口和委托行为保持不变。
+策略类型为 `dual_ma_cross`，实现类为 `CDualMaCrossStrategy`，中文名称为“双均线交叉策略”。按完成 K 线计算 SMA/EMA，支持 1m/1d、历史预热及数量模式配置；实际执行依赖明确的行情完成标记、价格基准和柜台规则能力。
 
 ## 四类策略实施进度
 
-统一快照及离线执行基础模块的实现、测试入口、接入契约和剩余工作见 [策略实施记录](STRATEGY_IMPLEMENTATION.md)。执行基础模块尚未替换实际下单路径；四类策略的新业务行为与客户端表单尚未接入。
+目标设计见 [四类策略综合实施方案](STRATEGY_PLAN.md)，统一采用新策略、配置、协议及存储结构。统一快照及离线执行基础模块的实现、测试入口、接入契约和剩余工作见 [策略实施记录](STRATEGY_IMPLEMENTATION.md)。四类策略、持久化执行入口、退出任务和客户端专用表单已接入；离线测试及正式构建、行情和柜台能力边界见实施记录。

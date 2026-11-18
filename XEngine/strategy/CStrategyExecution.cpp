@@ -111,13 +111,13 @@ bool CStrategyExecution::Open(const std::filesystem::path& path)
 		// Retain the exclusive connection lock across commits. A second engine must fail.
 		Execute(m_database, "PRAGMA journal_mode=WAL; PRAGMA synchronous=FULL; PRAGMA locking_mode=EXCLUSIVE;");
 		_TyStatement version = Statement(m_database, "PRAGMA user_version");
-		if ((SQLITE_ROW != sqlite3_step(version.get())) || (0 > sqlite3_column_int(version.get(), 0)) || (1 < sqlite3_column_int(version.get(), 0)))
+		if ((SQLITE_ROW != sqlite3_step(version.get())) || (0 > sqlite3_column_int(version.get(), 0)) || ((0 != sqlite3_column_int(version.get(), 0)) && (2 != sqlite3_column_int(version.get(), 0))))
 		{
 			throw std::runtime_error("Unsupported strategy journal version");
 		}
 		version.reset();
-		Execute(m_database, "BEGIN IMMEDIATE; CREATE TABLE IF NOT EXISTS execution (client_id INTEGER PRIMARY KEY AUTOINCREMENT, account TEXT NOT NULL, strategy_id INTEGER NOT NULL, signal_id INTEGER NOT NULL, security TEXT NOT NULL, exchange_id INTEGER NOT NULL, side INTEGER NOT NULL, price INTEGER NOT NULL, price_scale INTEGER NOT NULL, quantity INTEGER NOT NULL, effect INTEGER NOT NULL, state INTEGER NOT NULL, reserved_money INTEGER NOT NULL, order_id INTEGER NOT NULL, evidence INTEGER NOT NULL, covered INTEGER NOT NULL, message TEXT NOT NULL, UNIQUE(account,strategy_id,signal_id)); CREATE TABLE IF NOT EXISTS protection (account TEXT NOT NULL, security TEXT NOT NULL, owner_id INTEGER NOT NULL, reason TEXT NOT NULL, PRIMARY KEY(account,security,owner_id)); PRAGMA user_version=1; COMMIT;");
-		// Reserve a durable ID range above the legacy timestamp-generated IDs.
+		Execute(m_database, "BEGIN IMMEDIATE; CREATE TABLE IF NOT EXISTS execution (client_id INTEGER PRIMARY KEY AUTOINCREMENT, account TEXT NOT NULL, strategy_id INTEGER NOT NULL, signal_id INTEGER NOT NULL, security TEXT NOT NULL, exchange_id INTEGER NOT NULL, side INTEGER NOT NULL, price INTEGER NOT NULL, price_scale INTEGER NOT NULL, quantity INTEGER NOT NULL, effect INTEGER NOT NULL, state INTEGER NOT NULL, reserved_money INTEGER NOT NULL, order_id INTEGER NOT NULL, evidence INTEGER NOT NULL, covered INTEGER NOT NULL, message TEXT NOT NULL, filled INTEGER NOT NULL DEFAULT 0, broker_status INTEGER NOT NULL DEFAULT 7, UNIQUE(account,strategy_id,signal_id)); CREATE TABLE IF NOT EXISTS protection (account TEXT NOT NULL, security TEXT NOT NULL, owner_id INTEGER NOT NULL, reason TEXT NOT NULL, PRIMARY KEY(account,security,owner_id)); CREATE TABLE IF NOT EXISTS signal_sequence(id INTEGER PRIMARY KEY AUTOINCREMENT); CREATE TABLE IF NOT EXISTS checkpoint(strategy_id INTEGER PRIMARY KEY, data TEXT NOT NULL); CREATE TABLE IF NOT EXISTS exit_owner(account TEXT NOT NULL, security TEXT NOT NULL, owner_id INTEGER NOT NULL, PRIMARY KEY(account,security)); PRAGMA user_version=2; COMMIT;");
+		// Reserve a durable, monotonically increasing client ID range.
 		std::int64_t floor = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
 		_TyStatement sequence = Statement(m_database, "INSERT INTO sqlite_sequence(name,seq) SELECT 'execution',? WHERE NOT EXISTS (SELECT 1 FROM sqlite_sequence WHERE name='execution')");
 		Bind(sequence.get(), 1, floor);
@@ -210,17 +210,39 @@ void CStrategyExecution::Load()
 	{
 		throw std::runtime_error(sqlite3_errmsg(m_database));
 	}
+	statement = Statement(m_database, "SELECT account,security,owner_id FROM exit_owner");
+	while (SQLITE_ROW == (result = sqlite3_step(statement.get())))
+	{
+		_TyAccount account;
+		if (!DecodeAccount(ReadText(statement.get(), 0), account) || (0 >= sqlite3_column_int64(statement.get(), 2)))
+		{
+			throw std::runtime_error("Invalid exit owner");
+		}
+		_TyStrategyId ownerId = static_cast<_TyStrategyId>(sqlite3_column_int64(statement.get(), 2));
+		std::string security = ReadText(statement.get(), 1);
+		if (m_locks.end() == m_locks.find(_TyLockKey{ account, security, ownerId }))
+		{
+			throw std::runtime_error("Exit owner has no protection lock");
+		}
+		m_exitOwners.emplace(std::make_pair(account, security), ownerId);
+	}
+	if (SQLITE_DONE != result)
+	{
+		throw std::runtime_error(sqlite3_errmsg(m_database));
+	}
 }
 
 void CStrategyExecution::Save(const CExecutionRecord& record)
 {
-	_TyStatement statement = Statement(m_database, "UPDATE execution SET state=?,order_id=?,evidence=?,covered=?,message=? WHERE client_id=?");
+	_TyStatement statement = Statement(m_database, "UPDATE execution SET state=?,order_id=?,evidence=?,covered=?,message=?,filled=?,broker_status=? WHERE client_id=?");
 	Bind(statement.get(), 1, static_cast<std::int64_t>(record.m_state));
 	Bind(statement.get(), 2, static_cast<std::int64_t>(record.m_orderId));
 	Bind(statement.get(), 3, static_cast<std::int64_t>(record.m_evidenceVersion));
 	Bind(statement.get(), 4, static_cast<std::int64_t>(record.m_bBrokerCovered));
 	Bind(statement.get(), 5, record.m_message);
-	Bind(statement.get(), 6, static_cast<std::int64_t>(record.m_intent.m_clientOrderId));
+	Bind(statement.get(), 6, record.m_filledQuantity);
+	Bind(statement.get(), 7, static_cast<std::int64_t>(record.m_brokerStatus));
+	Bind(statement.get(), 8, static_cast<std::int64_t>(record.m_intent.m_clientOrderId));
 	Done(m_database, statement.get());
 	if (1 != sqlite3_changes(m_database))
 	{
@@ -244,11 +266,10 @@ COrderSubmitResult CStrategyExecution::Prepare(COrderIntent intent, const CStrat
 	{
 		return { false, false, 0, 0, "Invalid execution intent" };
 	}
-	if (!view.m_account.m_bReady || (view.m_identity != intent.m_account) || (view.m_position.m_security != intent.m_security) || (view.m_account.m_version != view.m_position.m_version) || (view.m_account.m_version < m_snapshotVersions[intent.m_account]))
+	if (!view.m_account.m_bReady || (view.m_identity != intent.m_account) || (view.m_position.m_security != intent.m_security) || (view.m_account.m_version != view.m_position.m_version) || ((view.m_connectionEpoch == m_snapshotEpochs[intent.m_account]) && (view.m_account.m_version < m_snapshotVersions[intent.m_account])))
 	{
 		return { false, true, 0, 0, "A consistent account snapshot is required" };
 	}
-	m_snapshotVersions[intent.m_account] = view.m_account.m_version;
 	if (!ReconcileWithoutLock(intent.m_account, view))
 	{
 		return { false, false, 0, 0, "Cannot reconcile execution journal: " + m_strLastError };
@@ -256,6 +277,11 @@ COrderSubmitResult CStrategyExecution::Prepare(COrderIntent intent, const CStrat
 	if ((OrderSide::Buy == intent.m_side) && IsBuyLockedWithoutLock(intent.m_account, intent.m_security))
 	{
 		return { false, false, 0, 0, "Protection task blocks new buys" };
+	}
+	const auto ownerIter = m_exitOwners.find({ intent.m_account, intent.m_security.String() });
+	if ((m_exitOwners.end() != ownerIter) && (ownerIter->second != intent.m_id))
+	{
+		return { false, true, 0, 0, "Another protection task owns this security" };
 	}
 	std::int64_t reserved = 0;
 	for (const auto& [id, record] : m_records)
@@ -414,13 +440,30 @@ bool CStrategyExecution::Reconcile(const _TyAccount& account, const CStrategyAcc
 
 bool CStrategyExecution::ReconcileWithoutLock(const _TyAccount& account, const CStrategyAccountView& view)
 {
-	if (!m_bHealthy || !view.m_account.m_bReady || (account != view.m_identity) || (view.m_account.m_version < m_snapshotVersions[account]))
+	if (!m_bHealthy || !view.m_account.m_bReady || (account != view.m_identity) || (view.m_connectionEpoch < m_snapshotEpochs[account]) || ((view.m_connectionEpoch == m_snapshotEpochs[account]) && (view.m_account.m_version < m_snapshotVersions[account])))
 	{
 		return false;
 	}
 	m_snapshotVersions[account] = view.m_account.m_version;
 	try
 	{
+		if (view.m_connectionEpoch != m_snapshotEpochs[account])
+		{
+			for (auto& [id, record] : m_records)
+			{
+				if (account == record.m_intent.m_account)
+				{
+					CExecutionRecord changed = record;
+					changed.m_state = ExecutionState::Unknown;
+					changed.m_bBrokerCovered = false;
+					changed.m_evidenceVersion = 0;
+					Save(changed);
+					record = std::move(changed);
+				}
+			}
+			m_snapshotEpochs[account] = view.m_connectionEpoch;
+			m_snapshotVersions[account] = view.m_account.m_version;
+		}
 		std::map<std::uint64_t, const trade::COrder*> orders;
 		for (const auto& order : view.m_orders)
 		{
@@ -461,6 +504,8 @@ bool CStrategyExecution::ReconcileWithoutLock(const _TyAccount& account, const C
 			}
 			CExecutionRecord changed = record;
 			changed.m_orderId = pOrder->m_orderId;
+			changed.m_filledQuantity = pOrder->m_nFilled;
+			changed.m_brokerStatus = pOrder->m_status;
 			changed.m_evidenceVersion = view.m_ordersVersion;
 			bool terminal = !Active(pOrder->m_status);
 			// Terminal evidence must never regress to an active report at the same watermark.
@@ -472,7 +517,7 @@ bool CStrategyExecution::ReconcileWithoutLock(const _TyAccount& account, const C
 			changed.m_bBrokerCovered = (0 != view.m_ordersVersion) && (resourceVersion >= view.m_ordersVersion);
 			changed.m_state = terminal ? (changed.m_bBrokerCovered ? ExecutionState::Closed : ExecutionState::TerminalAwaitingSync) : ExecutionState::BrokerActive;
 			changed.m_message = terminal ? (changed.m_bBrokerCovered ? "Terminal order reconciled" : "Terminal order; waiting for resource watermark") : "Broker order reconciled";
-			if ((changed.m_state != record.m_state) || (changed.m_evidenceVersion != record.m_evidenceVersion) || (changed.m_bBrokerCovered != record.m_bBrokerCovered) || (changed.m_orderId != record.m_orderId))
+			if ((changed.m_state != record.m_state) || (changed.m_evidenceVersion != record.m_evidenceVersion) || (changed.m_bBrokerCovered != record.m_bBrokerCovered) || (changed.m_orderId != record.m_orderId) || (changed.m_filledQuantity != record.m_filledQuantity) || (changed.m_brokerStatus != record.m_brokerStatus))
 			{
 				Save(changed);
 				record = std::move(changed);
@@ -582,6 +627,10 @@ bool CStrategyExecution::UnlockBuys(const _TyAccount& account, const CSecurity& 
 			return false;
 		}
 	}
+	if (m_exitOwners.end() != m_exitOwners.find(std::make_pair(account, security.String())))
+	{
+		return false;
+	}
 	try
 	{
 		_TyStatement statement = Statement(m_database, "DELETE FROM protection WHERE account=? AND security=? AND owner_id=?");
@@ -590,6 +639,253 @@ bool CStrategyExecution::UnlockBuys(const _TyAccount& account, const CSecurity& 
 		Bind(statement.get(), 3, static_cast<std::int64_t>(ownerId));
 		Done(m_database, statement.get());
 		m_locks.erase(_TyLockKey{ account, security.String(), ownerId });
+		return true;
+	}
+	catch (const std::exception& error)
+	{
+		m_bHealthy = false;
+		m_strLastError = error.what();
+		return false;
+	}
+}
+
+std::uint64_t CStrategyExecution::AllocateSignal()
+{
+	std::lock_guard<std::mutex> lock(m_mtx_state);
+	if (!m_bHealthy)
+	{
+		return 0;
+	}
+	try
+	{
+		Execute(m_database, "INSERT INTO signal_sequence DEFAULT VALUES");
+		return sqlite3_last_insert_rowid(m_database);
+	}
+	catch (const std::exception& error)
+	{
+		m_bHealthy = false;
+		m_strLastError = error.what();
+		return 0;
+	}
+}
+
+std::optional<CExecutionRecord> CStrategyExecution::FindExecution(std::uint64_t clientId) const
+{
+	std::lock_guard<std::mutex> lock(m_mtx_state);
+	if (!m_bHealthy)
+	{
+		return std::nullopt;
+	}
+	_TyStatement statement = Statement(m_database, "SELECT state,order_id,message,filled,broker_status FROM execution WHERE client_id=?");
+	Bind(statement.get(), 1, static_cast<std::int64_t>(clientId));
+	int result = sqlite3_step(statement.get());
+	if (SQLITE_DONE == result)
+	{
+		return std::nullopt;
+	}
+	if (SQLITE_ROW != result)
+	{
+		throw std::runtime_error(sqlite3_errmsg(m_database));
+	}
+	CExecutionRecord record;
+	record.m_intent.m_clientOrderId = clientId;
+	record.m_state = static_cast<ExecutionState>(sqlite3_column_int(statement.get(), 0));
+	record.m_orderId = sqlite3_column_int64(statement.get(), 1);
+	record.m_message = ReadText(statement.get(), 2);
+	record.m_filledQuantity = sqlite3_column_int64(statement.get(), 3);
+	record.m_brokerStatus = static_cast<trade::Status>(sqlite3_column_int(statement.get(), 4));
+	return record;
+}
+
+std::string CStrategyExecution::LoadCheckpoint(_TyStrategyId id) const
+{
+	std::lock_guard<std::mutex> lock(m_mtx_state);
+	if (!m_bHealthy)
+	{
+		throw std::runtime_error("Execution journal is unavailable");
+	}
+	_TyStatement statement = Statement(m_database, "SELECT data FROM checkpoint WHERE strategy_id=?");
+	Bind(statement.get(), 1, static_cast<std::int64_t>(id));
+	int result = sqlite3_step(statement.get());
+	if (SQLITE_DONE == result)
+	{
+		return {};
+	}
+	if (SQLITE_ROW != result)
+	{
+		throw std::runtime_error(sqlite3_errmsg(m_database));
+	}
+	return ReadText(statement.get(), 0);
+}
+
+bool CStrategyExecution::SaveCheckpoint(_TyStrategyId id, const _TyAccount& account, const CSecurity& security, const std::string& data, bool protect)
+{
+	std::lock_guard<std::mutex> lock(m_mtx_state);
+	if (!m_bHealthy || (0 == id) || !IsAccountValid(account) || !security.IsValid())
+	{
+		return false;
+	}
+	try
+	{
+		Execute(m_database, "BEGIN IMMEDIATE");
+		_TyStatement statement = Statement(m_database, "INSERT INTO checkpoint(strategy_id,data) VALUES(?,?) ON CONFLICT(strategy_id) DO UPDATE SET data=excluded.data");
+		Bind(statement.get(), 1, static_cast<std::int64_t>(id));
+		Bind(statement.get(), 2, data);
+		Done(m_database, statement.get());
+		if (protect)
+		{
+			statement = Statement(m_database, "INSERT OR IGNORE INTO protection(account,security,owner_id,reason) VALUES(?,?,?,'Protection exit')");
+			Bind(statement.get(), 1, EncodeAccount(account));
+			Bind(statement.get(), 2, security.String());
+			Bind(statement.get(), 3, static_cast<std::int64_t>(id));
+			Done(m_database, statement.get());
+		}
+		Execute(m_database, "COMMIT");
+		if (protect)
+		{
+			m_locks.try_emplace(_TyLockKey{ account, security.String(), id }, "Protection exit");
+		}
+		return true;
+	}
+	catch (const std::exception& error)
+	{
+		sqlite3_exec(m_database, "ROLLBACK", nullptr, nullptr, nullptr);
+		m_bHealthy = false;
+		m_strLastError = error.what();
+		return false;
+	}
+}
+
+bool CStrategyExecution::ClaimExit(const _TyAccount& account, const CSecurity& security, _TyStrategyId id)
+{
+	std::lock_guard<std::mutex> lock(m_mtx_state);
+	if (!m_bHealthy || !m_locks.contains(_TyLockKey{ account, security.String(), id }))
+	{
+		return false;
+	}
+	const auto mIter = m_exitOwners.find({ account, security.String() });
+	if (m_exitOwners.end() != mIter)
+	{
+		return id == mIter->second;
+	}
+	try
+	{
+		_TyStatement statement = Statement(m_database, "INSERT INTO exit_owner(account,security,owner_id) VALUES(?,?,?)");
+		Bind(statement.get(), 1, EncodeAccount(account));
+		Bind(statement.get(), 2, security.String());
+		Bind(statement.get(), 3, static_cast<std::int64_t>(id));
+		Done(m_database, statement.get());
+		m_exitOwners.emplace(std::make_pair(account, security.String()), id);
+		return true;
+	}
+	catch (const std::exception& error)
+	{
+		m_bHealthy = false;
+		m_strLastError = error.what();
+		return false;
+	}
+}
+
+bool CStrategyExecution::ReleaseExit(const _TyAccount& account, const CSecurity& security, _TyStrategyId id)
+{
+	std::lock_guard<std::mutex> lock(m_mtx_state);
+	if (!m_bHealthy)
+	{
+		return false;
+	}
+	for (const auto& [clientId, record] : m_records)
+	{
+		if ((account == record.m_intent.m_account) && (security == record.m_intent.m_security))
+		{
+			return false;
+		}
+	}
+	try
+	{
+		_TyStatement statement = Statement(m_database, "DELETE FROM exit_owner WHERE account=? AND security=? AND owner_id=?");
+		Bind(statement.get(), 1, EncodeAccount(account));
+		Bind(statement.get(), 2, security.String());
+		Bind(statement.get(), 3, static_cast<std::int64_t>(id));
+		Done(m_database, statement.get());
+		const auto mIter = m_exitOwners.find({ account, security.String() });
+		if ((m_exitOwners.end() != mIter) && (id == mIter->second))
+		{
+			m_exitOwners.erase(mIter);
+		}
+		return true;
+	}
+	catch (const std::exception& error)
+	{
+		m_bHealthy = false;
+		m_strLastError = error.what();
+		return false;
+	}
+}
+
+std::int64_t CStrategyExecution::AvailableFunds(const _TyAccount& account, const CStrategyAccountView& view) const
+{
+	std::lock_guard<std::mutex> lock(m_mtx_state);
+	if (!m_bHealthy || (account != view.m_identity) || !view.m_account.m_bReady)
+	{
+		return 0;
+	}
+	std::int64_t available = view.m_account.m_available;
+	for (const auto& [id, record] : m_records)
+	{
+		if ((account == record.m_intent.m_account) && (OrderSide::Buy == record.m_intent.m_side) && !record.m_bBrokerCovered)
+		{
+			if (available < record.m_reservedMoney)
+			{
+				return 0;
+			}
+			available -= record.m_reservedMoney;
+		}
+	}
+	return available;
+}
+
+std::optional<CExecutionRecord> CStrategyExecution::FindSignal(_TyStrategyId id, std::uint64_t signalId) const
+{
+	std::uint64_t client = 0;
+	{
+		std::lock_guard<std::mutex> lock(m_mtx_state);
+		if (!m_bHealthy)
+		{
+			return std::nullopt;
+		}
+		_TyStatement statement = Statement(m_database, "SELECT client_id FROM execution WHERE strategy_id=? AND signal_id=?");
+		Bind(statement.get(), 1, static_cast<std::int64_t>(id));
+		Bind(statement.get(), 2, static_cast<std::int64_t>(signalId));
+		int result = sqlite3_step(statement.get());
+		if (SQLITE_DONE == result)
+		{
+			return std::nullopt;
+		}
+		if (SQLITE_ROW != result)
+		{
+			throw std::runtime_error(sqlite3_errmsg(m_database));
+		}
+		client = sqlite3_column_int64(statement.get(), 0);
+	}
+	return FindExecution(client);
+}
+
+bool CStrategyExecution::RejectBeforeAcceptance(std::uint64_t clientId, const std::string& reason)
+{
+	std::lock_guard<std::mutex> lock(m_mtx_state);
+	const auto mIter = m_records.find(clientId);
+	if (!m_bHealthy || (m_records.end() == mIter) || (0 != mIter->second.m_orderId))
+	{
+		return false;
+	}
+	try
+	{
+		CExecutionRecord changed = mIter->second;
+		changed.m_state = ExecutionState::Closed;
+		changed.m_brokerStatus = trade::Status::Rejected;
+		changed.m_message = reason;
+		Save(changed);
+		m_records.erase(mIter);
 		return true;
 	}
 	catch (const std::exception& error)

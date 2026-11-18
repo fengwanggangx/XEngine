@@ -23,6 +23,8 @@ enum RequestType {
     STRATEGY_START = 25;
     STRATEGY_PAUSE = 26;
     STRATEGY_STOP = 27;
+    STRATEGY_ACTION = 28;
+    TRADE_EXECUTION_RULES_QUERY = 67;
     MARKET_SUBSCRIBE = 40;
     MARKET_UNSUBSCRIBE = 41;
     MARKET_QUOTE_QUERY = 42;
@@ -46,6 +48,8 @@ enum RequestType {
     WATCHLIST_QUERY = 62;
     WATCHLIST_ADD = 63;
     WATCHLIST_REMOVE = 64;
+    TRADE_ACCOUNT_ADD = 65;
+    TRADE_ACCOUNT_REMOVE = 66;
 
 }
 
@@ -56,6 +60,7 @@ message StrategySubscription {
 }
 
 message StrategyInfo {
+    uint64 config_revision = 12;
     uint64 strategy_id = 1;
     string strategy_type = 2;
     string strategy_name = 3;
@@ -104,6 +109,7 @@ message TradeAccountLog {
 message TradeAccountLogList { uint64 broker_id = 1; string site = 3; string account = 4; repeated TradeAccountLog logs = 2; }
 
 message StrategyRuntimeRecord {
+ string business_state = 7; string details_json = 8;
  uint64 strategy_id = 1;
  int32 state = 2;
  bool market_available = 3;
@@ -158,6 +164,15 @@ message TradeCounterReply {
  }
 }
 
+message ExecutionRules {
+ string security = 1; string version = 2; int32 trading_day = 3; int32 price_scale = 4;
+ int64 tick = 5; int64 buy_minimum = 6; int64 buy_step = 7; int64 sell_minimum = 8; int64 sell_step = 9;
+ int64 lower = 10; int64 upper = 11; int64 commission_ppm = 12; int64 minimum_fee_cents = 13;
+ int64 sell_tax_ppm = 14; int64 transfer_ppm = 15; bool corporate_action = 16;
+ int64 open_time_ms = 17; int64 break_time_ms = 18; int64 resume_time_ms = 19; int64 close_time_ms = 20;
+ bool reliable_query = 21; bool idempotent_client_id = 22;
+}
+
 message RequestData {
 	reserved 24, 26, 28, 34, 39;
  reserved "account_info_list", "trade_sync";
@@ -195,6 +210,7 @@ message RequestData {
         TradeAccountInfo account_info = 40;
         TradeCounterReply counter_reply = 41;
         StrategyRuntimeList strategy_runtime_list = 35;
+        ExecutionRules execution_rules = 44;
         TradeOrderList trade_orders = 36;
         TradeList trades = 37;
         TradePositionList trade_positions = 38;

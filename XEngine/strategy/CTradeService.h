@@ -21,6 +21,8 @@ public:
 	~CTradeService();
 	bool Initialize();
 	bool IsReady(const _TyAccount& account) const;
+	std::optional<trade::CExecutionRule> GetExecutionRules(const _TyAccount& account, const CSecurity& security);
+	void ReconcileAccount(const _TyAccount& account);
 	void OnAccountState(const _TyAccount& account);
 	void OnBrokerEvent(trade::CCounterEvent event);
 	void SetEventHandler(_TyEventHandler&& handler);
@@ -77,7 +79,16 @@ private:
 		bool m_bOverflow{ false };
 	};
 	std::map<_TyAccount, CSync> m_syncing;
+	struct CRuleCache
+	{
+		std::optional<trade::CExecutionRule> m_value;
+		std::chrono::steady_clock::time_point m_retry;
+		std::uint64_t m_requestId{ 0 };
+	};
+	std::map<std::pair<_TyAccount, std::string>, CRuleCache> m_rules;
 	std::uint64_t m_generation{ 0 };
+	std::map<_TyAccount, std::uint64_t> m_accountEpochs;
+	std::uint64_t m_nextAccountEpoch{ static_cast<std::uint64_t>(std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now().time_since_epoch()).count()) };
 	std::atomic_uint64_t m_nNextSyncId{ 1 };
 	std::jthread m_refresh;
 	std::mutex m_mtx_wait;

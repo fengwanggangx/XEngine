@@ -5,6 +5,7 @@
 #include "CSubscriptionMgr.h"
 #include <atomic>
 #include <chrono>
+#include <functional>
 #include <mutex>
 #include <unordered_map>
 #include <vector>
@@ -16,6 +17,7 @@ struct CPendingQueryClient
 {
 	net::_TyConnectionId m_routerId{ -1 };
 	_TyRequestId m_requestId{ 0 };
+	std::function<void(const CRequest&)> m_handler;
 };
 
 struct CPendingQuery
@@ -59,6 +61,8 @@ public:
 	void Release(HQOrigin type, std::uint64_t id);
 	void Subscribe(HQOrigin type, std::uint64_t id, const std::vector<CQuoteInfo>& quotes);
 
+	using _TyQueryHandler = std::function<void(const CRequest&)>;
+	bool QueryBars(const CQuoteInfo& quote, std::int64_t begin, std::int64_t end, _TyQueryHandler&& handler);
 	bool OnReply(const CRequest& req);
 	bool OnRequest(const CRequest& req);
 	int HandleClientDisconnected(net::_TyConnectionId id);
@@ -82,7 +86,7 @@ private:
 	std::string GetMarketResponseKey(const CRequest& req) const;
 	void FailPendingSubscriptions(const std::string& strReason);
 	bool OnSubscriptionRequest(net::_TyConnectionId id, const CRequest& req);
-	bool HandleQueryHQRequest(net::_TyConnectionId id, const CRequest& req);
+	bool HandleQueryHQRequest(net::_TyConnectionId id, const CRequest& req, _TyQueryHandler handler = {});
 	void SendQueryError(const CPendingQueryClient& client, _TyRequest type, int nErrorCode, const std::string& strMessage) const;
 	void SendSubscriptionResponse(net::_TyConnectionId id, _TyRequestId requestId, bool bAccepted, const std::string& strReason, _TyRequest type = _TyRequest::MARKET_SUBSCRIBE, const std::vector<CQuoteInfo>& subscriptions = {}) const;
 

@@ -44,6 +44,7 @@ CStrategyAccountView MakeStrategyAccountView(trade::CAccountData data, const CSe
 		position.m_bReady = position.m_bReady && (0 <= row.m_nTotal) && (0 <= row.m_nAvailable) && (row.m_nAvailable <= row.m_nTotal) && (!row.m_bFrozenKnown || ((0 <= row.m_nFrozen) && (row.m_nFrozen <= row.m_nTotal - row.m_nAvailable)));
 	}
 	view.m_orders = std::move(data.m_orders);
+	view.m_connectionEpoch = data.m_connectionEpoch;
 	view.m_fundsVersion = data.m_fundsVersion;
 	view.m_positionsVersion = data.m_positionsVersion;
 	view.m_ordersVersion = data.m_ordersVersion;

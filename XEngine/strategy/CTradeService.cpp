@@ -1,4 +1,5 @@
 #include "CTradeService.h"
+#include "../trade/ExecutionRulesWire.h"
 #include "TradeRequestRouting.h"
 #include <iostream>
 #include "../network/CNetTools.h"
@@ -389,6 +390,8 @@ trade::CAccountData CTradeService::Snapshot(const _TyAccount& account) const
 		return data;
 	}
 	trade::CAccountData data = mIter->second;
+	const auto epochIter = m_accountEpochs.find(account);
+	data.m_connectionEpoch = m_accountEpochs.end() == epochIter ? 0 : epochIter->second;
 	data.m_bReady = data.m_bReady && m_bRunning.load() && m_pAccountService->IsConnected(account);
 	return data;
 }
@@ -552,9 +555,11 @@ void CTradeService::OnBrokerState(SessionState state, const std::string&)
 	{
 		std::lock_guard<std::mutex> lock(m_mtx_state);
 		++m_generation;
+		m_rules.clear();
 		m_syncing.clear();
 		for (auto& entry : m_snapshots)
 		{
+			m_accountEpochs[entry.first] = ++m_nextAccountEpoch;
 			entry.second.m_bReady = false;
 			entry.second.m_account.m_bConnected = false;
 			entry.second.m_account.m_bFundsValid = false;
@@ -611,6 +616,11 @@ void CTradeService::OnAccountState(const _TyAccount& account)
 {
 	{
 		std::lock_guard<std::mutex> lock(m_mtx_state);
+		m_accountEpochs[account] = ++m_nextAccountEpoch;
+		std::erase_if(m_rules, [&account](const auto& item)
+		{
+			return item.first.first == account;
+		});
 		m_syncing.erase(account);
 		const auto mIter = m_snapshots.find(account);
 		if (m_snapshots.end() != mIter)
@@ -694,6 +704,29 @@ bool CTradeService::OnReply(const CRequest& req)
 bool CTradeService::DispatchReply(const CRequest& origin, const CRequest& response)
 {
 	std::string source = origin.GetExtraData("request_source");
+	if ("ExecutionRules" == source)
+	{
+		_TyAccount account;
+		std::uint64_t generation = 0;
+		if (!FmtAccount(origin, account) || !tradingroute::ReadNumber(origin, "broker_connect_id", generation))
+		{
+			return false;
+		}
+		std::lock_guard<std::mutex> lock(m_mtx_state);
+		const auto mIter = m_rules.find({ account, origin.GetExtraData("security") });
+		if ((generation != m_generation) || (m_rules.end() == mIter) || (origin.GetId() != mIter->second.m_requestId))
+		{
+			return false;
+		}
+		mIter->second.m_requestId = 0;
+		mIter->second.m_retry = std::chrono::steady_clock::now() + std::chrono::seconds(5);
+		std::optional<std::pair<int, std::string>> error = response.GetErrorInfo();
+		if ((!error.has_value() || (0 == error->first)) && response.GetData().has_execution_rules() && (origin.GetExtraData("security") == response.GetData().execution_rules().security()))
+		{
+			mIter->second.m_value = trade::ReadExecutionRules(response.GetData().execution_rules());
+		}
+		return true;
+	}
 	if ("Client" == source)
 	{
 		CRequest reply = response;
@@ -814,4 +847,50 @@ void CTradeService::RefreshPending()
 		response.SetErrorInfo(static_cast<int>(trade::Error::UnknownResult), "XBroker request timed out; reconcile before retry");
 		OnReply(response);
 	}
+}
+
+std::optional<trade::CExecutionRule> CTradeService::GetExecutionRules(const _TyAccount& account, const CSecurity& security)
+{
+	if (!IsReady(account))
+	{
+		return std::nullopt;
+	}
+	CRequest request;
+	request.SetType(_TyRequest::TRADE_EXECUTION_RULES_QUERY);
+	WriteAccountIdentity(account, request);
+	request.SetExtraData("security", security.String());
+	request.SetExtraData("request_source", "ExecutionRules");
+	{
+		std::lock_guard<std::mutex> lock(m_mtx_state);
+		CRuleCache& cache = m_rules[{ account, security.String() }];
+		std::int64_t now = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
+		if (cache.m_value.has_value() && (now < cache.m_value->m_calendar.m_nClose))
+		{
+			return cache.m_value;
+		}
+		cache.m_value.reset();
+		if ((0 != cache.m_requestId) || (std::chrono::steady_clock::now() < cache.m_retry))
+		{
+			return std::nullopt;
+		}
+		cache.m_requestId = request.GetId();
+		request.SetExtraData("broker_connect_id", std::to_string(m_generation));
+	}
+	if (!SendRequest(std::move(request)))
+	{
+		std::lock_guard<std::mutex> lock(m_mtx_state);
+		m_rules[{ account, security.String() }].m_requestId = 0;
+		m_rules[{ account, security.String() }].m_retry = std::chrono::steady_clock::now() + std::chrono::seconds(5);
+	}
+	return std::nullopt;
+}
+
+void CTradeService::ReconcileAccount(const _TyAccount& account)
+{
+	{
+		std::lock_guard<std::mutex> lock(m_mtx_state);
+		m_syncing.erase(account);
+		m_snapshots[account].m_bReady = false;
+	}
+	QueryAccount(account);
 }

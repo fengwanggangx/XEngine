@@ -55,6 +55,9 @@ struct COrderIntent
 	std::int64_t m_price{ 0 };
 	std::int64_t m_quantity{ 0 };
 	std::string m_strReason;
+	std::int64_t m_maximumDebit{ 0 };
+	std::int64_t m_quoteTimeMs{ 0 };
+	std::string m_basisVersion;
 
 	bool IsValid() const;
 };

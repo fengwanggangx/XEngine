@@ -66,6 +66,9 @@ extern BrokerRecordDefaultTypeInternal _BrokerRecord_default_instance_;
 class BrokerSite;
 struct BrokerSiteDefaultTypeInternal;
 extern BrokerSiteDefaultTypeInternal _BrokerSite_default_instance_;
+class ExecutionRules;
+struct ExecutionRulesDefaultTypeInternal;
+extern ExecutionRulesDefaultTypeInternal _ExecutionRules_default_instance_;
 class RequestData;
 struct RequestDataDefaultTypeInternal;
 extern RequestDataDefaultTypeInternal _RequestData_default_instance_;
@@ -162,6 +165,8 @@ enum RequestType : int {
   STRATEGY_START = 25,
   STRATEGY_PAUSE = 26,
   STRATEGY_STOP = 27,
+  STRATEGY_ACTION = 28,
+  TRADE_EXECUTION_RULES_QUERY = 67,
   MARKET_SUBSCRIBE = 40,
   MARKET_UNSUBSCRIBE = 41,
   MARKET_QUOTE_QUERY = 42,
@@ -185,6 +190,8 @@ enum RequestType : int {
   WATCHLIST_QUERY = 62,
   WATCHLIST_ADD = 63,
   WATCHLIST_REMOVE = 64,
+  TRADE_ACCOUNT_ADD = 65,
+  TRADE_ACCOUNT_REMOVE = 66,
   RequestType_INT_MIN_SENTINEL_DO_NOT_USE_ =
       std::numeric_limits<::int32_t>::min(),
   RequestType_INT_MAX_SENTINEL_DO_NOT_USE_ =
@@ -194,8 +201,8 @@ enum RequestType : int {
 bool RequestType_IsValid(int value);
 extern const uint32_t RequestType_internal_data_[];
 constexpr RequestType RequestType_MIN = static_cast<RequestType>(0);
-constexpr RequestType RequestType_MAX = static_cast<RequestType>(64);
-constexpr int RequestType_ARRAYSIZE = 64 + 1;
+constexpr RequestType RequestType_MAX = static_cast<RequestType>(67);
+constexpr int RequestType_ARRAYSIZE = 67 + 1;
 const ::google::protobuf::EnumDescriptor*
 RequestType_descriptor();
 template <typename T>
@@ -208,7 +215,7 @@ const std::string& RequestType_Name(T value) {
 template <>
 inline const std::string& RequestType_Name(RequestType value) {
   return ::google::protobuf::internal::NameOfDenseEnum<RequestType_descriptor,
-                                                 0, 64>(
+                                                 0, 67>(
       static_cast<int>(value));
 }
 inline bool RequestType_Parse(absl::string_view name, RequestType* value) {
@@ -3101,6 +3108,8 @@ class StrategyRuntimeRecord final : public ::google::protobuf::Message
   // accessors -------------------------------------------------------
   enum : int {
     kLastErrorFieldNumber = 6,
+    kBusinessStateFieldNumber = 7,
+    kDetailsJsonFieldNumber = 8,
     kStrategyIdFieldNumber = 1,
     kStateFieldNumber = 2,
     kMarketAvailableFieldNumber = 3,
@@ -3121,6 +3130,38 @@ class StrategyRuntimeRecord final : public ::google::protobuf::Message
   inline PROTOBUF_ALWAYS_INLINE void _internal_set_last_error(
       const std::string& value);
   std::string* _internal_mutable_last_error();
+
+  public:
+  // string business_state = 7;
+  void clear_business_state() ;
+  const std::string& business_state() const;
+  template <typename Arg_ = const std::string&, typename... Args_>
+  void set_business_state(Arg_&& arg, Args_... args);
+  std::string* mutable_business_state();
+  PROTOBUF_NODISCARD std::string* release_business_state();
+  void set_allocated_business_state(std::string* value);
+
+  private:
+  const std::string& _internal_business_state() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_business_state(
+      const std::string& value);
+  std::string* _internal_mutable_business_state();
+
+  public:
+  // string details_json = 8;
+  void clear_details_json() ;
+  const std::string& details_json() const;
+  template <typename Arg_ = const std::string&, typename... Args_>
+  void set_details_json(Arg_&& arg, Args_... args);
+  std::string* mutable_details_json();
+  PROTOBUF_NODISCARD std::string* release_details_json();
+  void set_allocated_details_json(std::string* value);
+
+  private:
+  const std::string& _internal_details_json() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_details_json(
+      const std::string& value);
+  std::string* _internal_mutable_details_json();
 
   public:
   // uint64 strategy_id = 1;
@@ -3178,8 +3219,8 @@ class StrategyRuntimeRecord final : public ::google::protobuf::Message
   class _Internal;
   friend class ::google::protobuf::internal::TcParser;
   static const ::google::protobuf::internal::TcParseTable<
-      3, 6, 0,
-      48, 2>
+      3, 8, 0,
+      82, 2>
       _table_;
 
   friend class ::google::protobuf::MessageLite;
@@ -3197,6 +3238,8 @@ class StrategyRuntimeRecord final : public ::google::protobuf::Message
                           ::google::protobuf::Arena* arena, const Impl_& from,
                           const StrategyRuntimeRecord& from_msg);
     ::google::protobuf::internal::ArenaStringPtr last_error_;
+    ::google::protobuf::internal::ArenaStringPtr business_state_;
+    ::google::protobuf::internal::ArenaStringPtr details_json_;
     ::uint64_t strategy_id_;
     ::int32_t state_;
     bool market_available_;
@@ -3285,6 +3328,460 @@ class RequestData_ExtraEntry_DoNotUse final
                              ::google::protobuf::Arena* arena);
   static constexpr auto InternalNewImpl_();
   static const ::google::protobuf::internal::ClassDataFull _class_data_;
+};
+// -------------------------------------------------------------------
+
+class ExecutionRules final : public ::google::protobuf::Message
+/* @@protoc_insertion_point(class_definition:request.ExecutionRules) */ {
+ public:
+  inline ExecutionRules() : ExecutionRules(nullptr) {}
+  ~ExecutionRules() PROTOBUF_FINAL;
+
+#if defined(PROTOBUF_CUSTOM_VTABLE)
+  void operator delete(ExecutionRules* msg, std::destroying_delete_t) {
+    SharedDtor(*msg);
+    ::google::protobuf::internal::SizedDelete(msg, sizeof(ExecutionRules));
+  }
+#endif
+
+  template <typename = void>
+  explicit PROTOBUF_CONSTEXPR ExecutionRules(
+      ::google::protobuf::internal::ConstantInitialized);
+
+  inline ExecutionRules(const ExecutionRules& from) : ExecutionRules(nullptr, from) {}
+  inline ExecutionRules(ExecutionRules&& from) noexcept
+      : ExecutionRules(nullptr, std::move(from)) {}
+  inline ExecutionRules& operator=(const ExecutionRules& from) {
+    CopyFrom(from);
+    return *this;
+  }
+  inline ExecutionRules& operator=(ExecutionRules&& from) noexcept {
+    if (this == &from) return *this;
+    if (::google::protobuf::internal::CanMoveWithInternalSwap(GetArena(), from.GetArena())) {
+      InternalSwap(&from);
+    } else {
+      CopyFrom(from);
+    }
+    return *this;
+  }
+
+  inline const ::google::protobuf::UnknownFieldSet& unknown_fields() const
+      ABSL_ATTRIBUTE_LIFETIME_BOUND {
+    return _internal_metadata_.unknown_fields<::google::protobuf::UnknownFieldSet>(::google::protobuf::UnknownFieldSet::default_instance);
+  }
+  inline ::google::protobuf::UnknownFieldSet* mutable_unknown_fields()
+      ABSL_ATTRIBUTE_LIFETIME_BOUND {
+    return _internal_metadata_.mutable_unknown_fields<::google::protobuf::UnknownFieldSet>();
+  }
+
+  static const ::google::protobuf::Descriptor* descriptor() {
+    return GetDescriptor();
+  }
+  static const ::google::protobuf::Descriptor* GetDescriptor() {
+    return default_instance().GetMetadata().descriptor;
+  }
+  static const ::google::protobuf::Reflection* GetReflection() {
+    return default_instance().GetMetadata().reflection;
+  }
+  static const ExecutionRules& default_instance() {
+    return *internal_default_instance();
+  }
+  static inline const ExecutionRules* internal_default_instance() {
+    return reinterpret_cast<const ExecutionRules*>(
+        &_ExecutionRules_default_instance_);
+  }
+  static constexpr int kIndexInFileMessages = 24;
+  friend void swap(ExecutionRules& a, ExecutionRules& b) { a.Swap(&b); }
+  inline void Swap(ExecutionRules* other) {
+    if (other == this) return;
+    if (::google::protobuf::internal::CanUseInternalSwap(GetArena(), other->GetArena())) {
+      InternalSwap(other);
+    } else {
+      ::google::protobuf::internal::GenericSwap(this, other);
+    }
+  }
+  void UnsafeArenaSwap(ExecutionRules* other) {
+    if (other == this) return;
+    ABSL_DCHECK(GetArena() == other->GetArena());
+    InternalSwap(other);
+  }
+
+  // implements Message ----------------------------------------------
+
+  ExecutionRules* New(::google::protobuf::Arena* arena = nullptr) const {
+    return ::google::protobuf::Message::DefaultConstruct<ExecutionRules>(arena);
+  }
+  using ::google::protobuf::Message::CopyFrom;
+  void CopyFrom(const ExecutionRules& from);
+  using ::google::protobuf::Message::MergeFrom;
+  void MergeFrom(const ExecutionRules& from) { ExecutionRules::MergeImpl(*this, from); }
+
+  private:
+  static void MergeImpl(
+      ::google::protobuf::MessageLite& to_msg,
+      const ::google::protobuf::MessageLite& from_msg);
+
+  public:
+  bool IsInitialized() const {
+    return true;
+  }
+  ABSL_ATTRIBUTE_REINITIALIZES void Clear() PROTOBUF_FINAL;
+  #if defined(PROTOBUF_CUSTOM_VTABLE)
+  private:
+  static ::size_t ByteSizeLong(const ::google::protobuf::MessageLite& msg);
+  static ::uint8_t* _InternalSerialize(
+      const MessageLite& msg, ::uint8_t* target,
+      ::google::protobuf::io::EpsCopyOutputStream* stream);
+
+  public:
+  ::size_t ByteSizeLong() const { return ByteSizeLong(*this); }
+  ::uint8_t* _InternalSerialize(
+      ::uint8_t* target,
+      ::google::protobuf::io::EpsCopyOutputStream* stream) const {
+    return _InternalSerialize(*this, target, stream);
+  }
+  #else   // PROTOBUF_CUSTOM_VTABLE
+  ::size_t ByteSizeLong() const final;
+  ::uint8_t* _InternalSerialize(
+      ::uint8_t* target,
+      ::google::protobuf::io::EpsCopyOutputStream* stream) const final;
+  #endif  // PROTOBUF_CUSTOM_VTABLE
+  int GetCachedSize() const { return _impl_._cached_size_.Get(); }
+
+  private:
+  void SharedCtor(::google::protobuf::Arena* arena);
+  static void SharedDtor(MessageLite& self);
+  void InternalSwap(ExecutionRules* other);
+ private:
+  template <typename T>
+  friend ::absl::string_view(
+      ::google::protobuf::internal::GetAnyMessageName)();
+  static ::absl::string_view FullMessageName() { return "request.ExecutionRules"; }
+
+ protected:
+  explicit ExecutionRules(::google::protobuf::Arena* arena);
+  ExecutionRules(::google::protobuf::Arena* arena, const ExecutionRules& from);
+  ExecutionRules(::google::protobuf::Arena* arena, ExecutionRules&& from) noexcept
+      : ExecutionRules(arena) {
+    *this = ::std::move(from);
+  }
+  const ::google::protobuf::internal::ClassData* GetClassData() const PROTOBUF_FINAL;
+  static void* PlacementNew_(const void*, void* mem,
+                             ::google::protobuf::Arena* arena);
+  static constexpr auto InternalNewImpl_();
+  static const ::google::protobuf::internal::ClassDataFull _class_data_;
+
+ public:
+  ::google::protobuf::Metadata GetMetadata() const;
+  // nested types ----------------------------------------------------
+
+  // accessors -------------------------------------------------------
+  enum : int {
+    kSecurityFieldNumber = 1,
+    kVersionFieldNumber = 2,
+    kTradingDayFieldNumber = 3,
+    kPriceScaleFieldNumber = 4,
+    kTickFieldNumber = 5,
+    kBuyMinimumFieldNumber = 6,
+    kBuyStepFieldNumber = 7,
+    kSellMinimumFieldNumber = 8,
+    kSellStepFieldNumber = 9,
+    kLowerFieldNumber = 10,
+    kUpperFieldNumber = 11,
+    kCommissionPpmFieldNumber = 12,
+    kMinimumFeeCentsFieldNumber = 13,
+    kSellTaxPpmFieldNumber = 14,
+    kTransferPpmFieldNumber = 15,
+    kOpenTimeMsFieldNumber = 17,
+    kBreakTimeMsFieldNumber = 18,
+    kResumeTimeMsFieldNumber = 19,
+    kCloseTimeMsFieldNumber = 20,
+    kCorporateActionFieldNumber = 16,
+    kReliableQueryFieldNumber = 21,
+    kIdempotentClientIdFieldNumber = 22,
+  };
+  // string security = 1;
+  void clear_security() ;
+  const std::string& security() const;
+  template <typename Arg_ = const std::string&, typename... Args_>
+  void set_security(Arg_&& arg, Args_... args);
+  std::string* mutable_security();
+  PROTOBUF_NODISCARD std::string* release_security();
+  void set_allocated_security(std::string* value);
+
+  private:
+  const std::string& _internal_security() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_security(
+      const std::string& value);
+  std::string* _internal_mutable_security();
+
+  public:
+  // string version = 2;
+  void clear_version() ;
+  const std::string& version() const;
+  template <typename Arg_ = const std::string&, typename... Args_>
+  void set_version(Arg_&& arg, Args_... args);
+  std::string* mutable_version();
+  PROTOBUF_NODISCARD std::string* release_version();
+  void set_allocated_version(std::string* value);
+
+  private:
+  const std::string& _internal_version() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_version(
+      const std::string& value);
+  std::string* _internal_mutable_version();
+
+  public:
+  // int32 trading_day = 3;
+  void clear_trading_day() ;
+  ::int32_t trading_day() const;
+  void set_trading_day(::int32_t value);
+
+  private:
+  ::int32_t _internal_trading_day() const;
+  void _internal_set_trading_day(::int32_t value);
+
+  public:
+  // int32 price_scale = 4;
+  void clear_price_scale() ;
+  ::int32_t price_scale() const;
+  void set_price_scale(::int32_t value);
+
+  private:
+  ::int32_t _internal_price_scale() const;
+  void _internal_set_price_scale(::int32_t value);
+
+  public:
+  // int64 tick = 5;
+  void clear_tick() ;
+  ::int64_t tick() const;
+  void set_tick(::int64_t value);
+
+  private:
+  ::int64_t _internal_tick() const;
+  void _internal_set_tick(::int64_t value);
+
+  public:
+  // int64 buy_minimum = 6;
+  void clear_buy_minimum() ;
+  ::int64_t buy_minimum() const;
+  void set_buy_minimum(::int64_t value);
+
+  private:
+  ::int64_t _internal_buy_minimum() const;
+  void _internal_set_buy_minimum(::int64_t value);
+
+  public:
+  // int64 buy_step = 7;
+  void clear_buy_step() ;
+  ::int64_t buy_step() const;
+  void set_buy_step(::int64_t value);
+
+  private:
+  ::int64_t _internal_buy_step() const;
+  void _internal_set_buy_step(::int64_t value);
+
+  public:
+  // int64 sell_minimum = 8;
+  void clear_sell_minimum() ;
+  ::int64_t sell_minimum() const;
+  void set_sell_minimum(::int64_t value);
+
+  private:
+  ::int64_t _internal_sell_minimum() const;
+  void _internal_set_sell_minimum(::int64_t value);
+
+  public:
+  // int64 sell_step = 9;
+  void clear_sell_step() ;
+  ::int64_t sell_step() const;
+  void set_sell_step(::int64_t value);
+
+  private:
+  ::int64_t _internal_sell_step() const;
+  void _internal_set_sell_step(::int64_t value);
+
+  public:
+  // int64 lower = 10;
+  void clear_lower() ;
+  ::int64_t lower() const;
+  void set_lower(::int64_t value);
+
+  private:
+  ::int64_t _internal_lower() const;
+  void _internal_set_lower(::int64_t value);
+
+  public:
+  // int64 upper = 11;
+  void clear_upper() ;
+  ::int64_t upper() const;
+  void set_upper(::int64_t value);
+
+  private:
+  ::int64_t _internal_upper() const;
+  void _internal_set_upper(::int64_t value);
+
+  public:
+  // int64 commission_ppm = 12;
+  void clear_commission_ppm() ;
+  ::int64_t commission_ppm() const;
+  void set_commission_ppm(::int64_t value);
+
+  private:
+  ::int64_t _internal_commission_ppm() const;
+  void _internal_set_commission_ppm(::int64_t value);
+
+  public:
+  // int64 minimum_fee_cents = 13;
+  void clear_minimum_fee_cents() ;
+  ::int64_t minimum_fee_cents() const;
+  void set_minimum_fee_cents(::int64_t value);
+
+  private:
+  ::int64_t _internal_minimum_fee_cents() const;
+  void _internal_set_minimum_fee_cents(::int64_t value);
+
+  public:
+  // int64 sell_tax_ppm = 14;
+  void clear_sell_tax_ppm() ;
+  ::int64_t sell_tax_ppm() const;
+  void set_sell_tax_ppm(::int64_t value);
+
+  private:
+  ::int64_t _internal_sell_tax_ppm() const;
+  void _internal_set_sell_tax_ppm(::int64_t value);
+
+  public:
+  // int64 transfer_ppm = 15;
+  void clear_transfer_ppm() ;
+  ::int64_t transfer_ppm() const;
+  void set_transfer_ppm(::int64_t value);
+
+  private:
+  ::int64_t _internal_transfer_ppm() const;
+  void _internal_set_transfer_ppm(::int64_t value);
+
+  public:
+  // int64 open_time_ms = 17;
+  void clear_open_time_ms() ;
+  ::int64_t open_time_ms() const;
+  void set_open_time_ms(::int64_t value);
+
+  private:
+  ::int64_t _internal_open_time_ms() const;
+  void _internal_set_open_time_ms(::int64_t value);
+
+  public:
+  // int64 break_time_ms = 18;
+  void clear_break_time_ms() ;
+  ::int64_t break_time_ms() const;
+  void set_break_time_ms(::int64_t value);
+
+  private:
+  ::int64_t _internal_break_time_ms() const;
+  void _internal_set_break_time_ms(::int64_t value);
+
+  public:
+  // int64 resume_time_ms = 19;
+  void clear_resume_time_ms() ;
+  ::int64_t resume_time_ms() const;
+  void set_resume_time_ms(::int64_t value);
+
+  private:
+  ::int64_t _internal_resume_time_ms() const;
+  void _internal_set_resume_time_ms(::int64_t value);
+
+  public:
+  // int64 close_time_ms = 20;
+  void clear_close_time_ms() ;
+  ::int64_t close_time_ms() const;
+  void set_close_time_ms(::int64_t value);
+
+  private:
+  ::int64_t _internal_close_time_ms() const;
+  void _internal_set_close_time_ms(::int64_t value);
+
+  public:
+  // bool corporate_action = 16;
+  void clear_corporate_action() ;
+  bool corporate_action() const;
+  void set_corporate_action(bool value);
+
+  private:
+  bool _internal_corporate_action() const;
+  void _internal_set_corporate_action(bool value);
+
+  public:
+  // bool reliable_query = 21;
+  void clear_reliable_query() ;
+  bool reliable_query() const;
+  void set_reliable_query(bool value);
+
+  private:
+  bool _internal_reliable_query() const;
+  void _internal_set_reliable_query(bool value);
+
+  public:
+  // bool idempotent_client_id = 22;
+  void clear_idempotent_client_id() ;
+  bool idempotent_client_id() const;
+  void set_idempotent_client_id(bool value);
+
+  private:
+  bool _internal_idempotent_client_id() const;
+  void _internal_set_idempotent_client_id(bool value);
+
+  public:
+  // @@protoc_insertion_point(class_scope:request.ExecutionRules)
+ private:
+  class _Internal;
+  friend class ::google::protobuf::internal::TcParser;
+  static const ::google::protobuf::internal::TcParseTable<
+      5, 22, 0,
+      62, 2>
+      _table_;
+
+  friend class ::google::protobuf::MessageLite;
+  friend class ::google::protobuf::Arena;
+  template <typename T>
+  friend class ::google::protobuf::Arena::InternalHelper;
+  using InternalArenaConstructable_ = void;
+  using DestructorSkippable_ = void;
+  struct Impl_ {
+    inline explicit constexpr Impl_(
+        ::google::protobuf::internal::ConstantInitialized) noexcept;
+    inline explicit Impl_(::google::protobuf::internal::InternalVisibility visibility,
+                          ::google::protobuf::Arena* arena);
+    inline explicit Impl_(::google::protobuf::internal::InternalVisibility visibility,
+                          ::google::protobuf::Arena* arena, const Impl_& from,
+                          const ExecutionRules& from_msg);
+    ::google::protobuf::internal::ArenaStringPtr security_;
+    ::google::protobuf::internal::ArenaStringPtr version_;
+    ::int32_t trading_day_;
+    ::int32_t price_scale_;
+    ::int64_t tick_;
+    ::int64_t buy_minimum_;
+    ::int64_t buy_step_;
+    ::int64_t sell_minimum_;
+    ::int64_t sell_step_;
+    ::int64_t lower_;
+    ::int64_t upper_;
+    ::int64_t commission_ppm_;
+    ::int64_t minimum_fee_cents_;
+    ::int64_t sell_tax_ppm_;
+    ::int64_t transfer_ppm_;
+    ::int64_t open_time_ms_;
+    ::int64_t break_time_ms_;
+    ::int64_t resume_time_ms_;
+    ::int64_t close_time_ms_;
+    bool corporate_action_;
+    bool reliable_query_;
+    bool idempotent_client_id_;
+    ::google::protobuf::internal::CachedSize _cached_size_;
+    PROTOBUF_TSAN_DECLARE_MEMBER
+  };
+  union { Impl_ _impl_; };
+  friend struct ::TableStruct_request_2eproto;
 };
 // -------------------------------------------------------------------
 
@@ -5470,6 +5967,7 @@ class StrategyInfo final : public ::google::protobuf::Message
     kAutoStartFieldNumber = 7,
     kEnabledFieldNumber = 8,
     kBrokerIdFieldNumber = 9,
+    kConfigRevisionFieldNumber = 12,
   };
   // map<string, string> parameters = 4;
   int parameters_size() const;
@@ -5617,12 +6115,22 @@ class StrategyInfo final : public ::google::protobuf::Message
   void _internal_set_broker_id(::uint64_t value);
 
   public:
+  // uint64 config_revision = 12;
+  void clear_config_revision() ;
+  ::uint64_t config_revision() const;
+  void set_config_revision(::uint64_t value);
+
+  private:
+  ::uint64_t _internal_config_revision() const;
+  void _internal_set_config_revision(::uint64_t value);
+
+  public:
   // @@protoc_insertion_point(class_scope:request.StrategyInfo)
  private:
   class _Internal;
   friend class ::google::protobuf::internal::TcParser;
   static const ::google::protobuf::internal::TcParseTable<
-      4, 11, 2,
+      4, 12, 2,
       84, 2>
       _table_;
 
@@ -5654,6 +6162,7 @@ class StrategyInfo final : public ::google::protobuf::Message
     bool auto_start_;
     bool enabled_;
     ::uint64_t broker_id_;
+    ::uint64_t config_revision_;
     ::google::protobuf::internal::CachedSize _cached_size_;
     PROTOBUF_TSAN_DECLARE_MEMBER
   };
@@ -5948,7 +6457,7 @@ class ZhongTaiJournal final : public ::google::protobuf::Message
     return reinterpret_cast<const ZhongTaiJournal*>(
         &_ZhongTaiJournal_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 26;
+  static constexpr int kIndexInFileMessages = 27;
   friend void swap(ZhongTaiJournal& a, ZhongTaiJournal& b) { a.Swap(&b); }
   inline void Swap(ZhongTaiJournal* other) {
     if (other == this) return;
@@ -7085,6 +7594,7 @@ class RequestData final : public ::google::protobuf::Message
     kAccountInfo = 40,
     kCounterReply = 41,
     kStrategyRuntimeList = 35,
+    kExecutionRules = 44,
     kTradeOrders = 36,
     kTrades = 37,
     kTradePositions = 38,
@@ -7094,7 +7604,7 @@ class RequestData final : public ::google::protobuf::Message
     return reinterpret_cast<const RequestData*>(
         &_RequestData_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 25;
+  static constexpr int kIndexInFileMessages = 26;
   friend void swap(RequestData& a, RequestData& b) { a.Swap(&b); }
   inline void Swap(RequestData* other) {
     if (other == this) return;
@@ -7207,6 +7717,7 @@ class RequestData final : public ::google::protobuf::Message
     kAccountInfoFieldNumber = 40,
     kCounterReplyFieldNumber = 41,
     kStrategyRuntimeListFieldNumber = 35,
+    kExecutionRulesFieldNumber = 44,
     kTradeOrdersFieldNumber = 36,
     kTradesFieldNumber = 37,
     kTradePositionsFieldNumber = 38,
@@ -7667,6 +8178,25 @@ class RequestData final : public ::google::protobuf::Message
   ::request::StrategyRuntimeList* _internal_mutable_strategy_runtime_list();
 
   public:
+  // .request.ExecutionRules execution_rules = 44;
+  bool has_execution_rules() const;
+  private:
+  bool _internal_has_execution_rules() const;
+
+  public:
+  void clear_execution_rules() ;
+  const ::request::ExecutionRules& execution_rules() const;
+  PROTOBUF_NODISCARD ::request::ExecutionRules* release_execution_rules();
+  ::request::ExecutionRules* mutable_execution_rules();
+  void set_allocated_execution_rules(::request::ExecutionRules* value);
+  void unsafe_arena_set_allocated_execution_rules(::request::ExecutionRules* value);
+  ::request::ExecutionRules* unsafe_arena_release_execution_rules();
+
+  private:
+  const ::request::ExecutionRules& _internal_execution_rules() const;
+  ::request::ExecutionRules* _internal_mutable_execution_rules();
+
+  public:
   // .request.TradeOrderList trade_orders = 36;
   bool has_trade_orders() const;
   private:
@@ -7749,6 +8279,7 @@ class RequestData final : public ::google::protobuf::Message
   void set_has_account_info();
   void set_has_counter_reply();
   void set_has_strategy_runtime_list();
+  void set_has_execution_rules();
   void set_has_trade_orders();
   void set_has_trades();
   void set_has_trade_positions();
@@ -7756,7 +8287,7 @@ class RequestData final : public ::google::protobuf::Message
   inline void clear_has_payload();
   friend class ::google::protobuf::internal::TcParser;
   static const ::google::protobuf::internal::TcParseTable<
-      3, 29, 25,
+      3, 30, 26,
       70, 7>
       _table_;
 
@@ -7808,6 +8339,7 @@ class RequestData final : public ::google::protobuf::Message
       ::request::TradeAccountInfo* account_info_;
       ::request::TradeCounterReply* counter_reply_;
       ::request::StrategyRuntimeList* strategy_runtime_list_;
+      ::request::ExecutionRules* execution_rules_;
       ::request::TradeOrderList* trade_orders_;
       ::request::TradeList* trades_;
       ::request::TradePositionList* trade_positions_;
@@ -7984,6 +8516,28 @@ inline void StrategySubscription::set_allocated_channel(std::string* value) {
 // -------------------------------------------------------------------
 
 // StrategyInfo
+
+// uint64 config_revision = 12;
+inline void StrategyInfo::clear_config_revision() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.config_revision_ = ::uint64_t{0u};
+}
+inline ::uint64_t StrategyInfo::config_revision() const {
+  // @@protoc_insertion_point(field_get:request.StrategyInfo.config_revision)
+  return _internal_config_revision();
+}
+inline void StrategyInfo::set_config_revision(::uint64_t value) {
+  _internal_set_config_revision(value);
+  // @@protoc_insertion_point(field_set:request.StrategyInfo.config_revision)
+}
+inline ::uint64_t StrategyInfo::_internal_config_revision() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.config_revision_;
+}
+inline void StrategyInfo::_internal_set_config_revision(::uint64_t value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.config_revision_ = value;
+}
 
 // uint64 strategy_id = 1;
 inline void StrategyInfo::clear_strategy_id() {
@@ -9869,6 +10423,102 @@ TradeAccountLogList::_internal_mutable_logs() {
 // -------------------------------------------------------------------
 
 // StrategyRuntimeRecord
+
+// string business_state = 7;
+inline void StrategyRuntimeRecord::clear_business_state() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.business_state_.ClearToEmpty();
+}
+inline const std::string& StrategyRuntimeRecord::business_state() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:request.StrategyRuntimeRecord.business_state)
+  return _internal_business_state();
+}
+template <typename Arg_, typename... Args_>
+inline PROTOBUF_ALWAYS_INLINE void StrategyRuntimeRecord::set_business_state(Arg_&& arg,
+                                                     Args_... args) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.business_state_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:request.StrategyRuntimeRecord.business_state)
+}
+inline std::string* StrategyRuntimeRecord::mutable_business_state() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  std::string* _s = _internal_mutable_business_state();
+  // @@protoc_insertion_point(field_mutable:request.StrategyRuntimeRecord.business_state)
+  return _s;
+}
+inline const std::string& StrategyRuntimeRecord::_internal_business_state() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.business_state_.Get();
+}
+inline void StrategyRuntimeRecord::_internal_set_business_state(const std::string& value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.business_state_.Set(value, GetArena());
+}
+inline std::string* StrategyRuntimeRecord::_internal_mutable_business_state() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  return _impl_.business_state_.Mutable( GetArena());
+}
+inline std::string* StrategyRuntimeRecord::release_business_state() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  // @@protoc_insertion_point(field_release:request.StrategyRuntimeRecord.business_state)
+  return _impl_.business_state_.Release();
+}
+inline void StrategyRuntimeRecord::set_allocated_business_state(std::string* value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.business_state_.SetAllocated(value, GetArena());
+  if (::google::protobuf::internal::DebugHardenForceCopyDefaultString() && _impl_.business_state_.IsDefault()) {
+    _impl_.business_state_.Set("", GetArena());
+  }
+  // @@protoc_insertion_point(field_set_allocated:request.StrategyRuntimeRecord.business_state)
+}
+
+// string details_json = 8;
+inline void StrategyRuntimeRecord::clear_details_json() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.details_json_.ClearToEmpty();
+}
+inline const std::string& StrategyRuntimeRecord::details_json() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:request.StrategyRuntimeRecord.details_json)
+  return _internal_details_json();
+}
+template <typename Arg_, typename... Args_>
+inline PROTOBUF_ALWAYS_INLINE void StrategyRuntimeRecord::set_details_json(Arg_&& arg,
+                                                     Args_... args) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.details_json_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:request.StrategyRuntimeRecord.details_json)
+}
+inline std::string* StrategyRuntimeRecord::mutable_details_json() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  std::string* _s = _internal_mutable_details_json();
+  // @@protoc_insertion_point(field_mutable:request.StrategyRuntimeRecord.details_json)
+  return _s;
+}
+inline const std::string& StrategyRuntimeRecord::_internal_details_json() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.details_json_.Get();
+}
+inline void StrategyRuntimeRecord::_internal_set_details_json(const std::string& value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.details_json_.Set(value, GetArena());
+}
+inline std::string* StrategyRuntimeRecord::_internal_mutable_details_json() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  return _impl_.details_json_.Mutable( GetArena());
+}
+inline std::string* StrategyRuntimeRecord::release_details_json() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  // @@protoc_insertion_point(field_release:request.StrategyRuntimeRecord.details_json)
+  return _impl_.details_json_.Release();
+}
+inline void StrategyRuntimeRecord::set_allocated_details_json(std::string* value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.details_json_.SetAllocated(value, GetArena());
+  if (::google::protobuf::internal::DebugHardenForceCopyDefaultString() && _impl_.details_json_.IsDefault()) {
+    _impl_.details_json_.Set("", GetArena());
+  }
+  // @@protoc_insertion_point(field_set_allocated:request.StrategyRuntimeRecord.details_json)
+}
 
 // uint64 strategy_id = 1;
 inline void StrategyRuntimeRecord::clear_strategy_id() {
@@ -13430,6 +14080,546 @@ inline TradeCounterReply::DataCase TradeCounterReply::data_case() const {
 }
 // -------------------------------------------------------------------
 
+// ExecutionRules
+
+// string security = 1;
+inline void ExecutionRules::clear_security() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.security_.ClearToEmpty();
+}
+inline const std::string& ExecutionRules::security() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:request.ExecutionRules.security)
+  return _internal_security();
+}
+template <typename Arg_, typename... Args_>
+inline PROTOBUF_ALWAYS_INLINE void ExecutionRules::set_security(Arg_&& arg,
+                                                     Args_... args) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.security_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:request.ExecutionRules.security)
+}
+inline std::string* ExecutionRules::mutable_security() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  std::string* _s = _internal_mutable_security();
+  // @@protoc_insertion_point(field_mutable:request.ExecutionRules.security)
+  return _s;
+}
+inline const std::string& ExecutionRules::_internal_security() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.security_.Get();
+}
+inline void ExecutionRules::_internal_set_security(const std::string& value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.security_.Set(value, GetArena());
+}
+inline std::string* ExecutionRules::_internal_mutable_security() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  return _impl_.security_.Mutable( GetArena());
+}
+inline std::string* ExecutionRules::release_security() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  // @@protoc_insertion_point(field_release:request.ExecutionRules.security)
+  return _impl_.security_.Release();
+}
+inline void ExecutionRules::set_allocated_security(std::string* value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.security_.SetAllocated(value, GetArena());
+  if (::google::protobuf::internal::DebugHardenForceCopyDefaultString() && _impl_.security_.IsDefault()) {
+    _impl_.security_.Set("", GetArena());
+  }
+  // @@protoc_insertion_point(field_set_allocated:request.ExecutionRules.security)
+}
+
+// string version = 2;
+inline void ExecutionRules::clear_version() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.version_.ClearToEmpty();
+}
+inline const std::string& ExecutionRules::version() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:request.ExecutionRules.version)
+  return _internal_version();
+}
+template <typename Arg_, typename... Args_>
+inline PROTOBUF_ALWAYS_INLINE void ExecutionRules::set_version(Arg_&& arg,
+                                                     Args_... args) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.version_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:request.ExecutionRules.version)
+}
+inline std::string* ExecutionRules::mutable_version() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  std::string* _s = _internal_mutable_version();
+  // @@protoc_insertion_point(field_mutable:request.ExecutionRules.version)
+  return _s;
+}
+inline const std::string& ExecutionRules::_internal_version() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.version_.Get();
+}
+inline void ExecutionRules::_internal_set_version(const std::string& value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.version_.Set(value, GetArena());
+}
+inline std::string* ExecutionRules::_internal_mutable_version() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  return _impl_.version_.Mutable( GetArena());
+}
+inline std::string* ExecutionRules::release_version() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  // @@protoc_insertion_point(field_release:request.ExecutionRules.version)
+  return _impl_.version_.Release();
+}
+inline void ExecutionRules::set_allocated_version(std::string* value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.version_.SetAllocated(value, GetArena());
+  if (::google::protobuf::internal::DebugHardenForceCopyDefaultString() && _impl_.version_.IsDefault()) {
+    _impl_.version_.Set("", GetArena());
+  }
+  // @@protoc_insertion_point(field_set_allocated:request.ExecutionRules.version)
+}
+
+// int32 trading_day = 3;
+inline void ExecutionRules::clear_trading_day() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.trading_day_ = 0;
+}
+inline ::int32_t ExecutionRules::trading_day() const {
+  // @@protoc_insertion_point(field_get:request.ExecutionRules.trading_day)
+  return _internal_trading_day();
+}
+inline void ExecutionRules::set_trading_day(::int32_t value) {
+  _internal_set_trading_day(value);
+  // @@protoc_insertion_point(field_set:request.ExecutionRules.trading_day)
+}
+inline ::int32_t ExecutionRules::_internal_trading_day() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.trading_day_;
+}
+inline void ExecutionRules::_internal_set_trading_day(::int32_t value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.trading_day_ = value;
+}
+
+// int32 price_scale = 4;
+inline void ExecutionRules::clear_price_scale() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.price_scale_ = 0;
+}
+inline ::int32_t ExecutionRules::price_scale() const {
+  // @@protoc_insertion_point(field_get:request.ExecutionRules.price_scale)
+  return _internal_price_scale();
+}
+inline void ExecutionRules::set_price_scale(::int32_t value) {
+  _internal_set_price_scale(value);
+  // @@protoc_insertion_point(field_set:request.ExecutionRules.price_scale)
+}
+inline ::int32_t ExecutionRules::_internal_price_scale() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.price_scale_;
+}
+inline void ExecutionRules::_internal_set_price_scale(::int32_t value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.price_scale_ = value;
+}
+
+// int64 tick = 5;
+inline void ExecutionRules::clear_tick() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.tick_ = ::int64_t{0};
+}
+inline ::int64_t ExecutionRules::tick() const {
+  // @@protoc_insertion_point(field_get:request.ExecutionRules.tick)
+  return _internal_tick();
+}
+inline void ExecutionRules::set_tick(::int64_t value) {
+  _internal_set_tick(value);
+  // @@protoc_insertion_point(field_set:request.ExecutionRules.tick)
+}
+inline ::int64_t ExecutionRules::_internal_tick() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.tick_;
+}
+inline void ExecutionRules::_internal_set_tick(::int64_t value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.tick_ = value;
+}
+
+// int64 buy_minimum = 6;
+inline void ExecutionRules::clear_buy_minimum() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.buy_minimum_ = ::int64_t{0};
+}
+inline ::int64_t ExecutionRules::buy_minimum() const {
+  // @@protoc_insertion_point(field_get:request.ExecutionRules.buy_minimum)
+  return _internal_buy_minimum();
+}
+inline void ExecutionRules::set_buy_minimum(::int64_t value) {
+  _internal_set_buy_minimum(value);
+  // @@protoc_insertion_point(field_set:request.ExecutionRules.buy_minimum)
+}
+inline ::int64_t ExecutionRules::_internal_buy_minimum() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.buy_minimum_;
+}
+inline void ExecutionRules::_internal_set_buy_minimum(::int64_t value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.buy_minimum_ = value;
+}
+
+// int64 buy_step = 7;
+inline void ExecutionRules::clear_buy_step() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.buy_step_ = ::int64_t{0};
+}
+inline ::int64_t ExecutionRules::buy_step() const {
+  // @@protoc_insertion_point(field_get:request.ExecutionRules.buy_step)
+  return _internal_buy_step();
+}
+inline void ExecutionRules::set_buy_step(::int64_t value) {
+  _internal_set_buy_step(value);
+  // @@protoc_insertion_point(field_set:request.ExecutionRules.buy_step)
+}
+inline ::int64_t ExecutionRules::_internal_buy_step() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.buy_step_;
+}
+inline void ExecutionRules::_internal_set_buy_step(::int64_t value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.buy_step_ = value;
+}
+
+// int64 sell_minimum = 8;
+inline void ExecutionRules::clear_sell_minimum() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.sell_minimum_ = ::int64_t{0};
+}
+inline ::int64_t ExecutionRules::sell_minimum() const {
+  // @@protoc_insertion_point(field_get:request.ExecutionRules.sell_minimum)
+  return _internal_sell_minimum();
+}
+inline void ExecutionRules::set_sell_minimum(::int64_t value) {
+  _internal_set_sell_minimum(value);
+  // @@protoc_insertion_point(field_set:request.ExecutionRules.sell_minimum)
+}
+inline ::int64_t ExecutionRules::_internal_sell_minimum() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.sell_minimum_;
+}
+inline void ExecutionRules::_internal_set_sell_minimum(::int64_t value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.sell_minimum_ = value;
+}
+
+// int64 sell_step = 9;
+inline void ExecutionRules::clear_sell_step() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.sell_step_ = ::int64_t{0};
+}
+inline ::int64_t ExecutionRules::sell_step() const {
+  // @@protoc_insertion_point(field_get:request.ExecutionRules.sell_step)
+  return _internal_sell_step();
+}
+inline void ExecutionRules::set_sell_step(::int64_t value) {
+  _internal_set_sell_step(value);
+  // @@protoc_insertion_point(field_set:request.ExecutionRules.sell_step)
+}
+inline ::int64_t ExecutionRules::_internal_sell_step() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.sell_step_;
+}
+inline void ExecutionRules::_internal_set_sell_step(::int64_t value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.sell_step_ = value;
+}
+
+// int64 lower = 10;
+inline void ExecutionRules::clear_lower() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.lower_ = ::int64_t{0};
+}
+inline ::int64_t ExecutionRules::lower() const {
+  // @@protoc_insertion_point(field_get:request.ExecutionRules.lower)
+  return _internal_lower();
+}
+inline void ExecutionRules::set_lower(::int64_t value) {
+  _internal_set_lower(value);
+  // @@protoc_insertion_point(field_set:request.ExecutionRules.lower)
+}
+inline ::int64_t ExecutionRules::_internal_lower() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.lower_;
+}
+inline void ExecutionRules::_internal_set_lower(::int64_t value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.lower_ = value;
+}
+
+// int64 upper = 11;
+inline void ExecutionRules::clear_upper() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.upper_ = ::int64_t{0};
+}
+inline ::int64_t ExecutionRules::upper() const {
+  // @@protoc_insertion_point(field_get:request.ExecutionRules.upper)
+  return _internal_upper();
+}
+inline void ExecutionRules::set_upper(::int64_t value) {
+  _internal_set_upper(value);
+  // @@protoc_insertion_point(field_set:request.ExecutionRules.upper)
+}
+inline ::int64_t ExecutionRules::_internal_upper() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.upper_;
+}
+inline void ExecutionRules::_internal_set_upper(::int64_t value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.upper_ = value;
+}
+
+// int64 commission_ppm = 12;
+inline void ExecutionRules::clear_commission_ppm() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.commission_ppm_ = ::int64_t{0};
+}
+inline ::int64_t ExecutionRules::commission_ppm() const {
+  // @@protoc_insertion_point(field_get:request.ExecutionRules.commission_ppm)
+  return _internal_commission_ppm();
+}
+inline void ExecutionRules::set_commission_ppm(::int64_t value) {
+  _internal_set_commission_ppm(value);
+  // @@protoc_insertion_point(field_set:request.ExecutionRules.commission_ppm)
+}
+inline ::int64_t ExecutionRules::_internal_commission_ppm() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.commission_ppm_;
+}
+inline void ExecutionRules::_internal_set_commission_ppm(::int64_t value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.commission_ppm_ = value;
+}
+
+// int64 minimum_fee_cents = 13;
+inline void ExecutionRules::clear_minimum_fee_cents() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.minimum_fee_cents_ = ::int64_t{0};
+}
+inline ::int64_t ExecutionRules::minimum_fee_cents() const {
+  // @@protoc_insertion_point(field_get:request.ExecutionRules.minimum_fee_cents)
+  return _internal_minimum_fee_cents();
+}
+inline void ExecutionRules::set_minimum_fee_cents(::int64_t value) {
+  _internal_set_minimum_fee_cents(value);
+  // @@protoc_insertion_point(field_set:request.ExecutionRules.minimum_fee_cents)
+}
+inline ::int64_t ExecutionRules::_internal_minimum_fee_cents() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.minimum_fee_cents_;
+}
+inline void ExecutionRules::_internal_set_minimum_fee_cents(::int64_t value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.minimum_fee_cents_ = value;
+}
+
+// int64 sell_tax_ppm = 14;
+inline void ExecutionRules::clear_sell_tax_ppm() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.sell_tax_ppm_ = ::int64_t{0};
+}
+inline ::int64_t ExecutionRules::sell_tax_ppm() const {
+  // @@protoc_insertion_point(field_get:request.ExecutionRules.sell_tax_ppm)
+  return _internal_sell_tax_ppm();
+}
+inline void ExecutionRules::set_sell_tax_ppm(::int64_t value) {
+  _internal_set_sell_tax_ppm(value);
+  // @@protoc_insertion_point(field_set:request.ExecutionRules.sell_tax_ppm)
+}
+inline ::int64_t ExecutionRules::_internal_sell_tax_ppm() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.sell_tax_ppm_;
+}
+inline void ExecutionRules::_internal_set_sell_tax_ppm(::int64_t value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.sell_tax_ppm_ = value;
+}
+
+// int64 transfer_ppm = 15;
+inline void ExecutionRules::clear_transfer_ppm() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.transfer_ppm_ = ::int64_t{0};
+}
+inline ::int64_t ExecutionRules::transfer_ppm() const {
+  // @@protoc_insertion_point(field_get:request.ExecutionRules.transfer_ppm)
+  return _internal_transfer_ppm();
+}
+inline void ExecutionRules::set_transfer_ppm(::int64_t value) {
+  _internal_set_transfer_ppm(value);
+  // @@protoc_insertion_point(field_set:request.ExecutionRules.transfer_ppm)
+}
+inline ::int64_t ExecutionRules::_internal_transfer_ppm() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.transfer_ppm_;
+}
+inline void ExecutionRules::_internal_set_transfer_ppm(::int64_t value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.transfer_ppm_ = value;
+}
+
+// bool corporate_action = 16;
+inline void ExecutionRules::clear_corporate_action() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.corporate_action_ = false;
+}
+inline bool ExecutionRules::corporate_action() const {
+  // @@protoc_insertion_point(field_get:request.ExecutionRules.corporate_action)
+  return _internal_corporate_action();
+}
+inline void ExecutionRules::set_corporate_action(bool value) {
+  _internal_set_corporate_action(value);
+  // @@protoc_insertion_point(field_set:request.ExecutionRules.corporate_action)
+}
+inline bool ExecutionRules::_internal_corporate_action() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.corporate_action_;
+}
+inline void ExecutionRules::_internal_set_corporate_action(bool value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.corporate_action_ = value;
+}
+
+// int64 open_time_ms = 17;
+inline void ExecutionRules::clear_open_time_ms() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.open_time_ms_ = ::int64_t{0};
+}
+inline ::int64_t ExecutionRules::open_time_ms() const {
+  // @@protoc_insertion_point(field_get:request.ExecutionRules.open_time_ms)
+  return _internal_open_time_ms();
+}
+inline void ExecutionRules::set_open_time_ms(::int64_t value) {
+  _internal_set_open_time_ms(value);
+  // @@protoc_insertion_point(field_set:request.ExecutionRules.open_time_ms)
+}
+inline ::int64_t ExecutionRules::_internal_open_time_ms() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.open_time_ms_;
+}
+inline void ExecutionRules::_internal_set_open_time_ms(::int64_t value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.open_time_ms_ = value;
+}
+
+// int64 break_time_ms = 18;
+inline void ExecutionRules::clear_break_time_ms() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.break_time_ms_ = ::int64_t{0};
+}
+inline ::int64_t ExecutionRules::break_time_ms() const {
+  // @@protoc_insertion_point(field_get:request.ExecutionRules.break_time_ms)
+  return _internal_break_time_ms();
+}
+inline void ExecutionRules::set_break_time_ms(::int64_t value) {
+  _internal_set_break_time_ms(value);
+  // @@protoc_insertion_point(field_set:request.ExecutionRules.break_time_ms)
+}
+inline ::int64_t ExecutionRules::_internal_break_time_ms() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.break_time_ms_;
+}
+inline void ExecutionRules::_internal_set_break_time_ms(::int64_t value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.break_time_ms_ = value;
+}
+
+// int64 resume_time_ms = 19;
+inline void ExecutionRules::clear_resume_time_ms() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.resume_time_ms_ = ::int64_t{0};
+}
+inline ::int64_t ExecutionRules::resume_time_ms() const {
+  // @@protoc_insertion_point(field_get:request.ExecutionRules.resume_time_ms)
+  return _internal_resume_time_ms();
+}
+inline void ExecutionRules::set_resume_time_ms(::int64_t value) {
+  _internal_set_resume_time_ms(value);
+  // @@protoc_insertion_point(field_set:request.ExecutionRules.resume_time_ms)
+}
+inline ::int64_t ExecutionRules::_internal_resume_time_ms() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.resume_time_ms_;
+}
+inline void ExecutionRules::_internal_set_resume_time_ms(::int64_t value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.resume_time_ms_ = value;
+}
+
+// int64 close_time_ms = 20;
+inline void ExecutionRules::clear_close_time_ms() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.close_time_ms_ = ::int64_t{0};
+}
+inline ::int64_t ExecutionRules::close_time_ms() const {
+  // @@protoc_insertion_point(field_get:request.ExecutionRules.close_time_ms)
+  return _internal_close_time_ms();
+}
+inline void ExecutionRules::set_close_time_ms(::int64_t value) {
+  _internal_set_close_time_ms(value);
+  // @@protoc_insertion_point(field_set:request.ExecutionRules.close_time_ms)
+}
+inline ::int64_t ExecutionRules::_internal_close_time_ms() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.close_time_ms_;
+}
+inline void ExecutionRules::_internal_set_close_time_ms(::int64_t value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.close_time_ms_ = value;
+}
+
+// bool reliable_query = 21;
+inline void ExecutionRules::clear_reliable_query() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.reliable_query_ = false;
+}
+inline bool ExecutionRules::reliable_query() const {
+  // @@protoc_insertion_point(field_get:request.ExecutionRules.reliable_query)
+  return _internal_reliable_query();
+}
+inline void ExecutionRules::set_reliable_query(bool value) {
+  _internal_set_reliable_query(value);
+  // @@protoc_insertion_point(field_set:request.ExecutionRules.reliable_query)
+}
+inline bool ExecutionRules::_internal_reliable_query() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.reliable_query_;
+}
+inline void ExecutionRules::_internal_set_reliable_query(bool value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.reliable_query_ = value;
+}
+
+// bool idempotent_client_id = 22;
+inline void ExecutionRules::clear_idempotent_client_id() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.idempotent_client_id_ = false;
+}
+inline bool ExecutionRules::idempotent_client_id() const {
+  // @@protoc_insertion_point(field_get:request.ExecutionRules.idempotent_client_id)
+  return _internal_idempotent_client_id();
+}
+inline void ExecutionRules::set_idempotent_client_id(bool value) {
+  _internal_set_idempotent_client_id(value);
+  // @@protoc_insertion_point(field_set:request.ExecutionRules.idempotent_client_id)
+}
+inline bool ExecutionRules::_internal_idempotent_client_id() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.idempotent_client_id_;
+}
+inline void ExecutionRules::_internal_set_idempotent_client_id(bool value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.idempotent_client_id_ = value;
+}
+
+// -------------------------------------------------------------------
+
 // -------------------------------------------------------------------
 
 // RequestData
@@ -15128,6 +16318,85 @@ inline ::request::StrategyRuntimeList* RequestData::_internal_mutable_strategy_r
 inline ::request::StrategyRuntimeList* RequestData::mutable_strategy_runtime_list() ABSL_ATTRIBUTE_LIFETIME_BOUND {
   ::request::StrategyRuntimeList* _msg = _internal_mutable_strategy_runtime_list();
   // @@protoc_insertion_point(field_mutable:request.RequestData.strategy_runtime_list)
+  return _msg;
+}
+
+// .request.ExecutionRules execution_rules = 44;
+inline bool RequestData::has_execution_rules() const {
+  return payload_case() == kExecutionRules;
+}
+inline bool RequestData::_internal_has_execution_rules() const {
+  return payload_case() == kExecutionRules;
+}
+inline void RequestData::set_has_execution_rules() {
+  _impl_._oneof_case_[0] = kExecutionRules;
+}
+inline void RequestData::clear_execution_rules() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  if (payload_case() == kExecutionRules) {
+    if (GetArena() == nullptr) {
+      delete _impl_.payload_.execution_rules_;
+    } else if (::google::protobuf::internal::DebugHardenClearOneofMessageOnArena()) {
+      ::google::protobuf::internal::MaybePoisonAfterClear(_impl_.payload_.execution_rules_);
+    }
+    clear_has_payload();
+  }
+}
+inline ::request::ExecutionRules* RequestData::release_execution_rules() {
+  // @@protoc_insertion_point(field_release:request.RequestData.execution_rules)
+  if (payload_case() == kExecutionRules) {
+    clear_has_payload();
+    auto* temp = _impl_.payload_.execution_rules_;
+    if (GetArena() != nullptr) {
+      temp = ::google::protobuf::internal::DuplicateIfNonNull(temp);
+    }
+    _impl_.payload_.execution_rules_ = nullptr;
+    return temp;
+  } else {
+    return nullptr;
+  }
+}
+inline const ::request::ExecutionRules& RequestData::_internal_execution_rules() const {
+  return payload_case() == kExecutionRules ? *_impl_.payload_.execution_rules_ : reinterpret_cast<::request::ExecutionRules&>(::request::_ExecutionRules_default_instance_);
+}
+inline const ::request::ExecutionRules& RequestData::execution_rules() const ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:request.RequestData.execution_rules)
+  return _internal_execution_rules();
+}
+inline ::request::ExecutionRules* RequestData::unsafe_arena_release_execution_rules() {
+  // @@protoc_insertion_point(field_unsafe_arena_release:request.RequestData.execution_rules)
+  if (payload_case() == kExecutionRules) {
+    clear_has_payload();
+    auto* temp = _impl_.payload_.execution_rules_;
+    _impl_.payload_.execution_rules_ = nullptr;
+    return temp;
+  } else {
+    return nullptr;
+  }
+}
+inline void RequestData::unsafe_arena_set_allocated_execution_rules(::request::ExecutionRules* value) {
+  // We rely on the oneof clear method to free the earlier contents
+  // of this oneof. We can directly use the pointer we're given to
+  // set the new value.
+  clear_payload();
+  if (value) {
+    set_has_execution_rules();
+    _impl_.payload_.execution_rules_ = value;
+  }
+  // @@protoc_insertion_point(field_unsafe_arena_set_allocated:request.RequestData.execution_rules)
+}
+inline ::request::ExecutionRules* RequestData::_internal_mutable_execution_rules() {
+  if (payload_case() != kExecutionRules) {
+    clear_payload();
+    set_has_execution_rules();
+    _impl_.payload_.execution_rules_ =
+        ::google::protobuf::Message::DefaultConstruct<::request::ExecutionRules>(GetArena());
+  }
+  return _impl_.payload_.execution_rules_;
+}
+inline ::request::ExecutionRules* RequestData::mutable_execution_rules() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  ::request::ExecutionRules* _msg = _internal_mutable_execution_rules();
+  // @@protoc_insertion_point(field_mutable:request.RequestData.execution_rules)
   return _msg;
 }
 

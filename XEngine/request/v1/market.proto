@@ -14,7 +14,7 @@ message SubscriptionAck { repeated SubscriptionResult results = 1; }
 message QuoteData { Security security = 1; int64 exchange_time_ms = 2; int64 receive_time_ms = 3; int64 last_price = 4; int64 open_price = 5; int64 high_price = 6; int64 low_price = 7; int64 pre_close = 8; int64 volume = 9; int64 turnover = 10; int32 price_scale = 11; string source = 12; bool stale = 13; }
 message DepthData { Security security = 1; int64 exchange_time_ms = 2; int64 receive_time_ms = 3; repeated PriceLevel bids = 4; repeated PriceLevel asks = 5; string source = 6; bool stale = 7; }
 message TradeData { Security security = 1; int64 exchange_time_ms = 2; int64 price = 3; int64 volume = 4; int32 price_scale = 5; string trade_id = 6; string source = 7; }
-message BarData { Security security = 1; Channel channel = 2; int64 begin_time_ms = 3; int64 open_price = 4; int64 high_price = 5; int64 low_price = 6; int64 close_price = 7; int64 volume = 8; int64 turnover = 9; int32 price_scale = 10; string adjustment = 11; string source = 12; }
+message BarData { int64 end_time_ms = 13; bool completed = 14; uint64 data_version = 15; string basis_version = 16; Security security = 1; Channel channel = 2; int64 begin_time_ms = 3; int64 open_price = 4; int64 high_price = 5; int64 low_price = 6; int64 close_price = 7; int64 volume = 8; int64 turnover = 9; int32 price_scale = 10; string adjustment = 11; string source = 12; }
 message MarketStatusData { Exchange exchange = 1; string status = 2; int64 exchange_time_ms = 3; }
 message ProviderStatusData { string provider = 1; bool healthy = 2; string detail = 3; }
 message QueryResponse { Security security = 1; Channel channel = 2; QuoteData quote = 3; repeated BarData bars = 4; bool found = 5; }

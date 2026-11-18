@@ -213,12 +213,12 @@ std::string CHQService::GetQueryKey(const CRequest& req) const
 	return {};
 }
 
-bool CHQService::HandleQueryHQRequest(net::_TyConnectionId id, const CRequest& req)
+bool CHQService::HandleQueryHQRequest(net::_TyConnectionId id, const CRequest& req, _TyQueryHandler handler)
 {
 	std::string strKey = GetQueryKey(req);
 	if (strKey.empty())
 	{
-		net::SendError(id, req, InvalidRequest, "invalid market query");
+		SendQueryError(CPendingQueryClient{ id, req.GetId(), std::move(handler) }, req.GetType(), InvalidRequest, "invalid market query");
 		return false;
 	}
 
@@ -229,7 +229,7 @@ bool CHQService::HandleQueryHQRequest(net::_TyConnectionId id, const CRequest& r
 		const auto mIter = m_pendingQueries.find(strKey);
 		if (m_pendingQueries.end() != mIter)
 		{
-			mIter->second.m_clients.emplace_back(CPendingQueryClient{ id, req.GetId() });
+			mIter->second.m_clients.emplace_back(CPendingQueryClient{ id, req.GetId(), std::move(handler) });
 			return true;
 		}
 		if (MaxPendingQueries <= m_pendingQueries.size())
@@ -244,13 +244,13 @@ bool CHQService::HandleQueryHQRequest(net::_TyConnectionId id, const CRequest& r
 			pending.m_strKey = strKey;
 			pending.m_type = req.GetType();
 			pending.m_deadline = std::chrono::steady_clock::now() + UpstreamRequestTimeout;
-			pending.m_clients.emplace_back(CPendingQueryClient{ id, req.GetId() });
+			pending.m_clients.emplace_back(CPendingQueryClient{ id, req.GetId(), std::move(handler) });
 			m_pendingQueries.emplace(strKey, std::move(pending));
 		}
 	}
 	if (bTooManyPending)
 	{
-		net::SendError(id, req, TooManyPendingQueries, "too many pending market queries");
+		SendQueryError(CPendingQueryClient{ id, req.GetId(), std::move(handler) }, req.GetType(), TooManyPendingQueries, "too many pending market queries");
 		return false;
 	}
 
@@ -298,7 +298,14 @@ bool CHQService::RouteQueryRequest(const CRequest& req)
 	{
 		CRequest s = req;
 		s.SetId(client.m_requestId);
-		net::SendRequest(client.m_routerId, s);
+		if (client.m_handler)
+		{
+			client.m_handler(s);
+		}
+		else
+		{
+			net::SendRequest(client.m_routerId, s);
+		}
 	}
 	return true;
 }
@@ -309,7 +316,14 @@ void CHQService::SendQueryError(const CPendingQueryClient& client, _TyRequest ty
 	response.SetId(client.m_requestId);
 	response.SetType(type);
 	net::SetError(response, nErrorCode, strMessage);
-	net::SendRequest(client.m_routerId, response);
+	if (client.m_handler)
+	{
+		client.m_handler(response);
+	}
+	else
+	{
+		net::SendRequest(client.m_routerId, response);
+	}
 }
 
 void CHQService::ExpirePendingQueries()
@@ -781,4 +795,15 @@ int CHQService::HandleClientDisconnected(net::_TyConnectionId id)
 		}
 	}
 	return 1;
+}
+
+bool CHQService::QueryBars(const CQuoteInfo& quote, std::int64_t begin, std::int64_t end, _TyQueryHandler&& handler)
+{
+	CRequest request;
+	request.SetType(_TyRequest::MARKET_BARS_QUERY);
+	request.SetExtraData("security", quote.m_security.String());
+	request.SetExtraData("channel", GetChannelString(quote.m_channel));
+	request.SetExtraData("begin_time_ms", std::to_string(begin));
+	request.SetExtraData("end_time_ms", std::to_string(end));
+	return HandleQueryHQRequest(-1, request, std::move(handler));
 }
