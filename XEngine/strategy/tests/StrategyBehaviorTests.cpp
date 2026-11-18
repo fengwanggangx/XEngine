@@ -4,6 +4,7 @@
 #include "../strategies/CPriceBreakoutStrategy.h"
 #include "../IStrategyContext.h"
 #include "../../indicator/CIndicator.h"
+#include "MySqlTestDatabase.h"
 
 #include <iostream>
 #include <stdexcept>
@@ -31,7 +32,7 @@ namespace
 	public:
 		CContext()
 		{
-			Check(m_execution.Open(":memory:"), "open execution journal");
+			Check(m_execution.Open(OpenTestDatabase()), "open execution journal");
 			m_data.m_bReady = true;
 			m_data.m_version = 10;
 			m_data.m_ordersVersion = 10;
@@ -342,6 +343,12 @@ namespace
 
 int main()
 {
+	if (!HasTestMySql())
+	{
+		std::cout << "Set XENGINE_TEST_MYSQL_HOST for isolated MySQL strategy tests\n";
+		return 77;
+	}
+	CTestDatabases databases;
 	try
 	{
 		CIndicator indicator;

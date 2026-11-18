@@ -1,17 +1,11 @@
 #include "../CStrategyExecution.h"
+#include "MySqlTestDatabase.h"
+#include "../../database/IDataBase.h"
 
 #include <atomic>
-#include <chrono>
-#include <filesystem>
 #include <iostream>
 #include <stdexcept>
 #include <thread>
-
-#if defined(_WIN32)
-#include <winsqlite/winsqlite3.h>
-#else
-#include <sqlite3.h>
-#endif
 
 namespace
 {
@@ -116,7 +110,7 @@ namespace
 	void TestAdmission()
 	{
 		CStrategyExecution journal;
-		Check(journal.Open(":memory:"), "open in-memory journal");
+		Check(journal.Open(OpenTestDatabase()), "open in-memory journal");
 		trade::CAccountData data = Data();
 		COrderSubmitResult first = journal.Prepare(Intent(), MakeStrategyAccountView(data, Security()), 100500);
 		Check(first.m_bAccepted && 0 != first.m_clientOrderId, "prepare before transport");
@@ -141,7 +135,7 @@ namespace
 	void TestWatermarks()
 	{
 		CStrategyExecution journal;
-		Check(journal.Open(":memory:"), "open watermark journal");
+		Check(journal.Open(OpenTestDatabase()), "open watermark journal");
 		trade::CAccountData data = Data();
 		COrderSubmitResult prepared = journal.Prepare(Intent(), MakeStrategyAccountView(data, Security()), 100500);
 		Check(prepared.m_bAccepted, "prepare watermark execution");
@@ -164,7 +158,7 @@ namespace
 	void TestHandoff()
 	{
 		CStrategyExecution journal;
-		Check(journal.Open(":memory:"), "open handoff journal");
+		Check(journal.Open(OpenTestDatabase()), "open handoff journal");
 		trade::CAccountData data = Data();
 		Check(journal.Prepare(Intent(), MakeStrategyAccountView(data, Security()), 100500).m_bAccepted, "prepare first debit");
 		data.m_orders.emplace_back(BrokerOrder(journal.GetRecords().front(), trade::Status::Accepted));
@@ -181,7 +175,7 @@ namespace
 	void TestConcurrentAdmission()
 	{
 		CStrategyExecution journal;
-		Check(journal.Open(":memory:"), "open concurrent journal");
+		Check(journal.Open(OpenTestDatabase()), "open concurrent journal");
 		std::atomic_int accepted{ 0 };
 		std::vector<std::jthread> workers;
 		for (int index = 0; 12 > index; ++index)
@@ -202,7 +196,7 @@ namespace
 	void TestSellWatermarks()
 	{
 		CStrategyExecution journal;
-		Check(journal.Open(":memory:"), "open sell watermark journal");
+		Check(journal.Open(OpenTestDatabase()), "open sell watermark journal");
 		COrderIntent intent = Intent();
 		intent.m_side = OrderSide::Sell;
 		intent.m_positionEffect = PositionEffect::Close;
@@ -222,7 +216,7 @@ namespace
 	void TestMissingCoveredOrder()
 	{
 		CStrategyExecution journal;
-		Check(journal.Open(":memory:"), "open missing-order journal");
+		Check(journal.Open(OpenTestDatabase()), "open missing-order journal");
 		trade::CAccountData data = Data();
 		Check(journal.Prepare(Intent(), MakeStrategyAccountView(data, Security()), 100500).m_bAccepted, "prepare disappearing order");
 		data.m_orders.emplace_back(BrokerOrder(journal.GetRecords().front(), trade::Status::Accepted));
@@ -238,7 +232,7 @@ namespace
 	void TestDuplicateBrokerIdentity()
 	{
 		CStrategyExecution journal;
-		Check(journal.Open(":memory:"), "open duplicate-order journal");
+		Check(journal.Open(OpenTestDatabase()), "open duplicate-order journal");
 		trade::CAccountData data = Data();
 		Check(journal.Prepare(Intent(), MakeStrategyAccountView(data, Security()), 100500).m_bAccepted, "prepare duplicate identity test");
 		data.m_orders.emplace_back(BrokerOrder(journal.GetRecords().front(), trade::Status::Filled));
@@ -247,14 +241,14 @@ namespace
 		Check(journal.HasUnresolved(42), "invalid broker evidence remains blocked");
 	}
 
-	void TestRecovery(const std::filesystem::path& path)
+	void TestRecovery(const std::string& name)
 	{
 		std::uint64_t firstId = 0;
 		{
 			CStrategyExecution journal;
-			Check(journal.Open(path), "open disk journal");
+			Check(journal.Open(OpenTestDatabase(name)), "open disk journal");
 			CStrategyExecution secondOwner;
-			Check(!secondOwner.Open(path), "reject a second owning engine");
+			Check(!secondOwner.Open(OpenTestDatabase(name)), "reject a second owning engine");
 			COrderSubmitResult prepared = journal.Prepare(Intent(), MakeStrategyAccountView(Data(), Security()), 100500);
 			Check(prepared.m_bAccepted, "persist prepared intent");
 			firstId = prepared.m_clientOrderId;
@@ -263,9 +257,10 @@ namespace
 		}
 		{
 			CStrategyExecution journal;
-			Check(journal.Open(path), "reopen journal after simulated crash");
+			Check(journal.Open(OpenTestDatabase(name)), "reopen journal after simulated crash");
 			Check(ExecutionState::Unknown == journal.GetRecords().front().m_state, "prepared crash window is uncertain");
 			Check(firstId == journal.GetRecords().front().m_intent.m_clientOrderId, "keep durable client identity");
+			Check(ExecutionState::Unknown == journal.FindExecution(firstId)->m_state, "recovered unknown is durable in MySQL");
 			Check(journal.IsBuyLocked(Account(), Security()), "protection lock survives restart");
 			Check(journal.Reconcile(Account(), MakeStrategyAccountView(Data(), Security())), "empty broker query is accepted as observation");
 			Check(journal.HasUnresolved(42), "absence cannot clear uncertain order");
@@ -285,7 +280,7 @@ namespace
 	void TestProtection()
 	{
 		CStrategyExecution journal;
-		Check(journal.Open(":memory:"), "open protection journal");
+		Check(journal.Open(OpenTestDatabase()), "open protection journal");
 		Check(journal.LockBuys(Account(), Security(), 42, "stop_loss"), "first protection owner");
 		Check(journal.LockBuys(Account(), Security(), 43, "trailing"), "second protection owner");
 		Check(journal.UnlockBuys(Account(), Security(), 42), "release own lock");
@@ -298,7 +293,7 @@ namespace
 	void TestCheckpointOwnership()
 	{
 		CStrategyExecution journal;
-		Check(journal.Open(":memory:"), "open checkpoint journal");
+		Check(journal.Open(OpenTestDatabase()), "open checkpoint journal");
 		std::uint64_t first = journal.AllocateSignal();
 		Check(0 != first && first < journal.AllocateSignal(), "durable signal sequence increases");
 		Check(journal.SaveCheckpoint(42, Account(), Security(), "active-task", true), "checkpoint and protection are atomic");
@@ -313,7 +308,7 @@ namespace
 	void TestConflict()
 	{
 		CStrategyExecution journal;
-		Check(journal.Open(":memory:"), "open conflict journal");
+		Check(journal.Open(OpenTestDatabase()), "open conflict journal");
 		Check(journal.Prepare(Intent(), MakeStrategyAccountView(Data(), Security()), 100500).m_bAccepted, "prepare conflict test");
 		trade::CAccountData data = Data();
 		data.m_orders.emplace_back(BrokerOrder(journal.GetRecords().front(), trade::Status::Accepted));
@@ -324,34 +319,140 @@ namespace
 		Check(!unopened.Prepare(Intent(), MakeStrategyAccountView(Data(), Security()), 100500).m_bAccepted, "no journal means no order");
 	}
 
-	void TestWriteFailure(const std::filesystem::path& path)
+	class CCommitFailureDatabase final : public db::IDataBase
+	{
+	public:
+		explicit CCommitFailureDatabase(db::_TyDBPtr connection) : m_connection(std::move(connection))
+		{
+		}
+		int Connect(const db::CConnectParam& parameters) override
+		{
+			return m_connection->Connect(parameters);
+		}
+		int Close() override
+		{
+			return m_connection->Close();
+		}
+		int ExecUpdate(const std::string& sql) override
+		{
+			return m_connection->ExecUpdate(sql);
+		}
+		int ExecScript(const std::string& sql) override
+		{
+			return m_connection->ExecScript(sql);
+		}
+		const db::CTable& ExecQuery(const std::string& sql) override
+		{
+			return m_connection->ExecQuery(sql);
+		}
+		bool BeginTransaction() override
+		{
+			return m_connection->BeginTransaction();
+		}
+		bool RollBackTransaction() override
+		{
+			return m_connection->RollBackTransaction();
+		}
+		void FailCommitResult()
+		{
+			m_failCommit = true;
+		}
+		bool EndTransaction() override
+		{
+			// The server commits, but the caller cannot establish the result.
+			bool committed = m_connection->EndTransaction();
+			return committed && !m_failCommit;
+		}
+
+	private:
+		db::_TyDBPtr m_connection;
+		bool m_failCommit{ false };
+	};
+
+	void TestAmbiguousCommit()
+	{
+		std::string name = NewTestDatabaseName();
+		{
+			std::unique_ptr<CCommitFailureDatabase> fault = std::make_unique<CCommitFailureDatabase>(OpenTestDatabase(name));
+			CCommitFailureDatabase* borrowed = fault.get();
+			db::_TyDBPtr connection(fault.release(), [](db::IDataBase* value)
+			{
+				delete value;
+			});
+			CStrategyExecution journal;
+			Check(journal.Open(std::move(connection)), "open ambiguous commit store");
+			borrowed->FailCommitResult();
+			Check(!journal.Prepare(Intent(), MakeStrategyAccountView(Data(), Security()), 100500).m_bAccepted, "unknown commit cannot admit order");
+			Check(!journal.Prepare(Intent(2), MakeStrategyAccountView(Data(), Security()), 100500).m_bAccepted, "unknown commit disables further admission");
+		}
+		CStrategyExecution recovered;
+		Check(recovered.Open(OpenTestDatabase(name)), "recover after ambiguous commit");
+		Check(1 == recovered.GetRecords().size() && ExecutionState::Unknown == recovered.GetRecords().front().m_state, "committed intent remains unknown after restart");
+	}
+
+	void TestSessionOwnership()
+	{
+		std::string name = NewTestDatabaseName();
+		db::_TyDBPtr connection = OpenTestDatabase(name);
+		db::IDataBase* borrowed = connection.get();
+		CStrategyExecution oldOwner;
+		Check(oldOwner.Open(std::move(connection)), "open owning session");
+		const db::CTable& released = borrowed->ExecQuery("SELECT RELEASE_ALL_LOCKS()");
+		Check(!released.m_rows.empty(), "release test session ownership");
+		CStrategyExecution newOwner;
+		Check(newOwner.Open(OpenTestDatabase(name)), "new owner acquires released lock");
+		Check(!oldOwner.Prepare(Intent(), MakeStrategyAccountView(Data(), Security()), 100500).m_bAccepted, "old session cannot write after ownership loss");
+		Check(newOwner.Prepare(Intent(), MakeStrategyAccountView(Data(), Security()), 100500).m_bAccepted, "only new owning session can admit");
+		db::_TyDBPtr disconnected = OpenTestDatabase();
+		db::IDataBase* lostSession = disconnected.get();
+		CStrategyExecution lost;
+		Check(lost.Open(std::move(disconnected)), "open session before disconnect");
+		lostSession->Close();
+		Check(0 == lost.AllocateSignal(), "closed session cannot reconnect and allocate IDs");
+		Check(!lost.Prepare(Intent(), MakeStrategyAccountView(Data(), Security()), 100500).m_bAccepted, "disconnected session cannot admit");
+	}
+
+	void TestCheckpointRollback()
+	{
+		std::string name = NewTestDatabaseName();
+		db::_TyDBPtr control = OpenTestDatabase(name);
+		Check(0 == control->ExecUpdate("CREATE TRIGGER fail_protection BEFORE INSERT ON table_strategy_protection FOR EACH ROW SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='injected protection failure'"), "install protection storage fault");
+		CStrategyExecution journal;
+		Check(journal.Open(OpenTestDatabase(name)), "open checkpoint fault store");
+		Check(!journal.SaveCheckpoint(42, Account(), Security(), "must-rollback", true), "protection failure rolls back checkpoint");
+		const db::CTable& checkpoint = control->ExecQuery("SELECT COUNT(*) FROM table_strategy_checkpoint");
+		Check(1 == checkpoint.m_rows.size() && "0" == db::to_string(checkpoint.m_rows.front()[0]), "checkpoint cannot commit without protection lock");
+	}
+
+	void TestWriteFailure(const std::string& name)
 	{
 		{
 			CStrategyExecution journal;
-			Check(journal.Open(path), "create fault-injection journal");
+			Check(journal.Open(OpenTestDatabase(name)), "create fault-injection journal");
 		}
-		sqlite3* database = nullptr;
-		std::string name = path.string();
-		Check(SQLITE_OK == sqlite3_open(name.c_str(), &database), "open fault-injection connection");
-		int result = sqlite3_exec(database, "CREATE TRIGGER fail_execution BEFORE INSERT ON execution BEGIN SELECT RAISE(FAIL,'injected storage failure'); END", nullptr, nullptr, nullptr);
-		sqlite3_close(database);
-		Check(SQLITE_OK == result, "install storage fault");
+		db::_TyDBPtr database = OpenTestDatabase(name);
+		Check(0 == database->ExecUpdate("CREATE TRIGGER fail_execution BEFORE INSERT ON table_strategy_execution FOR EACH ROW SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='injected storage failure'"), "install MySQL storage fault");
+		database.reset();
 		CStrategyExecution journal;
-		Check(journal.Open(path), "open journal with injected storage fault");
+		Check(journal.Open(OpenTestDatabase(name)), "open journal with injected storage fault");
 		Check(!journal.Prepare(Intent(), MakeStrategyAccountView(Data(), Security()), 100500).m_bAccepted, "failed persistence never admits order");
-		Check(std::string::npos != journal.GetLastError().find("injected storage failure"), "write failure is not misreported as a duplicate");
+		Check(std::string::npos != journal.GetLastError().find("write failed"), "write failure is not misreported as a duplicate");
 		Check(!journal.Prepare(Intent(2), MakeStrategyAccountView(Data(), Security()), 100500).m_bAccepted, "storage failure disables subsequent admission");
 		Check(journal.GetRecords().empty(), "rolled back insertion has no prepared intent");
 	}
 } // namespace
 
-int main(int argc, char** argv)
+int main()
 {
+	if (!HasTestMySql())
+	{
+		std::cout << "Set XENGINE_TEST_MYSQL_HOST for isolated MySQL integration tests\n";
+		return 77;
+	}
+	CTestDatabases databases;
 	try
 	{
-		Check(2 >= argc, "optionally pass a new temporary journal path");
-		std::filesystem::path path = 2 == argc ? std::filesystem::path(argv[1]) : std::filesystem::temp_directory_path() / ("xengine-execution-" + std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()) + ".sqlite3");
-		Check(!std::filesystem::exists(path), "test journal must not already exist");
+		std::string name = NewTestDatabaseName();
 		TestSnapshot();
 		TestAdmission();
 		TestWatermarks();
@@ -360,11 +461,14 @@ int main(int argc, char** argv)
 		TestSellWatermarks();
 		TestMissingCoveredOrder();
 		TestDuplicateBrokerIdentity();
-		TestRecovery(path);
+		TestRecovery(name);
 		TestProtection();
 		TestCheckpointOwnership();
 		TestConflict();
-		TestWriteFailure(path.string() + ".failure");
+		TestWriteFailure(NewTestDatabaseName());
+		TestAmbiguousCommit();
+		TestSessionOwnership();
+		TestCheckpointRollback();
 		std::cout << "Strategy execution tests passed: snapshots, reservations, resource fences, concurrency, durable recovery, locks and conflicts\n";
 		return 0;
 	}

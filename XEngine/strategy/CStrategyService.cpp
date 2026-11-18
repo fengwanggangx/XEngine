@@ -20,7 +20,6 @@
 #include "strategies/CTrailingTakeProfitStrategy.h"
 #include "strategies/CPriceBreakoutStrategy.h"
 #include "../trade/OrderRules.h"
-#include <cstdlib>
 
 #include <algorithm>
 #include <chrono>
@@ -263,8 +262,7 @@ CStrategyService::~CStrategyService()
 bool CStrategyService::Initialize()
 {
 	m_strLastError.clear();
-	const char* path = std::getenv("XENGINE_STRATEGY_JOURNAL");
-	if (!m_execution.Open(nullptr == path ? "strategy-state.sqlite3" : path))
+	if (!m_execution.Open(CDBEngine::InstanceRef().GetDBPtr(db::em_database::mysql)))
 	{
 		m_strLastError = m_execution.GetLastError();
 		return false;

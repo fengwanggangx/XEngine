@@ -54,3 +54,60 @@ CREATE TABLE IF NOT EXISTS table_strategy
 	UNIQUE KEY uk_table_strategy_name (strategy_name),
 	KEY idx_table_strategy_enabled (enabled)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin;
+
+-- Durable strategy execution state. One engine owns this database's execution session.
+CREATE TABLE IF NOT EXISTS table_strategy_execution
+(
+ client_id BIGINT NOT NULL AUTO_INCREMENT,
+ account VARBINARY(1024) NOT NULL,
+ strategy_id BIGINT NOT NULL,
+ signal_id BIGINT NOT NULL,
+ security VARCHAR(16) NOT NULL,
+ exchange_id INT NOT NULL,
+ side INT NOT NULL,
+ price BIGINT NOT NULL,
+ price_scale INT NOT NULL,
+ quantity BIGINT NOT NULL,
+ effect INT NOT NULL,
+ state INT NOT NULL,
+ reserved_money BIGINT NOT NULL,
+ order_id BIGINT NOT NULL,
+ evidence BIGINT NOT NULL,
+ covered TINYINT NOT NULL,
+ message TEXT NOT NULL,
+ filled BIGINT NOT NULL DEFAULT 0,
+ broker_status INT NOT NULL DEFAULT 7,
+ PRIMARY KEY (client_id),
+ UNIQUE KEY uk_strategy_signal (account,strategy_id,signal_id),
+ KEY idx_strategy_pending (state)
+) ENGINE=InnoDB AUTO_INCREMENT=1000000000000000 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin;
+
+CREATE TABLE IF NOT EXISTS table_strategy_protection
+(
+ account VARBINARY(1024) NOT NULL,
+ security VARBINARY(32) NOT NULL,
+ owner_id BIGINT NOT NULL,
+ reason TEXT NOT NULL,
+ PRIMARY KEY (account,security,owner_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin;
+
+CREATE TABLE IF NOT EXISTS table_strategy_signal_sequence
+(
+ id BIGINT NOT NULL AUTO_INCREMENT,
+ PRIMARY KEY (id)
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS table_strategy_checkpoint
+(
+ strategy_id BIGINT NOT NULL,
+ data MEDIUMTEXT NOT NULL,
+ PRIMARY KEY (strategy_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin;
+
+CREATE TABLE IF NOT EXISTS table_strategy_exit_owner
+(
+ account VARBINARY(1024) NOT NULL,
+ security VARBINARY(32) NOT NULL,
+ owner_id BIGINT NOT NULL,
+ PRIMARY KEY (account,security)
+) ENGINE=InnoDB;

@@ -1,69 +1,267 @@
 #include "CStrategyExecution.h"
 
-#if defined(_WIN32)
-#include <winsqlite/winsqlite3.h>
-#else
-#include <sqlite3.h>
-#endif
+#include "../database/IDataBase.h"
+#include <concepts>
+#include <iterator>
+#include <type_traits>
+#include "../common/utility.h"
 
 #include <algorithm>
-#include <chrono>
 #include <limits>
 #include <memory>
 #include <stdexcept>
 
+// A retained pool lease pins transactions and the named lock to one MySQL session.
+class CExecutionDatabase final
+{
+public:
+	explicit CExecutionDatabase(db::_TyDBPtr&& connection) : m_connection(std::move(connection))
+	{
+		try
+		{
+			if (nullptr == m_connection)
+			{
+				throw std::runtime_error("MySQL connection unavailable");
+			}
+			const db::CTable& table = m_connection->ExecQuery("SELECT CONNECTION_ID(),CONCAT('xengine.strategy.',LEFT(SHA2(DATABASE(),256),40)),@@global.innodb_flush_log_at_trx_commit,@@global.log_bin,@@global.sync_binlog");
+			if ((1 != table.m_rows.size()) || (5 != table.m_columns.size()) || !utility::to_number(db::to_string(table.m_rows.front()[0]), m_sessionId) || (0 >= m_sessionId) || ("1" != db::to_string(table.m_rows.front()[2])) || (("1" == db::to_string(table.m_rows.front()[3])) && ("1" != db::to_string(table.m_rows.front()[4]))))
+			{
+				throw std::runtime_error("MySQL requires a stable session, innodb_flush_log_at_trx_commit=1 and sync_binlog=1 when binary logging is enabled");
+			}
+			m_lockName = db::to_string(table.m_rows.front()[1]);
+			const db::CTable& locked = m_connection->ExecQuery("SELECT GET_LOCK(" + utility::Utf8Literal(m_lockName) + ",0)");
+			if ((1 != locked.m_rows.size()) || (1 != locked.m_columns.size()) || ("1" != db::to_string(locked.m_rows.front()[0])))
+			{
+				throw std::runtime_error("Another engine owns MySQL strategy execution");
+			}
+			CheckOwner();
+		}
+		catch (...)
+		{
+			if (nullptr != m_connection)
+			{
+				m_connection->Close();
+			}
+			throw;
+		}
+	}
+	~CExecutionDatabase()
+	{
+		if (nullptr != m_connection)
+		{
+			try
+			{
+				if (m_inTransaction)
+				{
+					m_connection->RollBackTransaction();
+				}
+				CheckOwner();
+				const db::CTable& released = m_connection->ExecQuery("SELECT RELEASE_LOCK(" + utility::Utf8Literal(m_lockName) + ")");
+				if ((1 != released.m_rows.size()) || ("1" != db::to_string(released.m_rows.front()[0])))
+				{
+					m_connection->Close();
+				}
+			}
+			catch (...)
+			{
+				m_connection->Close();
+			}
+		}
+	}
+	void CheckOwner()
+	{
+		const db::CTable& table = m_connection->ExecQuery("SELECT CONNECTION_ID(),IS_USED_LOCK(" + utility::Utf8Literal(m_lockName) + ")");
+		std::int64_t session = 0, owner = 0;
+		if ((1 != table.m_rows.size()) || (2 != table.m_columns.size()) || !utility::to_number(db::to_string(table.m_rows.front()[0]), session) || !utility::to_number(db::to_string(table.m_rows.front()[1]), owner) || (m_sessionId != session) || (m_sessionId != owner))
+		{
+			throw std::runtime_error("MySQL strategy execution session or ownership lost; restart and reconcile");
+		}
+	}
+	db::CTable Query(const std::string& sql)
+	{
+		CheckOwner();
+		const db::CTable& table = m_connection->ExecQuery(sql);
+		if (table.m_columns.empty())
+		{
+			throw std::runtime_error("MySQL strategy execution query failed");
+		}
+		return table;
+	}
+	void Execute(const std::string& sql)
+	{
+		CheckOwner();
+		if ("START TRANSACTION" == sql)
+		{
+			if (m_inTransaction || !m_connection->BeginTransaction())
+			{
+				throw std::runtime_error("Cannot begin MySQL execution transaction");
+			}
+			m_inTransaction = true;
+			return;
+		}
+		if ("COMMIT" == sql)
+		{
+			if (!m_inTransaction || !m_connection->EndTransaction())
+			{
+				throw std::runtime_error("MySQL execution commit result unknown; do not send");
+			}
+			m_inTransaction = false;
+			return;
+		}
+		if ("ROLLBACK" == sql)
+		{
+			if (!m_connection->RollBackTransaction())
+			{
+				throw std::runtime_error("MySQL execution rollback failed");
+			}
+			m_inTransaction = false;
+			return;
+		}
+		if (0 != m_connection->ExecUpdate(sql))
+		{
+			throw std::runtime_error("MySQL strategy execution write failed");
+		}
+	}
+	void Rollback() noexcept
+	{
+		if (m_inTransaction)
+		{
+			m_connection->RollBackTransaction();
+			m_inTransaction = false;
+		}
+	}
+	std::int64_t Scalar(const std::string& sql)
+	{
+		db::CTable table = Query(sql);
+		std::int64_t value = 0;
+		if ((1 != table.m_rows.size()) || (1 != table.m_columns.size()) || !utility::to_number(db::to_string(table.m_rows.front()[0]), value))
+		{
+			throw std::runtime_error("Invalid MySQL execution scalar");
+		}
+		return value;
+	}
+
+private:
+	db::_TyDBPtr m_connection;
+	std::int64_t m_sessionId{ 0 };
+	std::string m_lockName;
+	bool m_inTransaction{ false };
+};
+
 namespace
 {
-	using _TyStatement = std::unique_ptr<sqlite3_stmt, decltype(&sqlite3_finalize)>;
-
-	void Execute(sqlite3* database, const char* sql)
+	enum class StatementResult
 	{
-		if (SQLITE_OK != sqlite3_exec(database, sql, nullptr, nullptr, nullptr))
+		Row,
+		Done
+	};
+	class CStatement final
+	{
+	public:
+		CStatement(CExecutionDatabase* database, const std::string& sql) : m_database(database), m_sql(sql)
 		{
-			throw std::runtime_error(sqlite3_errmsg(database));
 		}
-	}
-
-	_TyStatement Statement(sqlite3* database, const char* sql)
-	{
-		sqlite3_stmt* statement = nullptr;
-		int result = sqlite3_prepare_v2(database, sql, -1, &statement, nullptr);
-		_TyStatement owner(statement, sqlite3_finalize);
-		if (SQLITE_OK != result)
+		void Bind(int index, const std::string& literal)
 		{
-			throw std::runtime_error(sqlite3_errmsg(database));
+			if (index != static_cast<int>(m_values.size()) + 1)
+			{
+				throw std::runtime_error("Invalid execution SQL binding order");
+			}
+			m_values.emplace_back(literal);
 		}
-		return owner;
-	}
-
-	void Bind(sqlite3_stmt* statement, int index, std::int64_t value)
-	{
-		if (SQLITE_OK != sqlite3_bind_int64(statement, index, value))
+		std::string Sql() const
 		{
-			throw std::runtime_error("Cannot bind journal integer");
+			std::string sql;
+			std::size_t index = 0;
+			for (char value : m_sql)
+			{
+				if ('?' == value)
+				{
+					if (index >= m_values.size())
+					{
+						throw std::runtime_error("Missing execution SQL binding");
+					}
+					sql += m_values[index++];
+				}
+				else
+				{
+					sql += value;
+				}
+			}
+			if (index != m_values.size())
+			{
+				throw std::runtime_error("Unused execution SQL binding");
+			}
+			return sql;
 		}
-	}
-
-	void Bind(sqlite3_stmt* statement, int index, const std::string& value)
-	{
-		if ((value.size() > static_cast<std::size_t>((std::numeric_limits<int>::max)())) || (SQLITE_OK != sqlite3_bind_text(statement, index, value.data(), static_cast<int>(value.size()), SQLITE_TRANSIENT)))
+		StatementResult Step()
 		{
-			throw std::runtime_error("Cannot bind journal text");
+			if (!m_queried)
+			{
+				m_table = m_database->Query(Sql());
+				m_queried = true;
+			}
+			if (m_cursor >= m_table.m_rows.size())
+			{
+				return StatementResult::Done;
+			}
+			++m_cursor;
+			return StatementResult::Row;
 		}
-	}
-
-	std::string ReadText(sqlite3_stmt* statement, int index)
-	{
-		const unsigned char* text = sqlite3_column_text(statement, index);
-		return nullptr == text ? std::string() : std::string(reinterpret_cast<const char*>(text), sqlite3_column_bytes(statement, index));
-	}
-
-	void Done(sqlite3* database, sqlite3_stmt* statement)
-	{
-		if (SQLITE_DONE != sqlite3_step(statement))
+		std::string Text(int index) const
 		{
-			throw std::runtime_error(sqlite3_errmsg(database));
+			if ((0 == m_cursor) || (0 > index) || (static_cast<std::size_t>(index) >= m_table.m_rows[m_cursor - 1].size()))
+			{
+				throw std::runtime_error("Invalid execution SQL result");
+			}
+			return db::to_string(m_table.m_rows[m_cursor - 1][index]);
 		}
+
+	private:
+		CExecutionDatabase* m_database;
+		std::string m_sql;
+		std::vector<std::string> m_values;
+		db::CTable m_table;
+		std::size_t m_cursor{ 0 };
+		bool m_queried{ false };
+	};
+	using _TyStatement = std::unique_ptr<CStatement>;
+	void Execute(CExecutionDatabase* database, const char* sql)
+	{
+		database->Execute(sql);
+	}
+	_TyStatement Statement(CExecutionDatabase* database, const char* sql)
+	{
+		return std::make_unique<CStatement>(database, sql);
+	}
+	void Bind(CStatement* statement, int index, std::int64_t value)
+	{
+		statement->Bind(index, std::to_string(value));
+	}
+	void Bind(CStatement* statement, int index, const std::string& value)
+	{
+		statement->Bind(index, utility::Utf8Literal(value));
+	}
+	std::string ReadText(CStatement* statement, int index)
+	{
+		return statement->Text(index);
+	}
+	std::int64_t ReadInteger(CStatement* statement, int index)
+	{
+		std::int64_t value = 0;
+		if (!utility::to_number(statement->Text(index), value))
+		{
+			throw std::runtime_error("Invalid execution SQL integer");
+		}
+		return value;
+	}
+	StatementResult Step(CStatement* statement)
+	{
+		return statement->Step();
+	}
+	void Done(CExecutionDatabase* database, CStatement* statement)
+	{
+		database->Execute(statement->Sql());
 	}
 
 	bool Active(trade::Status status)
@@ -84,48 +282,36 @@ namespace
 	}
 } // namespace
 
-CStrategyExecution::~CStrategyExecution()
-{
-	if (nullptr != m_database)
-	{
-		sqlite3_close(m_database);
-	}
-}
+CStrategyExecution::CStrategyExecution() = default;
+CStrategyExecution::~CStrategyExecution() = default;
 
-bool CStrategyExecution::Open(const std::filesystem::path& path)
+bool CStrategyExecution::Open(db::_TyDBPtr connection)
 {
 	std::lock_guard<std::mutex> lock(m_mtx_state);
 	if (nullptr != m_database)
 	{
-		m_strLastError = "Journal is already open";
+		m_strLastError = "Execution store is already open";
 		return false;
 	}
 	try
 	{
-		std::u8string pathBytes = path.u8string();
-		if (path.empty() || (SQLITE_OK != sqlite3_open_v2(reinterpret_cast<const char*>(pathBytes.c_str()), &m_database, SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE | SQLITE_OPEN_FULLMUTEX, nullptr)))
+		m_database = std::make_unique<CExecutionDatabase>(std::move(connection));
+		db::CTable tables = m_database->Query("SELECT TABLE_NAME,ENGINE FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME IN ('table_strategy_execution','table_strategy_protection','table_strategy_checkpoint','table_strategy_exit_owner','table_strategy_signal_sequence')");
+		if (5 != tables.m_rows.size())
 		{
-			throw std::runtime_error("Cannot open strategy execution journal");
+			throw std::runtime_error("MySQL strategy execution tables are missing");
 		}
-		sqlite3_busy_timeout(m_database, 100);
-		// Retain the exclusive connection lock across commits. A second engine must fail.
-		Execute(m_database, "PRAGMA journal_mode=WAL; PRAGMA synchronous=FULL; PRAGMA locking_mode=EXCLUSIVE;");
-		_TyStatement version = Statement(m_database, "PRAGMA user_version");
-		if ((SQLITE_ROW != sqlite3_step(version.get())) || (0 > sqlite3_column_int(version.get(), 0)) || ((0 != sqlite3_column_int(version.get(), 0)) && (2 != sqlite3_column_int(version.get(), 0))))
+		for (const auto& row : tables.m_rows)
 		{
-			throw std::runtime_error("Unsupported strategy journal version");
+			if ("InnoDB" != db::to_string(row[1]))
+			{
+				throw std::runtime_error("Strategy execution tables require InnoDB");
+			}
 		}
-		version.reset();
-		Execute(m_database, "BEGIN IMMEDIATE; CREATE TABLE IF NOT EXISTS execution (client_id INTEGER PRIMARY KEY AUTOINCREMENT, account TEXT NOT NULL, strategy_id INTEGER NOT NULL, signal_id INTEGER NOT NULL, security TEXT NOT NULL, exchange_id INTEGER NOT NULL, side INTEGER NOT NULL, price INTEGER NOT NULL, price_scale INTEGER NOT NULL, quantity INTEGER NOT NULL, effect INTEGER NOT NULL, state INTEGER NOT NULL, reserved_money INTEGER NOT NULL, order_id INTEGER NOT NULL, evidence INTEGER NOT NULL, covered INTEGER NOT NULL, message TEXT NOT NULL, filled INTEGER NOT NULL DEFAULT 0, broker_status INTEGER NOT NULL DEFAULT 7, UNIQUE(account,strategy_id,signal_id)); CREATE TABLE IF NOT EXISTS protection (account TEXT NOT NULL, security TEXT NOT NULL, owner_id INTEGER NOT NULL, reason TEXT NOT NULL, PRIMARY KEY(account,security,owner_id)); CREATE TABLE IF NOT EXISTS signal_sequence(id INTEGER PRIMARY KEY AUTOINCREMENT); CREATE TABLE IF NOT EXISTS checkpoint(strategy_id INTEGER PRIMARY KEY, data TEXT NOT NULL); CREATE TABLE IF NOT EXISTS exit_owner(account TEXT NOT NULL, security TEXT NOT NULL, owner_id INTEGER NOT NULL, PRIMARY KEY(account,security)); PRAGMA user_version=2; COMMIT;");
-		// Reserve a durable, monotonically increasing client ID range.
-		std::int64_t floor = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
-		_TyStatement sequence = Statement(m_database, "INSERT INTO sqlite_sequence(name,seq) SELECT 'execution',? WHERE NOT EXISTS (SELECT 1 FROM sqlite_sequence WHERE name='execution')");
-		Bind(sequence.get(), 1, floor);
-		Done(m_database, sequence.get());
-		sequence = Statement(m_database, "UPDATE sqlite_sequence SET seq=MAX(seq,?) WHERE name='execution'");
-		Bind(sequence.get(), 1, floor);
-		Done(m_database, sequence.get());
+		m_database->Execute("START TRANSACTION");
 		Load();
+		m_database->Execute("UPDATE table_strategy_execution SET state=2,covered=0,evidence=0,message='Restarted; reconcile existing order before retry' WHERE state NOT IN (5,6)");
+		m_database->Execute("COMMIT");
 		m_bHealthy = true;
 		m_strLastError.clear();
 		return true;
@@ -133,48 +319,44 @@ bool CStrategyExecution::Open(const std::filesystem::path& path)
 	catch (const std::exception& error)
 	{
 		m_strLastError = error.what();
-		if (nullptr != m_database)
-		{
-			sqlite3_exec(m_database, "ROLLBACK", nullptr, nullptr, nullptr);
-			sqlite3_close(m_database);
-			m_database = nullptr;
-		}
+		m_database.reset();
 		m_records.clear();
 		m_locks.clear();
+		m_exitOwners.clear();
 		return false;
 	}
 }
 
 void CStrategyExecution::Load()
 {
-	_TyStatement statement = Statement(m_database, "SELECT client_id,account,strategy_id,signal_id,security,exchange_id,side,price,price_scale,quantity,effect,state,reserved_money,order_id,evidence,covered,message FROM execution WHERE state NOT IN (5,6)");
-	int result = SQLITE_ROW;
-	while (SQLITE_ROW == (result = sqlite3_step(statement.get())))
+	_TyStatement statement = Statement(m_database.get(), "SELECT client_id,account,strategy_id,signal_id,security,exchange_id,side,price,price_scale,quantity,effect,state,reserved_money,order_id,evidence,covered,message FROM table_strategy_execution WHERE state NOT IN (5,6)");
+	StatementResult result = StatementResult::Row;
+	while (StatementResult::Row == (result = Step(statement.get())))
 	{
 		CExecutionRecord record;
 		COrderIntent& intent = record.m_intent;
-		intent.m_clientOrderId = sqlite3_column_int64(statement.get(), 0);
+		intent.m_clientOrderId = ReadInteger(statement.get(), 0);
 		if (!DecodeAccount(ReadText(statement.get(), 1), intent.m_account))
 		{
 			throw std::runtime_error("Invalid account in strategy journal");
 		}
-		intent.m_id = sqlite3_column_int64(statement.get(), 2);
-		intent.m_signalId = sqlite3_column_int64(statement.get(), 3);
-		intent.m_security = CSecurity(ReadText(statement.get(), 4), static_cast<Exchange>(sqlite3_column_int(statement.get(), 5)));
-		intent.m_side = static_cast<OrderSide>(sqlite3_column_int(statement.get(), 6));
-		intent.m_price = sqlite3_column_int64(statement.get(), 7);
-		intent.m_nPriceScale = sqlite3_column_int(statement.get(), 8);
-		intent.m_quantity = sqlite3_column_int64(statement.get(), 9);
-		intent.m_positionEffect = static_cast<PositionEffect>(sqlite3_column_int(statement.get(), 10));
-		int state = sqlite3_column_int(statement.get(), 11);
+		intent.m_id = ReadInteger(statement.get(), 2);
+		intent.m_signalId = ReadInteger(statement.get(), 3);
+		intent.m_security = CSecurity(ReadText(statement.get(), 4), static_cast<Exchange>(ReadInteger(statement.get(), 5)));
+		intent.m_side = static_cast<OrderSide>(ReadInteger(statement.get(), 6));
+		intent.m_price = ReadInteger(statement.get(), 7);
+		intent.m_nPriceScale = static_cast<int>(ReadInteger(statement.get(), 8));
+		intent.m_quantity = ReadInteger(statement.get(), 9);
+		intent.m_positionEffect = static_cast<PositionEffect>(ReadInteger(statement.get(), 10));
+		std::int64_t state = ReadInteger(statement.get(), 11);
 		if ((0 > state) || (4 < state) || !ValidIntent(intent) || (0 == intent.m_clientOrderId))
 		{
 			throw std::runtime_error("Invalid execution in strategy journal");
 		}
 		// A crash can occur at any point after preparation. Never assume not sent.
 		record.m_state = ExecutionState::Unknown;
-		record.m_reservedMoney = sqlite3_column_int64(statement.get(), 12);
-		record.m_orderId = sqlite3_column_int64(statement.get(), 13);
+		record.m_reservedMoney = ReadInteger(statement.get(), 12);
+		record.m_orderId = ReadInteger(statement.get(), 13);
 		record.m_evidenceVersion = 0;
 		record.m_bBrokerCovered = false;
 		record.m_message = "Restarted; reconcile existing order before retry";
@@ -184,15 +366,15 @@ void CStrategyExecution::Load()
 		}
 		m_records.emplace(intent.m_clientOrderId, std::move(record));
 	}
-	if (SQLITE_DONE != result)
+	if (StatementResult::Done != result)
 	{
-		throw std::runtime_error(sqlite3_errmsg(m_database));
+		throw std::runtime_error("MySQL execution operation failed");
 	}
-	statement = Statement(m_database, "SELECT account,security,owner_id,reason FROM protection");
-	while (SQLITE_ROW == (result = sqlite3_step(statement.get())))
+	statement = Statement(m_database.get(), "SELECT account,security,owner_id,reason FROM table_strategy_protection");
+	while (StatementResult::Row == (result = Step(statement.get())))
 	{
 		_TyAccount account;
-		std::int64_t owner = sqlite3_column_int64(statement.get(), 2);
+		std::int64_t owner = ReadInteger(statement.get(), 2);
 		std::string security = ReadText(statement.get(), 1);
 		std::size_t separator = security.rfind('.');
 		CSecurity parsed;
@@ -206,19 +388,19 @@ void CStrategyExecution::Load()
 		}
 		m_locks.emplace(_TyLockKey{ account, security, static_cast<_TyStrategyId>(owner) }, ReadText(statement.get(), 3));
 	}
-	if (SQLITE_DONE != result)
+	if (StatementResult::Done != result)
 	{
-		throw std::runtime_error(sqlite3_errmsg(m_database));
+		throw std::runtime_error("MySQL execution operation failed");
 	}
-	statement = Statement(m_database, "SELECT account,security,owner_id FROM exit_owner");
-	while (SQLITE_ROW == (result = sqlite3_step(statement.get())))
+	statement = Statement(m_database.get(), "SELECT account,security,owner_id FROM table_strategy_exit_owner");
+	while (StatementResult::Row == (result = Step(statement.get())))
 	{
 		_TyAccount account;
-		if (!DecodeAccount(ReadText(statement.get(), 0), account) || (0 >= sqlite3_column_int64(statement.get(), 2)))
+		if (!DecodeAccount(ReadText(statement.get(), 0), account) || (0 >= ReadInteger(statement.get(), 2)))
 		{
 			throw std::runtime_error("Invalid exit owner");
 		}
-		_TyStrategyId ownerId = static_cast<_TyStrategyId>(sqlite3_column_int64(statement.get(), 2));
+		_TyStrategyId ownerId = static_cast<_TyStrategyId>(ReadInteger(statement.get(), 2));
 		std::string security = ReadText(statement.get(), 1);
 		if (m_locks.end() == m_locks.find(_TyLockKey{ account, security, ownerId }))
 		{
@@ -226,15 +408,15 @@ void CStrategyExecution::Load()
 		}
 		m_exitOwners.emplace(std::make_pair(account, security), ownerId);
 	}
-	if (SQLITE_DONE != result)
+	if (StatementResult::Done != result)
 	{
-		throw std::runtime_error(sqlite3_errmsg(m_database));
+		throw std::runtime_error("MySQL execution operation failed");
 	}
 }
 
 void CStrategyExecution::Save(const CExecutionRecord& record)
 {
-	_TyStatement statement = Statement(m_database, "UPDATE execution SET state=?,order_id=?,evidence=?,covered=?,message=?,filled=?,broker_status=? WHERE client_id=?");
+	_TyStatement statement = Statement(m_database.get(), "UPDATE table_strategy_execution SET state=?,order_id=?,evidence=?,covered=?,message=?,filled=?,broker_status=? WHERE client_id=?");
 	Bind(statement.get(), 1, static_cast<std::int64_t>(record.m_state));
 	Bind(statement.get(), 2, static_cast<std::int64_t>(record.m_orderId));
 	Bind(statement.get(), 3, static_cast<std::int64_t>(record.m_evidenceVersion));
@@ -243,8 +425,9 @@ void CStrategyExecution::Save(const CExecutionRecord& record)
 	Bind(statement.get(), 6, record.m_filledQuantity);
 	Bind(statement.get(), 7, static_cast<std::int64_t>(record.m_brokerStatus));
 	Bind(statement.get(), 8, static_cast<std::int64_t>(record.m_intent.m_clientOrderId));
-	Done(m_database, statement.get());
-	if (1 != sqlite3_changes(m_database))
+	Done(m_database.get(), statement.get());
+	// Owner checks execute SELECTs; verify existence directly instead of relying on session ROW_COUNT().
+	if (1 != m_database->Scalar("SELECT COUNT(*) FROM table_strategy_execution WHERE client_id=" + std::to_string(record.m_intent.m_clientOrderId)))
 	{
 		throw std::runtime_error("Execution journal row disappeared");
 	}
@@ -336,8 +519,18 @@ COrderSubmitResult CStrategyExecution::Prepare(COrderIntent intent, const CStrat
 	}
 	try
 	{
-		Execute(m_database, "BEGIN IMMEDIATE");
-		_TyStatement statement = Statement(m_database, "INSERT INTO execution(account,strategy_id,signal_id,security,exchange_id,side,price,price_scale,quantity,effect,state,reserved_money,order_id,evidence,covered,message) VALUES(?,?,?,?,?,?,?,?,?,?,0,?,0,0,0,'Prepared before send')");
+		Execute(m_database.get(), "START TRANSACTION");
+		_TyStatement duplicate = Statement(m_database.get(), "SELECT client_id FROM table_strategy_execution WHERE account=? AND strategy_id=? AND signal_id=?");
+		Bind(duplicate.get(), 1, EncodeAccount(intent.m_account));
+		Bind(duplicate.get(), 2, static_cast<std::int64_t>(intent.m_id));
+		Bind(duplicate.get(), 3, static_cast<std::int64_t>(intent.m_signalId));
+		if (StatementResult::Row == Step(duplicate.get()))
+		{
+			Execute(m_database.get(), "ROLLBACK");
+			return { false, false, 0, 0, "Duplicate execution signal; reconcile the original order" };
+		}
+
+		_TyStatement statement = Statement(m_database.get(), "INSERT INTO table_strategy_execution(account,strategy_id,signal_id,security,exchange_id,side,price,price_scale,quantity,effect,state,reserved_money,order_id,evidence,covered,message) VALUES(?,?,?,?,?,?,?,?,?,?,0,?,0,0,0,'Prepared before send')");
 		Bind(statement.get(), 1, EncodeAccount(intent.m_account));
 		Bind(statement.get(), 2, static_cast<std::int64_t>(intent.m_id));
 		Bind(statement.get(), 3, static_cast<std::int64_t>(intent.m_signalId));
@@ -349,29 +542,20 @@ COrderSubmitResult CStrategyExecution::Prepare(COrderIntent intent, const CStrat
 		Bind(statement.get(), 9, intent.m_quantity);
 		Bind(statement.get(), 10, static_cast<std::int64_t>(intent.m_positionEffect));
 		Bind(statement.get(), 11, maximumDebit);
-		int result = sqlite3_step(statement.get());
-		if ((SQLITE_CONSTRAINT == result) && (SQLITE_CONSTRAINT_UNIQUE == sqlite3_extended_errcode(m_database)))
-		{
-			Execute(m_database, "ROLLBACK");
-			return { false, false, 0, 0, "Duplicate execution signal; reconcile the original order" };
-		}
-		if (SQLITE_DONE != result)
-		{
-			throw std::runtime_error(sqlite3_errmsg(m_database));
-		}
-		intent.m_clientOrderId = sqlite3_last_insert_rowid(m_database);
+		Done(m_database.get(), statement.get());
+		intent.m_clientOrderId = m_database->Scalar("SELECT LAST_INSERT_ID()");
 		CExecutionRecord record;
 		record.m_intent = intent;
 		record.m_reservedMoney = maximumDebit;
 		record.m_message = "Prepared before send";
 		// Allocate before commit so allocation failure cannot lose a durable hold.
 		m_records.emplace(intent.m_clientOrderId, std::move(record));
-		Execute(m_database, "COMMIT");
+		Execute(m_database.get(), "COMMIT");
 		return { true, false, intent.m_clientOrderId, 0, "Execution persisted; ready to send" };
 	}
 	catch (const std::exception& error)
 	{
-		sqlite3_exec(m_database, "ROLLBACK", nullptr, nullptr, nullptr);
+		m_database->Rollback();
 		m_bHealthy = false;
 		m_strLastError = error.what();
 		return { false, false, 0, 0, "Execution journal failed: " + m_strLastError };
@@ -390,14 +574,14 @@ bool CStrategyExecution::MarkSubmission(std::uint64_t clientId, bool queued, boo
 	{
 		try
 		{
-			_TyStatement statement = Statement(m_database, "SELECT state FROM execution WHERE client_id=?");
+			_TyStatement statement = Statement(m_database.get(), "SELECT state FROM table_strategy_execution WHERE client_id=?");
 			Bind(statement.get(), 1, static_cast<std::int64_t>(clientId));
-			int result = sqlite3_step(statement.get());
-			if ((SQLITE_ROW != result) && (SQLITE_DONE != result))
+			StatementResult result = Step(statement.get());
+			if ((StatementResult::Row != result) && (StatementResult::Done != result))
 			{
-				throw std::runtime_error(sqlite3_errmsg(m_database));
+				throw std::runtime_error("MySQL execution operation failed");
 			}
-			return (SQLITE_ROW == result) && ((static_cast<int>(ExecutionState::Closed) == sqlite3_column_int(statement.get(), 0)) || (static_cast<int>(ExecutionState::NotSent) == sqlite3_column_int(statement.get(), 0)));
+			return (StatementResult::Row == result) && ((static_cast<int>(ExecutionState::Closed) == ReadInteger(statement.get(), 0)) || (static_cast<int>(ExecutionState::NotSent) == ReadInteger(statement.get(), 0)));
 		}
 		catch (const std::exception& error)
 		{
@@ -596,12 +780,12 @@ bool CStrategyExecution::LockBuys(const _TyAccount& account, const CSecurity& se
 	try
 	{
 		_TyLockKey key{ account, security.String(), ownerId };
-		_TyStatement statement = Statement(m_database, "INSERT OR IGNORE INTO protection(account,security,owner_id,reason) VALUES(?,?,?,?)");
+		_TyStatement statement = Statement(m_database.get(), "INSERT INTO table_strategy_protection(account,security,owner_id,reason) VALUES(?,?,?,?) ON DUPLICATE KEY UPDATE owner_id=owner_id");
 		Bind(statement.get(), 1, EncodeAccount(account));
 		Bind(statement.get(), 2, security.String());
 		Bind(statement.get(), 3, static_cast<std::int64_t>(ownerId));
 		Bind(statement.get(), 4, reason);
-		Done(m_database, statement.get());
+		Done(m_database.get(), statement.get());
 		m_locks.try_emplace(std::move(key), reason);
 		return true;
 	}
@@ -633,11 +817,11 @@ bool CStrategyExecution::UnlockBuys(const _TyAccount& account, const CSecurity& 
 	}
 	try
 	{
-		_TyStatement statement = Statement(m_database, "DELETE FROM protection WHERE account=? AND security=? AND owner_id=?");
+		_TyStatement statement = Statement(m_database.get(), "DELETE FROM table_strategy_protection WHERE account=? AND security=? AND owner_id=?");
 		Bind(statement.get(), 1, EncodeAccount(account));
 		Bind(statement.get(), 2, security.String());
 		Bind(statement.get(), 3, static_cast<std::int64_t>(ownerId));
-		Done(m_database, statement.get());
+		Done(m_database.get(), statement.get());
 		m_locks.erase(_TyLockKey{ account, security.String(), ownerId });
 		return true;
 	}
@@ -658,8 +842,8 @@ std::uint64_t CStrategyExecution::AllocateSignal()
 	}
 	try
 	{
-		Execute(m_database, "INSERT INTO signal_sequence DEFAULT VALUES");
-		return sqlite3_last_insert_rowid(m_database);
+		Execute(m_database.get(), "INSERT INTO table_strategy_signal_sequence() VALUES()");
+		return m_database->Scalar("SELECT LAST_INSERT_ID()");
 	}
 	catch (const std::exception& error)
 	{
@@ -676,24 +860,24 @@ std::optional<CExecutionRecord> CStrategyExecution::FindExecution(std::uint64_t 
 	{
 		return std::nullopt;
 	}
-	_TyStatement statement = Statement(m_database, "SELECT state,order_id,message,filled,broker_status FROM execution WHERE client_id=?");
+	_TyStatement statement = Statement(m_database.get(), "SELECT state,order_id,message,filled,broker_status FROM table_strategy_execution WHERE client_id=?");
 	Bind(statement.get(), 1, static_cast<std::int64_t>(clientId));
-	int result = sqlite3_step(statement.get());
-	if (SQLITE_DONE == result)
+	StatementResult result = Step(statement.get());
+	if (StatementResult::Done == result)
 	{
 		return std::nullopt;
 	}
-	if (SQLITE_ROW != result)
+	if (StatementResult::Row != result)
 	{
-		throw std::runtime_error(sqlite3_errmsg(m_database));
+		throw std::runtime_error("MySQL execution operation failed");
 	}
 	CExecutionRecord record;
 	record.m_intent.m_clientOrderId = clientId;
-	record.m_state = static_cast<ExecutionState>(sqlite3_column_int(statement.get(), 0));
-	record.m_orderId = sqlite3_column_int64(statement.get(), 1);
+	record.m_state = static_cast<ExecutionState>(ReadInteger(statement.get(), 0));
+	record.m_orderId = ReadInteger(statement.get(), 1);
 	record.m_message = ReadText(statement.get(), 2);
-	record.m_filledQuantity = sqlite3_column_int64(statement.get(), 3);
-	record.m_brokerStatus = static_cast<trade::Status>(sqlite3_column_int(statement.get(), 4));
+	record.m_filledQuantity = ReadInteger(statement.get(), 3);
+	record.m_brokerStatus = static_cast<trade::Status>(ReadInteger(statement.get(), 4));
 	return record;
 }
 
@@ -704,16 +888,16 @@ std::string CStrategyExecution::LoadCheckpoint(_TyStrategyId id) const
 	{
 		throw std::runtime_error("Execution journal is unavailable");
 	}
-	_TyStatement statement = Statement(m_database, "SELECT data FROM checkpoint WHERE strategy_id=?");
+	_TyStatement statement = Statement(m_database.get(), "SELECT data FROM table_strategy_checkpoint WHERE strategy_id=?");
 	Bind(statement.get(), 1, static_cast<std::int64_t>(id));
-	int result = sqlite3_step(statement.get());
-	if (SQLITE_DONE == result)
+	StatementResult result = Step(statement.get());
+	if (StatementResult::Done == result)
 	{
 		return {};
 	}
-	if (SQLITE_ROW != result)
+	if (StatementResult::Row != result)
 	{
-		throw std::runtime_error(sqlite3_errmsg(m_database));
+		throw std::runtime_error("MySQL execution operation failed");
 	}
 	return ReadText(statement.get(), 0);
 }
@@ -727,20 +911,20 @@ bool CStrategyExecution::SaveCheckpoint(_TyStrategyId id, const _TyAccount& acco
 	}
 	try
 	{
-		Execute(m_database, "BEGIN IMMEDIATE");
-		_TyStatement statement = Statement(m_database, "INSERT INTO checkpoint(strategy_id,data) VALUES(?,?) ON CONFLICT(strategy_id) DO UPDATE SET data=excluded.data");
+		Execute(m_database.get(), "START TRANSACTION");
+		_TyStatement statement = Statement(m_database.get(), "INSERT INTO table_strategy_checkpoint(strategy_id,data) VALUES(?,?) ON DUPLICATE KEY UPDATE data=VALUES(data)");
 		Bind(statement.get(), 1, static_cast<std::int64_t>(id));
 		Bind(statement.get(), 2, data);
-		Done(m_database, statement.get());
+		Done(m_database.get(), statement.get());
 		if (protect)
 		{
-			statement = Statement(m_database, "INSERT OR IGNORE INTO protection(account,security,owner_id,reason) VALUES(?,?,?,'Protection exit')");
+			statement = Statement(m_database.get(), "INSERT INTO table_strategy_protection(account,security,owner_id,reason) VALUES(?,?,?,'Protection exit') ON DUPLICATE KEY UPDATE owner_id=owner_id");
 			Bind(statement.get(), 1, EncodeAccount(account));
 			Bind(statement.get(), 2, security.String());
 			Bind(statement.get(), 3, static_cast<std::int64_t>(id));
-			Done(m_database, statement.get());
+			Done(m_database.get(), statement.get());
 		}
-		Execute(m_database, "COMMIT");
+		Execute(m_database.get(), "COMMIT");
 		if (protect)
 		{
 			m_locks.try_emplace(_TyLockKey{ account, security.String(), id }, "Protection exit");
@@ -749,7 +933,7 @@ bool CStrategyExecution::SaveCheckpoint(_TyStrategyId id, const _TyAccount& acco
 	}
 	catch (const std::exception& error)
 	{
-		sqlite3_exec(m_database, "ROLLBACK", nullptr, nullptr, nullptr);
+		m_database->Rollback();
 		m_bHealthy = false;
 		m_strLastError = error.what();
 		return false;
@@ -770,11 +954,11 @@ bool CStrategyExecution::ClaimExit(const _TyAccount& account, const CSecurity& s
 	}
 	try
 	{
-		_TyStatement statement = Statement(m_database, "INSERT INTO exit_owner(account,security,owner_id) VALUES(?,?,?)");
+		_TyStatement statement = Statement(m_database.get(), "INSERT INTO table_strategy_exit_owner(account,security,owner_id) VALUES(?,?,?)");
 		Bind(statement.get(), 1, EncodeAccount(account));
 		Bind(statement.get(), 2, security.String());
 		Bind(statement.get(), 3, static_cast<std::int64_t>(id));
-		Done(m_database, statement.get());
+		Done(m_database.get(), statement.get());
 		m_exitOwners.emplace(std::make_pair(account, security.String()), id);
 		return true;
 	}
@@ -802,11 +986,11 @@ bool CStrategyExecution::ReleaseExit(const _TyAccount& account, const CSecurity&
 	}
 	try
 	{
-		_TyStatement statement = Statement(m_database, "DELETE FROM exit_owner WHERE account=? AND security=? AND owner_id=?");
+		_TyStatement statement = Statement(m_database.get(), "DELETE FROM table_strategy_exit_owner WHERE account=? AND security=? AND owner_id=?");
 		Bind(statement.get(), 1, EncodeAccount(account));
 		Bind(statement.get(), 2, security.String());
 		Bind(statement.get(), 3, static_cast<std::int64_t>(id));
-		Done(m_database, statement.get());
+		Done(m_database.get(), statement.get());
 		const auto mIter = m_exitOwners.find({ account, security.String() });
 		if ((m_exitOwners.end() != mIter) && (id == mIter->second))
 		{
@@ -853,19 +1037,19 @@ std::optional<CExecutionRecord> CStrategyExecution::FindSignal(_TyStrategyId id,
 		{
 			return std::nullopt;
 		}
-		_TyStatement statement = Statement(m_database, "SELECT client_id FROM execution WHERE strategy_id=? AND signal_id=?");
+		_TyStatement statement = Statement(m_database.get(), "SELECT client_id FROM table_strategy_execution WHERE strategy_id=? AND signal_id=?");
 		Bind(statement.get(), 1, static_cast<std::int64_t>(id));
 		Bind(statement.get(), 2, static_cast<std::int64_t>(signalId));
-		int result = sqlite3_step(statement.get());
-		if (SQLITE_DONE == result)
+		StatementResult result = Step(statement.get());
+		if (StatementResult::Done == result)
 		{
 			return std::nullopt;
 		}
-		if (SQLITE_ROW != result)
+		if (StatementResult::Row != result)
 		{
-			throw std::runtime_error(sqlite3_errmsg(m_database));
+			throw std::runtime_error("MySQL execution operation failed");
 		}
-		client = sqlite3_column_int64(statement.get(), 0);
+		client = ReadInteger(statement.get(), 0);
 	}
 	return FindExecution(client);
 }

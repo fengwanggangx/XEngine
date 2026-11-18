@@ -90,6 +90,15 @@ bool CBootLoader::Initialize()
 		return false;
 	}
 
+	// Keep the configured business pool capacity available after reserving execution's session.
+	db.reset();
+	if (0 != CDBEngine::InstanceRef().Initialize(db::em_database::mysql, dbParam, 1))
+	{
+		m_nErrorCode = 3;
+		m_strLastError = "Failed to reserve MySQL strategy execution connection";
+		return false;
+	}
+
 	int nTcpPort = hIni.GetInt(ini::Config::System, "System", "tcp_port");
 	int nHttpPort = hIni.GetInt(ini::Config::System, "System", "http_port");
 	if ((nTcpPort <= 0) || (nHttpPort <= 0))

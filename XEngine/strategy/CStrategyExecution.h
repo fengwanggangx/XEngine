@@ -2,13 +2,14 @@
 
 #include "../trade/StrategyAccountView.h"
 
-#include <filesystem>
+#include "../database/CODBC.h"
+#include <memory>
 #include <map>
 #include <mutex>
 #include <optional>
 #include <tuple>
 
-struct sqlite3;
+class CExecutionDatabase;
 
 enum class ExecutionState
 {
@@ -34,20 +35,20 @@ struct CExecutionRecord
 	trade::Status m_brokerStatus{ trade::Status::Unknown };
 };
 
-// One journal has one owning engine. No network calls are made under its lock.
-// SQLite commit must succeed before the caller is allowed to send an order.
+// One MySQL session owns execution admission for the database.
+// A durable transaction must commit before the caller may send an order.
 class CStrategyExecution final
 {
 public:
-	CStrategyExecution() = default;
+	CStrategyExecution();
 	~CStrategyExecution();
 	CStrategyExecution(const CStrategyExecution& arg) = delete;
 	CStrategyExecution& operator=(const CStrategyExecution& arg) = delete;
 
-	bool Open(const std::filesystem::path& path);
+	bool Open(db::_TyDBPtr connection);
 	std::string GetLastError() const;
 	bool HasUnresolved(_TyStrategyId strategyId) const;
-	// Pending in-memory executions only; terminal history remains in SQLite.
+	// Pending in-memory executions only; terminal history remains in MySQL.
 	std::vector<CExecutionRecord> GetRecords() const;
 	bool Reconcile(const _TyAccount& account, const CStrategyAccountView& view);
 	bool MarkSubmission(std::uint64_t clientId, bool queued, bool definitelyNotSent = false);
@@ -75,7 +76,7 @@ private:
 	static bool IsUnresolved(ExecutionState state);
 
 	mutable std::mutex m_mtx_state;
-	sqlite3* m_database{ nullptr };
+	std::unique_ptr<CExecutionDatabase> m_database;
 	bool m_bHealthy{ false };
 	std::string m_strLastError;
 	std::map<std::uint64_t, CExecutionRecord> m_records;
