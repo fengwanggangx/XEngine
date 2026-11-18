@@ -98,7 +98,7 @@ class CServiceRoutingTests
 
 		CQuoteInfo quote("600519", Exchange::sse, Channel::quote);
 		CStrategyConfig cfg;
-		cfg.m_strategyId = 42;
+		cfg.m_id = 42;
 		cfg.m_subscriptions = { quote };
 		strategies.AddRoutes(cfg);
 		Check(market.HasDemand(quote), "strategy routes acquire shared HQ demand");

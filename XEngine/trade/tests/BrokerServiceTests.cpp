@@ -149,7 +149,7 @@ class CBrokerServiceTests
 		CStrategyService strategies(nullptr, &service, &accounts, indicator);
 		std::shared_ptr<CStrategyRuntime> runtime = std::make_shared<CStrategyRuntime>();
 		runtime->m_instanceId = 11;
-		runtime->m_config.m_strategyId = 7;
+		runtime->m_config.m_id = 7;
 		runtime->m_config.m_account = TestAccount(1);
 		runtime->m_config.m_eventQueueLimit = 100;
 		runtime->m_state.store(StrategyState::Stopped);

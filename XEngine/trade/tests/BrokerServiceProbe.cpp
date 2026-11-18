@@ -45,7 +45,7 @@ int main(int nArgs, char** pArgs)
 	accounts.SetAccountStateHandler(std::bind_front(&CTradeService::OnAccountState, &client));
 	client.SetEventHandler([&nEvents, &bTradeCorrelated](const trade::CCounterEvent& event)
 	{
-		if (trade::EventTy::Deal == event.m_kind && 700 == event.m_order.m_clientId && 77 == event.m_order.m_strategyId)
+		if (trade::EventTy::Deal == event.m_kind && 700 == event.m_order.m_clientId && 77 == event.m_order.m_id)
 		{
 			bTradeCorrelated.store(true);
 		}
@@ -72,7 +72,7 @@ int main(int nArgs, char** pArgs)
 	request.m_requestId = 700;
 	std::get<trade::CSubmitParam>(request.m_param).m_order.m_clientId = 700;
 	std::get<trade::CSubmitParam>(request.m_param).m_order.m_account = account;
-	std::get<trade::CSubmitParam>(request.m_param).m_order.m_strategyId = 77;
+	std::get<trade::CSubmitParam>(request.m_param).m_order.m_id = 77;
 	std::get<trade::CSubmitParam>(request.m_param).m_order.m_signalId = 78;
 	std::get<trade::CSubmitParam>(request.m_param).m_order.m_strSecurity = "600000.SSE";
 	std::get<trade::CSubmitParam>(request.m_param).m_order.m_nPrice = 1000;
