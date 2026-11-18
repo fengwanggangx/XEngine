@@ -18,7 +18,6 @@
 #include "strategies/CDualMaCrossStrategy.h"
 
 #include <algorithm>
-#include <charconv>
 #include <chrono>
 #include <exception>
 #include <limits>
@@ -36,19 +35,7 @@ namespace
 		return CQuoteInfo(security.symbol(), static_cast<Exchange>(static_cast<int>(security.exchange())), channel);
 	}
 
-	bool ParseUnsigned(const std::string& strValue, std::uint64_t& value)
-	{
-		if (strValue.empty())
-		{
-			return false;
-		}
-		const char* pBegin = strValue.data();
-		const char* pEnd = pBegin + strValue.size();
-		std::from_chars_result result = std::from_chars(pBegin, pEnd, value);
-		return (std::errc() == result.ec) && (pEnd == result.ptr);
-	}
-
-	bool ParseParameters(const std::string& strJson, CStrategyConfig& config)
+	bool ParseParameters(const std::string& strJson, CStrategyConfig& cfg)
 	{
 		rapidjson::Document document;
 		document.Parse(strJson.c_str());
@@ -87,12 +74,12 @@ namespace
 			{
 				return false;
 			}
-			config.m_params.emplace(std::string(mIter->name.GetString(), mIter->name.GetStringLength()), std::move(strValue));
+			cfg.m_params.emplace(std::string(mIter->name.GetString(), mIter->name.GetStringLength()), std::move(strValue));
 		}
 		return true;
 	}
 
-	bool ParseSubscriptions(const std::string& strJson, CStrategyConfig& config)
+	bool ParseSubscriptions(const std::string& strJson, CStrategyConfig& cfg)
 	{
 		rapidjson::Document document;
 		document.Parse(strJson.c_str());
@@ -100,7 +87,7 @@ namespace
 		{
 			return false;
 		}
-		config.m_subscriptions.reserve(document.Size());
+		cfg.m_subscriptions.reserve(document.Size());
 		for (const auto& item : document.GetArray())
 		{
 			if (!item.IsObject() || !item.HasMember("security") || !item["security"].IsString() || !item.HasMember("exchange") || !item["exchange"].IsString() || !item.HasMember("channel") || !item["channel"].IsString())
@@ -112,24 +99,9 @@ namespace
 			{
 				return false;
 			}
-			config.m_subscriptions.emplace_back(std::move(quote));
+			cfg.m_subscriptions.emplace_back(std::move(quote));
 		}
-		return !config.m_subscriptions.empty();
-	}
-
-	bool ParseFlag(const std::string& strValue, bool& bValue)
-	{
-		if (("1" == strValue) || ("true" == strValue))
-		{
-			bValue = true;
-			return true;
-		}
-		if (("0" == strValue) || ("false" == strValue))
-		{
-			bValue = false;
-			return true;
-		}
-		return false;
+		return !cfg.m_subscriptions.empty();
 	}
 
 	bool MakeStrategyConfig(const request::StrategyInfo& info, CStrategyConfig& cfg)
@@ -200,10 +172,8 @@ namespace
 		}
 		std::uint64_t id = 0;
 		std::uint64_t queueLimit = 0;
-		bool bAutoStart = false;
-		bool bEnabled = false;
 		CStrategyConfig cfg;
-		if ((9 != row.size()) || !ParseUnsigned(row[0], id) || !ParseUnsigned(row[5], queueLimit) || !ParseFlag(row[6], bAutoStart) || !ParseFlag(row[7], bEnabled) || !ParseParameters(row[3], cfg) || !ParseSubscriptions(row[4], cfg))
+		if ((9 != row.size()) || !utility::to_number(row[0], id) || !utility::to_number(row[5], queueLimit) || !ParseParameters(row[3], cfg) || !ParseSubscriptions(row[4], cfg))
 		{
 			return false;
 		}
@@ -216,8 +186,8 @@ namespace
 		info.set_strategy_type(row[1]);
 		info.set_strategy_name(row[2]);
 		info.set_event_queue_limit(static_cast<std::uint32_t>(queueLimit));
-		info.set_auto_start(bAutoStart);
-		info.set_enabled(bEnabled);
+		info.set_auto_start("1" == row[6]);
+		info.set_enabled("1" == row[7]);
 		for (const auto& [strKey, strValue] : cfg.m_params)
 		{
 			(*info.mutable_parameters())[strKey] = strValue;
@@ -290,9 +260,9 @@ bool CStrategyService::Initialize()
 		return false;
 	}
 	m_pTradeService->SetStrategyReplyHandler(std::bind_front(static_cast<void (CStrategyService::*)(const CRequest&, const trade::CCounterReply&)>(&CStrategyService::OnReply), this));
-	m_pTradeService->SetEventHandler(std::bind_front(&CStrategyService::OnTradingEvent, this));
+	m_pTradeService->SetEventHandler(std::bind_front(static_cast<void (CStrategyService::*)(const trade::CCounterEvent&)>(&CStrategyService::OnTradeEvent), this));
 	m_pTradeService->SetAccountReadyHandler(std::bind_front(&CStrategyService::OnAccountReady, this));
-	return LoadStrategies();
+	return LoadStrategy();
 }
 
 bool CStrategyService::BeginAccountUse(const _TyAccount& account, _TyStrategyId strategyId)
@@ -384,7 +354,7 @@ void CStrategyService::OnReply(const CRequest& origin, const trade::CCounterRepl
 	EnqueueEvent(runtime, std::move(strategyEvent));
 }
 
-void CStrategyService::OnTradingEvent(const trade::CCounterEvent& event)
+void CStrategyService::OnTradeEvent(const trade::CCounterEvent& event)
 {
 	if (trade::EventTy::Order == event.m_kind)
 	{
@@ -480,7 +450,7 @@ bool CStrategyService::AddStrategy(const CRequest& req)
 		info.set_event_queue_limit(4096);
 	}
 	CStrategyConfig cfg;
-	if (!MakeStrategyConfig(info, cfg) || (nullptr == CreateStrategy(info.strategy_type())))
+	if (!MakeStrategyConfig(info, cfg) || (nullptr == std::unique_ptr<IStrategy>(CreateStrategy(info.strategy_type()))))
 	{
 		net::SendError(req.GetConnectionId(), req, 1103, "invalid strategy configuration");
 		return false;
@@ -499,7 +469,7 @@ bool CStrategyService::AddStrategy(const CRequest& req)
 	}
 	const db::CTable& idTable = pDB->ExecQuery("SELECT LAST_INSERT_ID()");
 	std::uint64_t id = 0;
-	if (idTable.m_rows.empty() || idTable.m_rows.front().empty() || !ParseUnsigned(db::to_string(idTable.m_rows.front().front()), id))
+	if (idTable.m_rows.empty() || idTable.m_rows.front().empty() || !utility::to_number(db::to_string(idTable.m_rows.front().front()), id))
 	{
 		net::SendError(req.GetConnectionId(), req, 1106, "failed to obtain strategy id");
 		return false;
@@ -555,7 +525,7 @@ bool CStrategyService::ModifyStrategy(const CRequest& req)
 		info.set_event_queue_limit(4096);
 	}
 	CStrategyConfig cfg;
-	if (!MakeStrategyConfig(info, cfg) || (nullptr == CreateStrategy(info.strategy_type())))
+	if (!MakeStrategyConfig(info, cfg) || (nullptr == std::unique_ptr<IStrategy>(CreateStrategy(info.strategy_type()))))
 	{
 		net::SendError(req.GetConnectionId(), req, 1103, "invalid strategy configuration");
 		return false;
@@ -655,7 +625,7 @@ bool CStrategyService::QueryStrategies(const CRequest& req) const
 bool CStrategyService::DeleteStrategy(const CRequest& req)
 {
 	std::uint64_t id = 0;
-	if (!ParseUnsigned(req.GetExtraData("strategy_id"), id) || (0 == id))
+	if (!utility::to_number(req.GetExtraData("strategy_id"), id) || (0 == id))
 	{
 		net::SendError(req.GetConnectionId(), req, 1103, "invalid strategy id");
 		return false;
@@ -730,7 +700,7 @@ bool CStrategyService::QueryRuntime(const CRequest& req) const
 bool CStrategyService::ControlStrategy(const CRequest& req)
 {
 	std::uint64_t id = 0;
-	if (!ParseUnsigned(req.GetExtraData("strategy_id"), id) || (0 == id))
+	if (!utility::to_number(req.GetExtraData("strategy_id"), id) || (0 == id))
 	{
 		net::SendError(req.GetConnectionId(), req, 1103, "invalid strategy id");
 		return false;
@@ -761,7 +731,7 @@ const std::string& CStrategyService::GetLastError() const
 	return m_strLastError;
 }
 
-bool CStrategyService::LoadStrategies()
+bool CStrategyService::LoadStrategy()
 {
 	db::_TyDBPtr pDB = CDBEngine::InstanceRef().GetDBPtr(db::em_database::mysql);
 	if (nullptr == pDB)
@@ -789,7 +759,7 @@ bool CStrategyService::LoadStrategies()
 		std::uint64_t id = 0;
 		std::uint64_t eventQueueLimit = 0;
 		std::uint64_t autoStart = 0;
-		if (!ParseUnsigned(row[0], id) || !ParseUnsigned(row[5], eventQueueLimit) || !ParseUnsigned(row[6], autoStart))
+		if (!utility::to_number(row[0], id) || !utility::to_number(row[5], eventQueueLimit) || !utility::to_number(row[6], autoStart))
 		{
 			m_strLastError = "table_strategy contains invalid numeric fields";
 			return false;
@@ -813,11 +783,11 @@ bool CStrategyService::LoadStrategies()
 	return true;
 }
 
-std::unique_ptr<IStrategy> CStrategyService::CreateStrategy(const std::string& strType) const
+IStrategy* CStrategyService::CreateStrategy(const std::string& strType) const
 {
 	if ("dual_ma_cross" == strType)
 	{
-		return std::make_unique<CDualMaCrossStrategy>(m_indicator);
+		return new CDualMaCrossStrategy(m_indicator);
 	}
 	return nullptr;
 }
@@ -828,7 +798,7 @@ bool CStrategyService::CreateStrategy(const CStrategyConfig& cfg)
 	{
 		return false;
 	}
-	std::unique_ptr<IStrategy> strategy = CreateStrategy(cfg.m_strType);
+	std::unique_ptr<IStrategy> strategy(CreateStrategy(cfg.m_strType));
 	if (nullptr == strategy)
 	{
 		return false;

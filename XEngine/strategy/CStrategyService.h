@@ -119,7 +119,7 @@ public:
 	bool OnRequest(const CRequest& req);
 	bool RemoveStrategy(_TyStrategyId id);
 	bool CreateStrategy(const CStrategyConfig& config);
-	std::unique_ptr<IStrategy> CreateStrategy(const std::string& strType) const;
+	IStrategy* CreateStrategy(const std::string& strType) const;
 
 	const std::string& GetLastError() const;
 
@@ -144,13 +144,13 @@ private:
 	void OnOrderEvent(const COrderEvent& ev);
 	void OnTradeEvent(const CTradeEvent& ev);
 	void OnAccountReady(const _TyAccount& account);
-	void OnTradingEvent(const trade::CCounterEvent& event);
+	void OnTradeEvent(const trade::CCounterEvent& event);
 	void EndAccountUse(const _TyAccount& account, _TyStrategyId strategyId);
 	bool BeginAccountUse(const _TyAccount& account, _TyStrategyId strategyId);
 	COrderSubmitResult SubmitTradingOrder(const COrderIntent& intent, const std::shared_ptr<CStrategyRuntime>& runtime);
 
 private:
-	bool LoadStrategies();
+	bool LoadStrategy();
 	bool AddStrategy(const CRequest& req);
 	bool ModifyStrategy(const CRequest& req);
 	bool DeleteStrategy(const CRequest& req);
