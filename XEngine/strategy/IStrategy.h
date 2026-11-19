@@ -5,6 +5,7 @@
 
 class IStrategyContext;
 
+// 定义策略初始化、启停及行情、委托、成交等事件回调接口。
 class IStrategy
 {
 	public:

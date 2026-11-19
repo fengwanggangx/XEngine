@@ -2,7 +2,7 @@
 #define XENGINE_STRATEGY_CSTRATEGYSERVICE_H
 
 #include "IStrategy.h"
-#include "CStrategyExecution.h"
+#include "CStrategyExecutionManager.h"
 #include "../trade/TradeTypes.h"
 
 #include <atomic>
@@ -47,6 +47,7 @@ enum class StrategyEventType
 
 using _TyStrategyEventData = std::variant<std::monostate, _TyQuoteData, _TyDepthData, _TyMarketTradeData, _TyBarData, COrderEvent, CTradeEvent, CTimerEvent, std::vector<_TyBarData>, bool>;
 
+// 封装策略控制、行情、交易及历史事件，支持排队分发和完成通知。
 struct CStrategyEvent
 {
 	CStrategyEvent();
@@ -60,18 +61,20 @@ struct CStrategyEvent
 	bool IsMarketEvent() const;
 };
 
-struct CStrategyLeg
+// 持有单只股票对应的策略对象和上下文，隔离该股票的业务状态。
+struct CStrategyStockInstance
 {
 	CSecurity m_security;
-	std::unique_ptr<CStrategyContext> m_context;
-	std::unique_ptr<IStrategy> m_strategy;
+	std::unique_ptr<CStrategyContext> m_pContext;
+	std::unique_ptr<IStrategy> m_pStrategy;
 };
 
+// 保存一份策略配置的股票实例、生命周期、事件队列、活动订单及运行指标。
 struct CStrategyRuntime
 {
-	std::uint64_t m_instanceId{ 0 };
+	std::uint64_t m_instance_id{ 0 };
 	CStrategyConfig m_config;
-	std::vector<CStrategyLeg> m_legs;
+	std::vector<CStrategyStockInstance> m_securities;
 	std::atomic<StrategyState> m_state{ StrategyState::Created };
 	std::atomic_bool m_bAcceptMarketEvents{ false };
 	std::atomic_bool m_bRemoving{ false };
@@ -96,6 +99,7 @@ struct CStrategyRuntime
 	std::map<std::string, std::pair<std::string, std::string>> m_securityDetails;
 };
 
+// 以策略 ID 和信号 ID 唯一标识策略信号。
 struct CSignalKey
 {
 	_TyStrategyId m_id{ 0 };
@@ -104,6 +108,7 @@ struct CSignalKey
 	bool operator==(const CSignalKey& arg) const;
 };
 
+// 为策略信号组合键提供哈希计算。
 struct CSignalKeyHash
 {
 	std::size_t operator()(const CSignalKey& key) const;
@@ -116,6 +121,7 @@ enum class SignalState
 	Rejected
 };
 
+// 管理策略加载与生命周期、按证券创建实例、串行调度事件，并路由行情和交易回报。
 class CStrategyService final
 {
 	friend class CStrategyContext;
@@ -196,7 +202,7 @@ private:
 	std::map<_TyAccount, std::unordered_set<_TyStrategyId>> m_runningStrategies;
 	std::mutex m_mtx_operations;
 	CIndicator& m_indicator;
-	CStrategyExecution m_execution;
+	CStrategyExecutionManager m_execution;
 	CHQService* m_pHQService{ nullptr };
 	// Borrowed from CBootLoader; trading callbacks are stopped before destruction.
 	CTradeService* m_pTradeService{ nullptr };
@@ -219,7 +225,7 @@ private:
 	std::mutex m_mtx_handlers;
 	std::vector<_TyStateHandler> m_stateHandlers;
 
-	std::atomic_uint64_t m_nextInstanceId{ 1 };
+	std::atomic_uint64_t m_instance_id{ 1 };
 	std::atomic_bool m_bMarketAvailable{ false };
 	std::atomic_bool m_bStopping{ false };
 	std::string m_strLastError;

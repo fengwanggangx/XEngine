@@ -182,7 +182,7 @@ namespace
 			Check(m_execution.Reconcile(Account(), GetTradingSnapshot(Security())), "reconcile completed order");
 			strategy.OnOrder({});
 		}
-		mutable CStrategyExecution m_execution;
+		mutable CStrategyExecutionManager m_execution;
 		trade::CAccountData m_data;
 		trade::CExecutionRule m_rules;
 		bool m_rulesAvailable{ true };

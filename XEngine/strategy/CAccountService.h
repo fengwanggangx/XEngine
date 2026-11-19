@@ -11,6 +11,7 @@
 #include <vector>
 #include <unordered_map>
 
+// 管理账户目录、登录连接状态、策略使用占用及退出保护。
 class CAccountService final
 {
 	friend class CServiceRoutingTests;

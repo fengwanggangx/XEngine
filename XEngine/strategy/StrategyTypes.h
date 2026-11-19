@@ -44,6 +44,7 @@ enum class LogLevel
 	Error
 };
 
+// 保存策略身份、类型、参数、账户、行情订阅及运行配置。
 struct CStrategyConfig
 {
 	_TyAccount m_account{};
@@ -59,6 +60,7 @@ struct CStrategyConfig
 	bool IsValid() const;
 };
 
+// 携带策略定时回调的事件数据。
 struct CTimerEvent
 {
 	_TyTimerId m_timerId{ 0 };
@@ -66,6 +68,7 @@ struct CTimerEvent
 	bool m_zeroPosition{ false };
 };
 
+// 汇总策略生命周期、业务状态、错误及运行指标，供查询和状态通知使用。
 struct CStrategySnapshot
 {
 	_TyStrategyId m_id{ 0 };

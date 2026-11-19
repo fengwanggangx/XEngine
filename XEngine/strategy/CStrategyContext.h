@@ -9,6 +9,7 @@
 class CStrategyService;
 class CTradeService;
 
+// 绑定策略、账户和证券，向具体策略提供报撤单、快照查询、检查点及退出协调能力。
 class CStrategyContext final : public IStrategyContext
 {
 public:

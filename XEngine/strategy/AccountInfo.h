@@ -11,6 +11,7 @@ enum class TradeAccountState
 	Reconnecting
 };
 
+// 保存交易账户的身份、展示信息、连接状态及最近错误。
 struct CAccountInfo
 {
 	std::uint64_t m_brokerId{ 0 };

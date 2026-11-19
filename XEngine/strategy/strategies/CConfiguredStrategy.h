@@ -6,6 +6,7 @@
 
 class CIndicator;
 
+// 实现内置策略共用的参数校验、业务状态机、信号下单、退出任务及检查点恢复。
 class CConfiguredStrategy : public IStrategy
 {
 public:
@@ -42,7 +43,7 @@ private:
 	std::string m_signature;
 	strategy::Kind m_kind;
 	strategy::CSettings m_settings;
-	IStrategyContext* m_context{ nullptr };
+	IStrategyContext* m_pContext{ nullptr };
 	CStrategyConfig m_config;
 	CSecurity m_security;
 	std::string m_phase{ "监控" };

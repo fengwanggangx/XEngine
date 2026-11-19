@@ -26,7 +26,7 @@ else()
  endif()
 endif()
 add_executable(strategy_execution_tests StrategyExecutionTests.cpp
- ../CStrategyExecution.cpp ../../trade/StrategyAccountView.cpp ../../trade/TradingTypes.cpp ../../request/MarketTypes.cpp)
+ ../CStrategyExecutionManager.cpp ../../trade/StrategyAccountView.cpp ../../trade/TradingTypes.cpp ../../request/MarketTypes.cpp)
 target_compile_features(strategy_execution_tests PRIVATE cxx_std_20)
 target_link_libraries(strategy_execution_tests PRIVATE strategy_test_database Threads::Threads)
 if(MSVC)
@@ -51,7 +51,7 @@ elseif(WIN32)
  set_property(TARGET strategy_test_indicators PROPERTY C_STANDARD 11)
  add_executable(strategy_behavior_tests StrategyBehaviorTests.cpp
   ../strategies/CConfiguredStrategy.cpp ../strategies/CDualMaCrossStrategy.cpp
-  ../CStrategyExecution.cpp ../../trade/StrategyAccountView.cpp ../../trade/TradingTypes.cpp
+  ../CStrategyExecutionManager.cpp ../../trade/StrategyAccountView.cpp ../../trade/TradingTypes.cpp
   ../../request/MarketTypes.cpp ../../request/v1/market.pb.cc)
  target_compile_features(strategy_behavior_tests PRIVATE cxx_std_20)
  target_compile_definitions(strategy_behavior_tests PRIVATE PROTOBUF_USE_DLLS NOMINMAX)

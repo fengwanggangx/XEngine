@@ -190,6 +190,6 @@ void CStrategyContext::PublishBusiness(const std::string& phase, const std::stri
 	}
 	writer.EndObject();
 	writer.EndObject();
-	runtime->m_businessState = std::to_string(runtime->m_legs.size());
+	runtime->m_businessState = std::to_string(runtime->m_securities.size());
 	runtime->m_detailsJson.assign(buffer.GetString(), buffer.GetSize());
 }

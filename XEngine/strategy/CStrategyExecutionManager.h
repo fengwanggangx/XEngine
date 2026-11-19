@@ -2,7 +2,7 @@
 
 #include "../trade/StrategyAccountView.h"
 
-#include "../database/CODBC.h"
+#include "../database/CDBEngine.h"
 #include <memory>
 #include <map>
 #include <mutex>
@@ -22,6 +22,7 @@ enum class ExecutionState
 	NotSent = 6
 };
 
+// 保存交易意图、执行阶段、资源预留及柜台订单核对结果。
 struct CExecutionRecord
 {
 	COrderIntent m_intent;
@@ -37,15 +38,20 @@ struct CExecutionRecord
 
 // One MySQL session owns execution admission for the database.
 // A durable transaction must commit before the caller may send an order.
-class CStrategyExecution final
+// 管理交易执行准入、资源预留、执行核对、检查点和退出保护，持久化后才允许发单。
+class CStrategyExecutionManager final
 {
 public:
-	CStrategyExecution();
-	~CStrategyExecution();
-	CStrategyExecution(const CStrategyExecution& arg) = delete;
-	CStrategyExecution& operator=(const CStrategyExecution& arg) = delete;
+	CStrategyExecutionManager();
+	~CStrategyExecutionManager();
+	CStrategyExecutionManager(const CStrategyExecutionManager& arg) = delete;
+	CStrategyExecutionManager& operator=(const CStrategyExecutionManager& arg) = delete;
 
-	bool Open(db::_TyDBPtr connection);
+	bool Open()
+	{
+		return Open(CDBEngine::InstanceRef().GetDBPtr(db::em_database::mysql));
+	}
+	bool Open(db::_TyDBPtr pDB);
 	std::string GetLastError() const;
 	bool HasUnresolved(_TyStrategyId strategyId) const;
 	// Pending in-memory executions only; terminal history remains in MySQL.

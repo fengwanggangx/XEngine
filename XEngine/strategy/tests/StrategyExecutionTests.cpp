@@ -1,4 +1,4 @@
-#include "../CStrategyExecution.h"
+#include "../CStrategyExecutionManager.h"
 #include "MySqlTestDatabase.h"
 #include "../../database/IDataBase.h"
 
@@ -109,7 +109,7 @@ namespace
 
 	void TestAdmission()
 	{
-		CStrategyExecution journal;
+		CStrategyExecutionManager journal;
 		Check(journal.Open(OpenTestDatabase()), "open in-memory journal");
 		trade::CAccountData data = Data();
 		COrderSubmitResult first = journal.Prepare(Intent(), MakeStrategyAccountView(data, Security()), 100500);
@@ -134,7 +134,7 @@ namespace
 
 	void TestWatermarks()
 	{
-		CStrategyExecution journal;
+		CStrategyExecutionManager journal;
 		Check(journal.Open(OpenTestDatabase()), "open watermark journal");
 		trade::CAccountData data = Data();
 		COrderSubmitResult prepared = journal.Prepare(Intent(), MakeStrategyAccountView(data, Security()), 100500);
@@ -157,7 +157,7 @@ namespace
 
 	void TestHandoff()
 	{
-		CStrategyExecution journal;
+		CStrategyExecutionManager journal;
 		Check(journal.Open(OpenTestDatabase()), "open handoff journal");
 		trade::CAccountData data = Data();
 		Check(journal.Prepare(Intent(), MakeStrategyAccountView(data, Security()), 100500).m_bAccepted, "prepare first debit");
@@ -174,7 +174,7 @@ namespace
 
 	void TestConcurrentAdmission()
 	{
-		CStrategyExecution journal;
+		CStrategyExecutionManager journal;
 		Check(journal.Open(OpenTestDatabase()), "open concurrent journal");
 		std::atomic_int accepted{ 0 };
 		std::vector<std::jthread> workers;
@@ -195,7 +195,7 @@ namespace
 
 	void TestSellWatermarks()
 	{
-		CStrategyExecution journal;
+		CStrategyExecutionManager journal;
 		Check(journal.Open(OpenTestDatabase()), "open sell watermark journal");
 		COrderIntent intent = Intent();
 		intent.m_side = OrderSide::Sell;
@@ -215,7 +215,7 @@ namespace
 
 	void TestMissingCoveredOrder()
 	{
-		CStrategyExecution journal;
+		CStrategyExecutionManager journal;
 		Check(journal.Open(OpenTestDatabase()), "open missing-order journal");
 		trade::CAccountData data = Data();
 		Check(journal.Prepare(Intent(), MakeStrategyAccountView(data, Security()), 100500).m_bAccepted, "prepare disappearing order");
@@ -231,7 +231,7 @@ namespace
 
 	void TestDuplicateBrokerIdentity()
 	{
-		CStrategyExecution journal;
+		CStrategyExecutionManager journal;
 		Check(journal.Open(OpenTestDatabase()), "open duplicate-order journal");
 		trade::CAccountData data = Data();
 		Check(journal.Prepare(Intent(), MakeStrategyAccountView(data, Security()), 100500).m_bAccepted, "prepare duplicate identity test");
@@ -245,9 +245,9 @@ namespace
 	{
 		std::uint64_t firstId = 0;
 		{
-			CStrategyExecution journal;
+			CStrategyExecutionManager journal;
 			Check(journal.Open(OpenTestDatabase(name)), "open disk journal");
-			CStrategyExecution secondOwner;
+			CStrategyExecutionManager secondOwner;
 			Check(!secondOwner.Open(OpenTestDatabase(name)), "reject a second owning engine");
 			COrderSubmitResult prepared = journal.Prepare(Intent(), MakeStrategyAccountView(Data(), Security()), 100500);
 			Check(prepared.m_bAccepted, "persist prepared intent");
@@ -256,7 +256,7 @@ namespace
 			Check(!journal.UnlockBuys(Account(), Security(), 42), "cannot unlock unresolved execution");
 		}
 		{
-			CStrategyExecution journal;
+			CStrategyExecutionManager journal;
 			Check(journal.Open(OpenTestDatabase(name)), "reopen journal after simulated crash");
 			Check(ExecutionState::Unknown == journal.GetRecords().front().m_state, "prepared crash window is uncertain");
 			Check(firstId == journal.GetRecords().front().m_intent.m_clientOrderId, "keep durable client identity");
@@ -279,7 +279,7 @@ namespace
 
 	void TestProtection()
 	{
-		CStrategyExecution journal;
+		CStrategyExecutionManager journal;
 		Check(journal.Open(OpenTestDatabase()), "open protection journal");
 		Check(journal.LockBuys(Account(), Security(), 42, "stop_loss"), "first protection owner");
 		Check(journal.LockBuys(Account(), Security(), 43, "trailing"), "second protection owner");
@@ -295,7 +295,7 @@ namespace
 		std::string name = NewTestDatabaseName();
 		CSecurity other("000001", Exchange::szse);
 		{
-			CStrategyExecution journal;
+			CStrategyExecutionManager journal;
 			Check(journal.Open(OpenTestDatabase(name)), "open checkpoint journal");
 			std::uint64_t first = journal.AllocateSignal();
 			Check(0 != first && first < journal.AllocateSignal(), "durable signal sequence increases");
@@ -312,7 +312,7 @@ namespace
 			Check(journal.ReleaseExit(Account(), Security(), 42), "release completed exit ownership");
 			Check(journal.UnlockBuys(Account(), Security(), 42), "unlock after ownership released");
 		}
-		CStrategyExecution recovered;
+		CStrategyExecutionManager recovered;
 		Check(recovered.Open(OpenTestDatabase(name)), "reopen checkpoints after shutdown");
 		Check("first" == recovered.LoadCheckpoint(42, Security().String()), "restore first security checkpoint");
 		Check("second" == recovered.LoadCheckpoint(42, other.String()), "restore second security checkpoint");
@@ -321,7 +321,7 @@ namespace
 
 	void TestConflict()
 	{
-		CStrategyExecution journal;
+		CStrategyExecutionManager journal;
 		Check(journal.Open(OpenTestDatabase()), "open conflict journal");
 		Check(journal.Prepare(Intent(), MakeStrategyAccountView(Data(), Security()), 100500).m_bAccepted, "prepare conflict test");
 		trade::CAccountData data = Data();
@@ -329,7 +329,7 @@ namespace
 		data.m_orders.front().m_nQuantity = 200;
 		Check(!journal.Reconcile(Account(), MakeStrategyAccountView(data, Security())), "conflicting broker fingerprint disables admission");
 		Check(!journal.Prepare(Intent(2, "600001"), MakeStrategyAccountView(data, Security("600001")), 100500).m_bAccepted, "fail closed after journal conflict");
-		CStrategyExecution unopened;
+		CStrategyExecutionManager unopened;
 		Check(!unopened.Prepare(Intent(), MakeStrategyAccountView(Data(), Security()), 100500).m_bAccepted, "no journal means no order");
 	}
 
@@ -393,13 +393,13 @@ namespace
 			{
 				delete value;
 			});
-			CStrategyExecution journal;
+			CStrategyExecutionManager journal;
 			Check(journal.Open(std::move(connection)), "open ambiguous commit store");
 			borrowed->FailCommitResult();
 			Check(!journal.Prepare(Intent(), MakeStrategyAccountView(Data(), Security()), 100500).m_bAccepted, "unknown commit cannot admit order");
 			Check(!journal.Prepare(Intent(2), MakeStrategyAccountView(Data(), Security()), 100500).m_bAccepted, "unknown commit disables further admission");
 		}
-		CStrategyExecution recovered;
+		CStrategyExecutionManager recovered;
 		Check(recovered.Open(OpenTestDatabase(name)), "recover after ambiguous commit");
 		Check(1 == recovered.GetRecords().size() && ExecutionState::Unknown == recovered.GetRecords().front().m_state, "committed intent remains unknown after restart");
 	}
@@ -409,17 +409,17 @@ namespace
 		std::string name = NewTestDatabaseName();
 		db::_TyDBPtr connection = OpenTestDatabase(name);
 		db::IDataBase* borrowed = connection.get();
-		CStrategyExecution oldOwner;
+		CStrategyExecutionManager oldOwner;
 		Check(oldOwner.Open(std::move(connection)), "open owning session");
 		const db::CTable& released = borrowed->ExecQuery("SELECT RELEASE_ALL_LOCKS()");
 		Check(!released.m_rows.empty(), "release test session ownership");
-		CStrategyExecution newOwner;
+		CStrategyExecutionManager newOwner;
 		Check(newOwner.Open(OpenTestDatabase(name)), "new owner acquires released lock");
 		Check(!oldOwner.Prepare(Intent(), MakeStrategyAccountView(Data(), Security()), 100500).m_bAccepted, "old session cannot write after ownership loss");
 		Check(newOwner.Prepare(Intent(), MakeStrategyAccountView(Data(), Security()), 100500).m_bAccepted, "only new owning session can admit");
 		db::_TyDBPtr disconnected = OpenTestDatabase();
 		db::IDataBase* lostSession = disconnected.get();
-		CStrategyExecution lost;
+		CStrategyExecutionManager lost;
 		Check(lost.Open(std::move(disconnected)), "open session before disconnect");
 		lostSession->Close();
 		Check(0 == lost.AllocateSignal(), "closed session cannot reconnect and allocate IDs");
@@ -431,7 +431,7 @@ namespace
 		std::string name = NewTestDatabaseName();
 		db::_TyDBPtr control = OpenTestDatabase(name);
 		Check(0 == control->ExecUpdate("CREATE TRIGGER fail_protection BEFORE INSERT ON table_strategy_protection FOR EACH ROW SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='injected protection failure'"), "install protection storage fault");
-		CStrategyExecution journal;
+		CStrategyExecutionManager journal;
 		Check(journal.Open(OpenTestDatabase(name)), "open checkpoint fault store");
 		Check(!journal.SaveCheckpoint(42, Account(), Security(), "must-rollback", true), "protection failure rolls back checkpoint");
 		const db::CTable& checkpoint = control->ExecQuery("SELECT COUNT(*) FROM table_strategy_checkpoint");
@@ -441,13 +441,13 @@ namespace
 	void TestWriteFailure(const std::string& name)
 	{
 		{
-			CStrategyExecution journal;
+			CStrategyExecutionManager journal;
 			Check(journal.Open(OpenTestDatabase(name)), "create fault-injection journal");
 		}
 		db::_TyDBPtr database = OpenTestDatabase(name);
 		Check(0 == database->ExecUpdate("CREATE TRIGGER fail_execution BEFORE INSERT ON table_strategy_execution FOR EACH ROW SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='injected storage failure'"), "install MySQL storage fault");
 		database.reset();
-		CStrategyExecution journal;
+		CStrategyExecutionManager journal;
 		Check(journal.Open(OpenTestDatabase(name)), "open journal with injected storage fault");
 		Check(!journal.Prepare(Intent(), MakeStrategyAccountView(Data(), Security()), 100500).m_bAccepted, "failed persistence never admits order");
 		Check(std::string::npos != journal.GetLastError().find("write failed"), "write failure is not misreported as a duplicate");

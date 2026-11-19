@@ -91,7 +91,7 @@
     <RemoteDeployDir>$(RemoteProjectDir)</RemoteDeployDir>
   </PropertyGroup>
   <ItemGroup>
-    <ClCompile Include="strategy\CStrategyExecution.cpp" />
+    <ClCompile Include="strategy\CStrategyExecutionManager.cpp" />
     <ClCompile Include="trade\StrategyAccountView.cpp" />
     <ClCompile Include="basic\CDistributor.cpp" />
     <ClCompile Include="system\CEngineCenter.cpp" />
@@ -137,7 +137,7 @@
     <ClCompile Include="system\CBootLoader.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="strategy\CStrategyExecution.h" />
+    <ClInclude Include="strategy\CStrategyExecutionManager.h" />
     <ClInclude Include="trade\StrategyAccountView.h" />
     <ClInclude Include="basic\CDistributor.h" />
     <ClInclude Include="request\RequestCenter.h" />

@@ -235,8 +235,8 @@ class CServiceRoutingTests
 		std::unique_ptr<CRecordingStrategy> secondStrategy = std::make_unique<CRecordingStrategy>();
 		CRecordingStrategy& a = *firstStrategy;
 		CRecordingStrategy& b = *secondStrategy;
-		runtime.m_legs.push_back({ first, nullptr, std::move(firstStrategy) });
-		runtime.m_legs.push_back({ second, nullptr, std::move(secondStrategy) });
+		runtime.m_stockInstances.push_back({ first, nullptr, std::move(firstStrategy) });
+		runtime.m_stockInstances.push_back({ second, nullptr, std::move(secondStrategy) });
 		CStrategyEvent event;
 		event.m_type = StrategyEventType::Start;
 		Check(service.DispatchEvent(runtime, event), "start both securities");

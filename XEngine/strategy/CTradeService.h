@@ -6,6 +6,7 @@
 #include <optional>
 #include <unordered_map>
 
+// 同步账户资金、持仓、委托和成交，维护交易快照并处理报撤单及交易回报。
 class CTradeService final
 {
 	friend class CServiceRoutingTests;

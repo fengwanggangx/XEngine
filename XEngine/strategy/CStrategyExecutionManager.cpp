@@ -1,4 +1,4 @@
-#include "CStrategyExecution.h"
+#include "CStrategyExecutionManager.h"
 
 #include "../database/IDataBase.h"
 #include <concepts>
@@ -282,10 +282,10 @@ namespace
 	}
 } // namespace
 
-CStrategyExecution::CStrategyExecution() = default;
-CStrategyExecution::~CStrategyExecution() = default;
+CStrategyExecutionManager::CStrategyExecutionManager() = default;
+CStrategyExecutionManager::~CStrategyExecutionManager() = default;
 
-bool CStrategyExecution::Open(db::_TyDBPtr connection)
+bool CStrategyExecutionManager::Open(db::_TyDBPtr pDB)
 {
 	std::lock_guard<std::mutex> lock(m_mtx_state);
 	if (nullptr != m_database)
@@ -295,7 +295,7 @@ bool CStrategyExecution::Open(db::_TyDBPtr connection)
 	}
 	try
 	{
-		m_database = std::make_unique<CExecutionDatabase>(std::move(connection));
+		m_database = std::make_unique<CExecutionDatabase>(std::move(pDB));
 		db::CTable tables = m_database->Query("SELECT TABLE_NAME,ENGINE FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME IN ('table_strategy_execution','table_strategy_protection','table_strategy_checkpoint','table_strategy_exit_owner','table_strategy_signal_sequence')");
 		if (5 != tables.m_rows.size())
 		{
@@ -327,7 +327,7 @@ bool CStrategyExecution::Open(db::_TyDBPtr connection)
 	}
 }
 
-void CStrategyExecution::Load()
+void CStrategyExecutionManager::Load()
 {
 	_TyStatement statement = Statement(m_database.get(), "SELECT client_id,account,strategy_id,signal_id,security,exchange_id,side,price,price_scale,quantity,effect,state,reserved_money,order_id,evidence,covered,message FROM table_strategy_execution WHERE state NOT IN (5,6)");
 	StatementResult result = StatementResult::Row;
@@ -414,7 +414,7 @@ void CStrategyExecution::Load()
 	}
 }
 
-void CStrategyExecution::Save(const CExecutionRecord& record)
+void CStrategyExecutionManager::Save(const CExecutionRecord& record)
 {
 	_TyStatement statement = Statement(m_database.get(), "UPDATE table_strategy_execution SET state=?,order_id=?,evidence=?,covered=?,message=?,filled=?,broker_status=? WHERE client_id=?");
 	Bind(statement.get(), 1, static_cast<std::int64_t>(record.m_state));
@@ -433,12 +433,12 @@ void CStrategyExecution::Save(const CExecutionRecord& record)
 	}
 }
 
-bool CStrategyExecution::IsUnresolved(ExecutionState state)
+bool CStrategyExecutionManager::IsUnresolved(ExecutionState state)
 {
 	return (ExecutionState::Closed != state) && (ExecutionState::NotSent != state);
 }
 
-COrderSubmitResult CStrategyExecution::Prepare(COrderIntent intent, const CStrategyAccountView& view, std::int64_t maximumDebit)
+COrderSubmitResult CStrategyExecutionManager::Prepare(COrderIntent intent, const CStrategyAccountView& view, std::int64_t maximumDebit)
 {
 	std::lock_guard<std::mutex> lock(m_mtx_state);
 	if (!m_bHealthy)
@@ -562,7 +562,7 @@ COrderSubmitResult CStrategyExecution::Prepare(COrderIntent intent, const CStrat
 	}
 }
 
-bool CStrategyExecution::MarkSubmission(std::uint64_t clientId, bool queued, bool definitelyNotSent)
+bool CStrategyExecutionManager::MarkSubmission(std::uint64_t clientId, bool queued, bool definitelyNotSent)
 {
 	std::lock_guard<std::mutex> lock(m_mtx_state);
 	const auto mIter = m_records.find(clientId);
@@ -616,13 +616,13 @@ bool CStrategyExecution::MarkSubmission(std::uint64_t clientId, bool queued, boo
 	}
 }
 
-bool CStrategyExecution::Reconcile(const _TyAccount& account, const CStrategyAccountView& view)
+bool CStrategyExecutionManager::Reconcile(const _TyAccount& account, const CStrategyAccountView& view)
 {
 	std::lock_guard<std::mutex> lock(m_mtx_state);
 	return ReconcileWithoutLock(account, view);
 }
 
-bool CStrategyExecution::ReconcileWithoutLock(const _TyAccount& account, const CStrategyAccountView& view)
+bool CStrategyExecutionManager::ReconcileWithoutLock(const _TyAccount& account, const CStrategyAccountView& view)
 {
 	if (!m_bHealthy || !view.m_account.m_bReady || (account != view.m_identity) || (view.m_connectionEpoch < m_snapshotEpochs[account]) || ((view.m_connectionEpoch == m_snapshotEpochs[account]) && (view.m_account.m_version < m_snapshotVersions[account])))
 	{
@@ -721,13 +721,13 @@ bool CStrategyExecution::ReconcileWithoutLock(const _TyAccount& account, const C
 	}
 }
 
-std::string CStrategyExecution::GetLastError() const
+std::string CStrategyExecutionManager::GetLastError() const
 {
 	std::lock_guard<std::mutex> lock(m_mtx_state);
 	return m_strLastError;
 }
 
-std::vector<CExecutionRecord> CStrategyExecution::GetRecords() const
+std::vector<CExecutionRecord> CStrategyExecutionManager::GetRecords() const
 {
 	std::lock_guard<std::mutex> lock(m_mtx_state);
 	std::vector<CExecutionRecord> records;
@@ -739,7 +739,7 @@ std::vector<CExecutionRecord> CStrategyExecution::GetRecords() const
 	return records;
 }
 
-bool CStrategyExecution::HasUnresolved(_TyStrategyId strategyId) const
+bool CStrategyExecutionManager::HasUnresolved(_TyStrategyId strategyId) const
 {
 	std::lock_guard<std::mutex> lock(m_mtx_state);
 	if (!m_bHealthy)
@@ -755,7 +755,7 @@ bool CStrategyExecution::HasUnresolved(_TyStrategyId strategyId) const
 	});
 }
 
-bool CStrategyExecution::IsBuyLockedWithoutLock(const _TyAccount& account, const CSecurity& security) const
+bool CStrategyExecutionManager::IsBuyLockedWithoutLock(const _TyAccount& account, const CSecurity& security) const
 {
 	std::string key = security.String();
 	return std::any_of(m_locks.begin(), m_locks.end(), [&account, &key](const auto& item)
@@ -764,13 +764,13 @@ bool CStrategyExecution::IsBuyLockedWithoutLock(const _TyAccount& account, const
 	});
 }
 
-bool CStrategyExecution::IsBuyLocked(const _TyAccount& account, const CSecurity& security) const
+bool CStrategyExecutionManager::IsBuyLocked(const _TyAccount& account, const CSecurity& security) const
 {
 	std::lock_guard<std::mutex> lock(m_mtx_state);
 	return !m_bHealthy || IsBuyLockedWithoutLock(account, security);
 }
 
-bool CStrategyExecution::LockBuys(const _TyAccount& account, const CSecurity& security, _TyStrategyId ownerId, const std::string& reason)
+bool CStrategyExecutionManager::LockBuys(const _TyAccount& account, const CSecurity& security, _TyStrategyId ownerId, const std::string& reason)
 {
 	std::lock_guard<std::mutex> lock(m_mtx_state);
 	if (!m_bHealthy || !IsAccountValid(account) || !security.IsValid() || (0 == ownerId) || (ownerId > static_cast<std::uint64_t>((std::numeric_limits<std::int64_t>::max)())) || reason.empty())
@@ -797,7 +797,7 @@ bool CStrategyExecution::LockBuys(const _TyAccount& account, const CSecurity& se
 	}
 }
 
-bool CStrategyExecution::UnlockBuys(const _TyAccount& account, const CSecurity& security, _TyStrategyId ownerId)
+bool CStrategyExecutionManager::UnlockBuys(const _TyAccount& account, const CSecurity& security, _TyStrategyId ownerId)
 {
 	std::lock_guard<std::mutex> lock(m_mtx_state);
 	if (!m_bHealthy)
@@ -833,7 +833,7 @@ bool CStrategyExecution::UnlockBuys(const _TyAccount& account, const CSecurity& 
 	}
 }
 
-std::uint64_t CStrategyExecution::AllocateSignal()
+std::uint64_t CStrategyExecutionManager::AllocateSignal()
 {
 	std::lock_guard<std::mutex> lock(m_mtx_state);
 	if (!m_bHealthy)
@@ -853,7 +853,7 @@ std::uint64_t CStrategyExecution::AllocateSignal()
 	}
 }
 
-std::optional<CExecutionRecord> CStrategyExecution::FindExecution(std::uint64_t clientId) const
+std::optional<CExecutionRecord> CStrategyExecutionManager::FindExecution(std::uint64_t clientId) const
 {
 	std::lock_guard<std::mutex> lock(m_mtx_state);
 	if (!m_bHealthy)
@@ -881,7 +881,7 @@ std::optional<CExecutionRecord> CStrategyExecution::FindExecution(std::uint64_t 
 	return record;
 }
 
-std::string CStrategyExecution::LoadCheckpoint(_TyStrategyId id, const std::string& key) const
+std::string CStrategyExecutionManager::LoadCheckpoint(_TyStrategyId id, const std::string& key) const
 {
 	std::lock_guard<std::mutex> lock(m_mtx_state);
 	if (!m_bHealthy)
@@ -906,7 +906,7 @@ std::string CStrategyExecution::LoadCheckpoint(_TyStrategyId id, const std::stri
 	return ReadText(statement.get(), 0);
 }
 
-bool CStrategyExecution::SaveCheckpoint(_TyStrategyId id, const _TyAccount& account, const CSecurity& security, const std::string& data, bool protect, bool scoped)
+bool CStrategyExecutionManager::SaveCheckpoint(_TyStrategyId id, const _TyAccount& account, const CSecurity& security, const std::string& data, bool protect, bool scoped)
 {
 	std::lock_guard<std::mutex> lock(m_mtx_state);
 	if (!m_bHealthy || (0 == id) || !IsAccountValid(account) || !security.IsValid())
@@ -948,7 +948,7 @@ bool CStrategyExecution::SaveCheckpoint(_TyStrategyId id, const _TyAccount& acco
 	}
 }
 
-bool CStrategyExecution::ClaimExit(const _TyAccount& account, const CSecurity& security, _TyStrategyId id)
+bool CStrategyExecutionManager::ClaimExit(const _TyAccount& account, const CSecurity& security, _TyStrategyId id)
 {
 	std::lock_guard<std::mutex> lock(m_mtx_state);
 	if (!m_bHealthy || !m_locks.contains(_TyLockKey{ account, security.String(), id }))
@@ -978,7 +978,7 @@ bool CStrategyExecution::ClaimExit(const _TyAccount& account, const CSecurity& s
 	}
 }
 
-bool CStrategyExecution::ReleaseExit(const _TyAccount& account, const CSecurity& security, _TyStrategyId id)
+bool CStrategyExecutionManager::ReleaseExit(const _TyAccount& account, const CSecurity& security, _TyStrategyId id)
 {
 	std::lock_guard<std::mutex> lock(m_mtx_state);
 	if (!m_bHealthy)
@@ -1014,7 +1014,7 @@ bool CStrategyExecution::ReleaseExit(const _TyAccount& account, const CSecurity&
 	}
 }
 
-std::int64_t CStrategyExecution::AvailableFunds(const _TyAccount& account, const CStrategyAccountView& view) const
+std::int64_t CStrategyExecutionManager::AvailableFunds(const _TyAccount& account, const CStrategyAccountView& view) const
 {
 	std::lock_guard<std::mutex> lock(m_mtx_state);
 	if (!m_bHealthy || (account != view.m_identity) || !view.m_account.m_bReady)
@@ -1036,7 +1036,7 @@ std::int64_t CStrategyExecution::AvailableFunds(const _TyAccount& account, const
 	return available;
 }
 
-std::optional<CExecutionRecord> CStrategyExecution::FindSignal(_TyStrategyId id, std::uint64_t signalId) const
+std::optional<CExecutionRecord> CStrategyExecutionManager::FindSignal(_TyStrategyId id, std::uint64_t signalId) const
 {
 	std::uint64_t client = 0;
 	{
@@ -1062,7 +1062,7 @@ std::optional<CExecutionRecord> CStrategyExecution::FindSignal(_TyStrategyId id,
 	return FindExecution(client);
 }
 
-bool CStrategyExecution::RejectBeforeAcceptance(std::uint64_t clientId, const std::string& reason)
+bool CStrategyExecutionManager::RejectBeforeAcceptance(std::uint64_t clientId, const std::string& reason)
 {
 	std::lock_guard<std::mutex> lock(m_mtx_state);
 	const auto mIter = m_records.find(clientId);

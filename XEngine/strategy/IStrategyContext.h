@@ -3,8 +3,9 @@
 
 #include "StrategyTypes.h"
 #include "../trade/StrategyAccountView.h"
-#include "CStrategyExecution.h"
+#include "CStrategyExecutionManager.h"
 
+// 定义策略访问交易、行情、执行记录及状态持久化能力的接口。
 class IStrategyContext
 {
 	public:

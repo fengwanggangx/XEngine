@@ -69,6 +69,7 @@ namespace strategy
 		return parameters.end() == mIter ? fallback : mIter->second;
 	}
 
+	// 保存价格或百分比阈值及其启用状态。
 	struct CThreshold
 	{
 		bool m_enabled{ false };
@@ -76,6 +77,7 @@ namespace strategy
 		std::int64_t m_value{ 0 }; // Percent: parts per million; price: six decimal places.
 	};
 
+	// 解析并校验各类内置策略的交易数量、触发阈值和指标参数。
 	struct CSettings
 	{
 		Kind m_kind{ Kind::DualMaCross };

@@ -275,7 +275,7 @@ CStrategyService::~CStrategyService()
 bool CStrategyService::Initialize()
 {
 	m_strLastError.clear();
-	if (!m_execution.Open(CDBEngine::InstanceRef().GetDBPtr(db::em_database::mysql)))
+	if (!m_execution.Open())
 	{
 		m_strLastError = m_execution.GetLastError();
 		return false;
@@ -326,7 +326,7 @@ void CStrategyService::OnReply(const CRequest& origin, const trade::CCounterRepl
 		return;
 	}
 	std::shared_ptr<CStrategyRuntime> runtime = FindRuntime(strategyId);
-	if (nullptr == runtime || runtime->m_bRemoving.load() || instanceId != runtime->m_instanceId || reply.m_account != runtime->m_config.m_account)
+	if (nullptr == runtime || runtime->m_bRemoving.load() || instanceId != runtime->m_instance_id || reply.m_account != runtime->m_config.m_account)
 	{
 		return;
 	}
@@ -917,24 +917,25 @@ bool CStrategyService::CreateStrategy(const CStrategyConfig& cfg)
 		return false;
 	}
 	std::shared_ptr<CStrategyRuntime> runtime = std::make_shared<CStrategyRuntime>();
-	runtime->m_instanceId = m_nextInstanceId.fetch_add(1);
+	runtime->m_instance_id = m_instance_id.fetch_add(1);
 	runtime->m_config = cfg;
-	std::map<std::string, std::vector<CQuoteInfo>> subscriptions;
-	for (const auto& subscription : cfg.m_subscriptions)
+	std::unordered_map<std::string, std::vector<CQuoteInfo>> subscriptions;
+	subscriptions.reserve(cfg.m_subscriptions.size());
+	for (const auto& item : cfg.m_subscriptions)
 	{
-		subscriptions[subscription.m_security.String()].push_back(subscription);
+		subscriptions[item.m_security.String()].push_back(item);
 	}
 	try
 	{
-		for (auto& [key, items] : subscriptions)
+		for (auto& [k, v] : subscriptions)
 		{
-			CStrategyLeg& leg = runtime->m_legs.emplace_back();
-			leg.m_security = items.front().m_security;
-			leg.m_strategy.reset(CreateStrategy(cfg.m_strType));
-			leg.m_context = std::make_unique<CStrategyContext>(cfg.m_id, cfg.m_account, this, m_pTradeService, leg.m_security, 1 < subscriptions.size());
+			CStrategyStockInstance& instance = runtime->m_securities.emplace_back();
+			instance.m_security = v.front().m_security;
+			instance.m_pStrategy.reset(CreateStrategy(cfg.m_strType));
+			instance.m_pContext = std::make_unique<CStrategyContext>(cfg.m_id, cfg.m_account, this, m_pTradeService, instance.m_security, 1 < subscriptions.size());
 			CStrategyConfig config = cfg;
-			config.m_subscriptions = std::move(items);
-			if ((nullptr == leg.m_strategy) || !leg.m_strategy->Initialize(*leg.m_context, config))
+			config.m_subscriptions = std::move(v);
+			if ((nullptr == instance.m_pStrategy) || !instance.m_pStrategy->Initialize(*instance.m_pContext, config))
 			{
 				return false;
 			}
@@ -1014,9 +1015,9 @@ bool CStrategyService::RemoveStrategy(_TyStrategyId id)
 	runtime->m_bAcceptMarketEvents.store(false);
 	RemoveRoutes(runtime->m_config);
 	WaitUntilIdle(runtime);
-	for (auto& leg : runtime->m_legs)
+	for (auto& stockInstance : runtime->m_securities)
 	{
-		leg.m_context->Disable();
+		stockInstance.m_pContext->Disable();
 	}
 	{
 		std::unique_lock<std::shared_mutex> lock(m_mtx_strategies);
@@ -1171,9 +1172,9 @@ void CStrategyService::StopAll()
 	for (const auto& runtime : runtimes)
 	{
 		WaitUntilIdle(runtime);
-		for (auto& leg : runtime->m_legs)
+		for (auto& stockInstance : runtime->m_securities)
 		{
-			leg.m_context->Disable();
+			stockInstance.m_pContext->Disable();
 		}
 		EndAccountUse(runtime->m_config.m_account, runtime->m_config.m_id);
 	}
@@ -1489,58 +1490,58 @@ bool CStrategyService::DispatchEvent(CStrategyRuntime& runtime, CStrategyEvent& 
 	currentStrategyId = runtime.m_config.m_id;
 	try
 	{
-		for (auto& leg : runtime.m_legs)
+		for (auto& instance : runtime.m_securities)
 		{
-			if (!event.m_security.empty() && (event.m_security != leg.m_security.String()))
+			if (!event.m_security.empty() && (event.m_security != instance.m_security.String()))
 			{
 				continue;
 			}
 			switch (event.m_type)
 			{
 			case StrategyEventType::Action:
-				bResult = leg.m_strategy->OnAction(event.m_action) && bResult;
+				bResult = instance.m_pStrategy->OnAction(event.m_action) && bResult;
 				break;
 			case StrategyEventType::History:
-				leg.m_strategy->OnHistory(std::get<std::vector<_TyBarData>>(event.m_data));
+				instance.m_pStrategy->OnHistory(std::get<std::vector<_TyBarData>>(event.m_data));
 				break;
 			case StrategyEventType::MarketState:
-				leg.m_strategy->OnMarketState(std::get<bool>(event.m_data));
+				instance.m_pStrategy->OnMarketState(std::get<bool>(event.m_data));
 				break;
 			case StrategyEventType::Start:
-				leg.m_strategy->OnStart();
+				instance.m_pStrategy->OnStart();
 				break;
 			case StrategyEventType::Pause:
-				leg.m_strategy->OnPause();
+				instance.m_pStrategy->OnPause();
 				break;
 			case StrategyEventType::Stop:
-				leg.m_strategy->OnStop();
+				instance.m_pStrategy->OnStop();
 				break;
 			case StrategyEventType::Quote:
-				leg.m_strategy->OnQuote(std::get<_TyQuoteData>(event.m_data));
+				instance.m_pStrategy->OnQuote(std::get<_TyQuoteData>(event.m_data));
 				break;
 			case StrategyEventType::Depth:
-				leg.m_strategy->OnDepth(std::get<_TyDepthData>(event.m_data));
+				instance.m_pStrategy->OnDepth(std::get<_TyDepthData>(event.m_data));
 				break;
 			case StrategyEventType::MarketTrade:
-				leg.m_strategy->OnMarketTrade(std::get<_TyMarketTradeData>(event.m_data));
+				instance.m_pStrategy->OnMarketTrade(std::get<_TyMarketTradeData>(event.m_data));
 				break;
 			case StrategyEventType::Bar:
-				leg.m_strategy->OnBar(std::get<_TyBarData>(event.m_data));
+				instance.m_pStrategy->OnBar(std::get<_TyBarData>(event.m_data));
 				break;
 			case StrategyEventType::Order:
-				if (leg.m_security == std::get<COrderEvent>(event.m_data).m_security)
+				if (instance.m_security == std::get<COrderEvent>(event.m_data).m_security)
 				{
-					leg.m_strategy->OnOrder(std::get<COrderEvent>(event.m_data));
+					instance.m_pStrategy->OnOrder(std::get<COrderEvent>(event.m_data));
 				}
 				break;
 			case StrategyEventType::Trade:
-				if (leg.m_security == std::get<CTradeEvent>(event.m_data).m_security)
+				if (instance.m_security == std::get<CTradeEvent>(event.m_data).m_security)
 				{
-					leg.m_strategy->OnTrade(std::get<CTradeEvent>(event.m_data));
+					instance.m_pStrategy->OnTrade(std::get<CTradeEvent>(event.m_data));
 				}
 				break;
 			case StrategyEventType::Timer:
-				leg.m_strategy->OnTimer(std::get<CTimerEvent>(event.m_data));
+				instance.m_pStrategy->OnTimer(std::get<CTimerEvent>(event.m_data));
 				break;
 			}
 		}
@@ -1618,11 +1619,11 @@ void CStrategyService::RouteMarketEvent(const std::string& strKey, CStrategyEven
 	{
 		auto priority = [&ev](const std::shared_ptr<CStrategyRuntime>& runtime)
 		{
-			for (const auto& leg : runtime->m_legs)
+			for (const auto& instance : runtime->m_securities)
 			{
-				if (ev.m_security == leg.m_security.String())
+				if (ev.m_security == instance.m_security.String())
 				{
-					return leg.m_strategy->QuotePriority(std::get<_TyQuoteData>(ev.m_data));
+					return instance.m_pStrategy->QuotePriority(std::get<_TyQuoteData>(ev.m_data));
 				}
 			}
 			return 3;
@@ -1709,7 +1710,7 @@ COrderSubmitResult CStrategyService::SubmitTradingOrder(const COrderIntent& inte
 	}
 	CRequest wire = trade::protocol::WriteRequest(request);
 	wire.SetExtraData("request_source", "Strategy");
-	wire.SetExtraData("strategy_instance_id", std::to_string(runtime->m_instanceId));
+	wire.SetExtraData("strategy_instance_id", std::to_string(runtime->m_instance_id));
 	trade::CResult result = m_pTradeService->SendStrategyRequest(std::move(wire));
 	return { result.Ok(), !result.Ok(), nClientId, 0, result.Ok() ? "Request queued; await order event" : result.m_strMessage };
 }
@@ -1806,7 +1807,7 @@ bool CStrategyService::CancelOrder(_TyStrategyId id, _TyOrderId orderId)
 	CRequest wire = trade::protocol::WriteRequest(request);
 	wire.SetExtraData("request_source", "Strategy");
 	wire.SetExtraData("strategy_id", std::to_string(id));
-	wire.SetExtraData("strategy_instance_id", std::to_string(runtime->m_instanceId));
+	wire.SetExtraData("strategy_instance_id", std::to_string(runtime->m_instance_id));
 	return m_pTradeService->SendStrategyRequest(std::move(wire)).Ok();
 }
 
