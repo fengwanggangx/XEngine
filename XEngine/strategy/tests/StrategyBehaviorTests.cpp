@@ -18,10 +18,12 @@ namespace
 			throw std::runtime_error(message);
 		}
 	}
+
 	CSecurity Security()
 	{
 		return CSecurity("600000", Exchange::sse);
 	}
+
 	_TyAccount Account()
 	{
 		return { 1, "000123" };
@@ -58,6 +60,7 @@ namespace
 			m_rules.m_rule.m_nLower = 1;
 			m_rules.m_rule.m_nUpper = 100000;
 		}
+
 		COrderSubmitResult SubmitOrder(const COrderIntent& intent) override
 		{
 			COrderIntent routed = intent;
@@ -71,83 +74,103 @@ namespace
 			}
 			return result;
 		}
+
 		bool CancelOrder(_TyOrderId) override
 		{
 			return true;
 		}
+
 		CPositionSnapshot GetPosition(const CSecurity& security) const override
 		{
 			return GetTradingSnapshot(security).m_position;
 		}
+
 		CAccountSnapshot GetAccount() const override
 		{
 			return GetTradingSnapshot(Security()).m_account;
 		}
+
 		void WriteLog(LogLevel, const std::string& message) override
 		{
 			m_reason = message;
 		}
+
 		bool IsMarketAvailable() const override
 		{
 			return true;
 		}
+
 		CStrategyAccountView GetTradingSnapshot(const CSecurity& security) const override
 		{
 			return MakeStrategyAccountView(m_data, security);
 		}
+
 		std::optional<trade::CExecutionRule> GetRules(const CSecurity&) override
 		{
-			return m_rulesAvailable ? std::optional<trade::CExecutionRule>(m_rules) : std::nullopt;
+			return m_rules_available ? std::optional<trade::CExecutionRule>(m_rules) : std::nullopt;
 		}
+
 		std::string LoadCheckpoint() const override
 		{
 			return m_execution.LoadCheckpoint(42);
 		}
+
 		bool SaveCheckpoint(const std::string& data, bool protect) override
 		{
 			return m_execution.SaveCheckpoint(42, Account(), Security(), data, protect);
 		}
+
 		std::uint64_t AllocateSignal() override
 		{
 			return m_execution.AllocateSignal();
 		}
+
 		std::optional<CExecutionRecord> FindExecution(std::uint64_t id) const override
 		{
 			return m_execution.FindExecution(id);
 		}
+
 		std::optional<CExecutionRecord> FindSignal(std::uint64_t id) const override
 		{
 			return m_execution.FindSignal(42, id);
 		}
+
 		bool ClaimExit() override
 		{
 			return m_execution.ClaimExit(Account(), Security(), 42);
 		}
+
 		bool ReleaseExit(bool unlock) override
 		{
 			return m_execution.ReleaseExit(Account(), Security(), 42) && (!unlock || m_execution.UnlockBuys(Account(), Security(), 42));
 		}
+
 		bool CancelConflicts(bool = false) override
 		{
 			return true;
 		}
+
 		bool RequestHistory(std::int64_t) override
 		{
 			return true;
 		}
+
 		std::int64_t AvailableFunds(const CStrategyAccountView& view) const override
 		{
 			return m_execution.AvailableFunds(Account(), view);
 		}
+
 		void PublishBusiness(const std::string& state, const std::string& details) override
 		{
 			m_phase = state;
 			m_reason = details;
 		}
+
 		std::int64_t NowMs() const override
 		{
 			return m_now;
 		}
+
 		void Quote(IStrategy& strategy, std::int64_t price)
 		{
 			_TyQuoteData quote;
@@ -158,6 +181,7 @@ namespace
 			quote.set_receive_time_ms(++m_now);
 			strategy.OnQuote(quote);
 		}
+
 		void Fill(IStrategy& strategy, std::int64_t remaining, std::int64_t available)
 		{
 			const COrderIntent& intent = m_orders.back();
@@ -166,7 +190,7 @@ namespace
 			order.m_clientId = intent.m_clientOrderId;
 			order.m_orderId = order.m_clientId;
 			order.m_id = 42;
-			order.m_signalId = intent.m_signalId;
+			order.m_signal_id = intent.m_signal_id;
 			order.m_strSecurity = Security().String();
 			order.m_side = OrderSide::Buy == intent.m_side ? trade::Side::Buy : trade::Side::Sell;
 			order.m_nPrice = intent.m_price;
@@ -182,10 +206,11 @@ namespace
 			Check(m_execution.Reconcile(Account(), GetTradingSnapshot(Security())), "reconcile completed order");
 			strategy.OnOrder({});
 		}
+
 		mutable CStrategyExecutionManager m_execution;
 		trade::CAccountData m_data;
 		trade::CExecutionRule m_rules;
-		bool m_rulesAvailable{ true };
+		bool m_rules_available{ true };
 		std::int64_t m_now{ 1000000 };
 		std::vector<COrderIntent> m_orders;
 		std::string m_phase;
@@ -197,8 +222,8 @@ namespace
 		CStrategyConfig config;
 		config.m_id = 42;
 		config.m_account = Account();
-		config.m_strName = type;
-		config.m_strType = type;
+		config.m_str_name = type;
+		config.m_str_type = type;
 		config.m_params = std::move(parameters);
 		config.m_subscriptions.emplace_back("600000", Exchange::sse, Channel::quote);
 		if ("dual_ma_cross" == type)
@@ -327,11 +352,11 @@ namespace
 		CPriceBreakoutStrategy strategy;
 		Check(strategy.Initialize(context, Config("price_breakout", { { "trigger_price", "10" } })), "initialize gated strategy");
 		strategy.OnStart();
-		context.m_rulesAvailable = false;
+		context.m_rules_available = false;
 		context.Quote(strategy, 900);
 		context.Quote(strategy, 1100);
 		Check(context.m_orders.empty(), "no guessed execution rules");
-		context.m_rulesAvailable = true;
+		context.m_rules_available = true;
 		context.Quote(strategy, 900);
 		context.Quote(strategy, 1000);
 		Check(1 == context.m_orders.size(), "rules enable execution");

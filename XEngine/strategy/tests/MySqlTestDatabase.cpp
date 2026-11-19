@@ -13,11 +13,13 @@
 namespace
 {
 	std::set<std::string> databases;
+
 	std::string Environment(const char* key, const std::string& fallback = {})
 	{
 		const char* value = std::getenv(key);
 		return nullptr == value ? fallback : value;
 	}
+
 	db::CConnectParam Parameters(const std::string& name)
 	{
 		unsigned int port = 0;

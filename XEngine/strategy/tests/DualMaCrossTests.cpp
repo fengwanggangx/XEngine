@@ -20,28 +20,33 @@ namespace
 
 	class CContext final : public IStrategyContext
 	{
-		public:
+	public:
 		COrderSubmitResult SubmitOrder(const COrderIntent& intent) override
 		{
 			m_orders.emplace_back(intent);
-			return { true, false, intent.m_signalId, 0, {} };
+			return { true, false, intent.m_signal_id, 0, {} };
 		}
+
 		bool CancelOrder(_TyOrderId) override
 		{
 			return false;
 		}
+
 		CPositionSnapshot GetPosition(const CSecurity&) const override
 		{
 			return {};
 		}
+
 		CAccountSnapshot GetAccount() const override
 		{
 			return {};
 		}
+
 		void WriteLog(LogLevel, const std::string& message) override
 		{
 			m_logs.emplace_back(message);
 		}
+
 		bool IsMarketAvailable() const override
 		{
 			return true;
@@ -105,7 +110,7 @@ namespace
 		for (std::size_t index = 0; context.m_orders.size() > index; ++index)
 		{
 			const COrderIntent& order = context.m_orders[index];
-			Check((42 == order.m_id) && (index + 1 == order.m_signalId) && (100 == order.m_quantity), "strategy routing and quantity unchanged");
+			Check((42 == order.m_id) && (index + 1 == order.m_signal_id) && (100 == order.m_quantity), "strategy routing and quantity unchanged");
 			Check((OrderType::Limit == order.m_orderType) && (2 == order.m_nPriceScale) && (Exchange::sse == order.m_security.m_market), "limit order and original security preserved");
 			Check((OrderSide::Buy == order.m_side ? PositionEffect::Open : PositionEffect::Close) == order.m_positionEffect, "position effect unchanged");
 		}
@@ -152,7 +157,7 @@ namespace
 		}
 		for (std::size_t index = 0; mixedContext.m_orders.size() > index; ++index)
 		{
-			Check(index + 1 == mixedContext.m_orders[index].m_signalId, "all securities share the instance signal sequence");
+			Check(index + 1 == mixedContext.m_orders[index].m_signal_id, "all securities share the instance signal sequence");
 		}
 	}
 
@@ -182,7 +187,7 @@ namespace
 		Feed(strategy, 300);
 		Check(1 == context.m_orders.size(), "restart first relation emits no order");
 		Feed(strategy, 600);
-		Check((2 == context.m_orders.size()) && (2 == context.m_orders.back().m_signalId), "restart preserves signal sequence");
+		Check((2 == context.m_orders.size()) && (2 == context.m_orders.back().m_signal_id), "restart preserves signal sequence");
 		indicator.Finalize();
 		Feed(strategy, 500);
 		Feed(strategy, 400);
@@ -196,7 +201,7 @@ namespace
 		Check(indicator.Initialize(error), "restore runtime for remaining tests");
 		CStrategyConfig invalid = Configuration();
 		invalid.m_params["long_window"] = "100001";
-		Check(!CDualMaCrossStrategy::ValidateParameters(invalid), "reject invalid disabled configuration before persistence");
+		Check(!CDualMaCrossStrategy::ValidateParameters(invalid, error), "reject invalid disabled configuration before persistence");
 		Check(!strategy.Initialize(context, invalid), "reject unsupported window before processing quotes");
 		invalid = Configuration();
 		invalid.m_params["short_window"] = "1";

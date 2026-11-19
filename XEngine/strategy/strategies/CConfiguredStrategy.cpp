@@ -64,7 +64,7 @@ CConfiguredStrategy::CConfiguredStrategy(strategy::Kind kind) : m_kind(kind)
 bool CConfiguredStrategy::ValidateParameters(const CStrategyConfig& config, std::string& error)
 {
 	strategy::CSettings settings;
-	if (!strategy::CSettings::Read(config.m_strType, config.m_params, settings, error))
+	if (!strategy::CSettings::Read(config.m_str_type, config.m_params, settings, error))
 	{
 		return false;
 	}
@@ -106,7 +106,7 @@ bool CConfiguredStrategy::ValidateParameters(const CStrategyConfig& config, std:
 				}
 				quote = true;
 			}
-			else if ((strategy::Kind::DualMaCross == settings.m_kind) && (subscription.m_channel == ("1m" == settings.m_barPeriod ? Channel::bar_1m : Channel::bar_1d)))
+			else if ((strategy::Kind::DualMaCross == settings.m_kind) && (subscription.m_channel == ("1m" == settings.m_bar_period ? Channel::bar_1m : Channel::bar_1d)))
 			{
 				if (bar)
 				{
@@ -133,16 +133,16 @@ bool CConfiguredStrategy::ValidateParameters(const CStrategyConfig& config, std:
 bool CConfiguredStrategy::Initialize(IStrategyContext& context, const CStrategyConfig& config)
 {
 	std::string error;
-	if (!ValidateParameters(config, error) || !strategy::CSettings::Read(config.m_strType, config.m_params, m_settings, error) || (m_kind != m_settings.m_kind))
+	if (!ValidateParameters(config, error) || !strategy::CSettings::Read(config.m_str_type, config.m_params, m_settings, error) || (m_kind != m_settings.m_kind))
 	{
 		context.WriteLog(LogLevel::Error, error);
 		return false;
 	}
-	m_pContext = &context;
+	m_p_context = &context;
 	m_config = config;
 	m_security = config.m_subscriptions.front().m_security;
 	std::ostringstream signature;
-	signature << config.m_strType << ' ' << EncodeAccount(config.m_account) << ' ' << m_security.String();
+	signature << config.m_str_type << ' ' << EncodeAccount(config.m_account) << ' ' << m_security.String();
 	std::map<std::string, std::string> ordered(config.m_params.begin(), config.m_params.end());
 	for (const auto& [key, value] : ordered)
 	{
@@ -164,17 +164,17 @@ bool CConfiguredStrategy::Protection() const
 
 void CConfiguredStrategy::Persist(bool protect)
 {
-	if (m_feedingHistory)
+	if (m_feeding_history)
 	{
 		return;
 	}
 	std::ostringstream data;
-	data << std::setprecision(17) << std::quoted(m_signature) << ' ' << std::quoted(m_phase) << ' ' << std::quoted(m_reason) << ' ' << m_task << ' ' << m_taskPaused << ' ' << m_tracking << ' ' << m_seenZero << ' ' << m_highest << ' ' << m_lastPosition << ' ' << m_epoch << ' ' << m_target << ' ' << m_done << ' ' << m_pending << ' ' << m_submittingSignal << ' ' << std::quoted(m_confirmedBasis) << ' ' << std::quoted(m_barBasis) << ' ' << m_seedBegin << ' ' << m_lastBar << ' ' << m_barVersion << ' ' << m_samples << ' ' << m_relation << ' ' << m_shortEma << ' ' << m_longEma << ' ' << m_prices.size();
+	data << std::setprecision(17) << std::quoted(m_signature) << ' ' << std::quoted(m_phase) << ' ' << std::quoted(m_reason) << ' ' << m_task << ' ' << m_task_paused << ' ' << m_tracking << ' ' << m_seen_zero << ' ' << m_highest << ' ' << m_last_position << ' ' << m_epoch << ' ' << m_target << ' ' << m_done << ' ' << m_pending << ' ' << m_submitting_signal << ' ' << std::quoted(m_confirmed_basis) << ' ' << std::quoted(m_bar_basis) << ' ' << m_seed_begin << ' ' << m_last_bar << ' ' << m_bar_version << ' ' << m_samples << ' ' << m_relation << ' ' << m_short_ema << ' ' << m_long_ema << ' ' << m_prices.size();
 	for (double price : m_prices)
 	{
 		data << ' ' << price;
 	}
-	if (!m_pContext->SaveCheckpoint(data.str(), protect))
+	if (!m_p_context->SaveCheckpoint(data.str(), protect))
 	{
 		throw std::runtime_error("Cannot persist strategy checkpoint; trading stopped");
 	}
@@ -185,7 +185,7 @@ void CConfiguredStrategy::Restore(const std::string& text)
 	std::istringstream data(text);
 	std::string signature;
 	std::size_t count = 0;
-	if (!(data >> std::quoted(signature) >> std::quoted(m_phase) >> std::quoted(m_reason) >> m_task >> m_taskPaused >> m_tracking >> m_seenZero >> m_highest >> m_lastPosition >> m_epoch >> m_target >> m_done >> m_pending >> m_submittingSignal >> std::quoted(m_confirmedBasis) >> std::quoted(m_barBasis) >> m_seedBegin >> m_lastBar >> m_barVersion >> m_samples >> m_relation >> m_shortEma >> m_longEma >> count) || (100000 < count) || (0 > m_done) || (0 > m_highest))
+	if (!(data >> std::quoted(signature) >> std::quoted(m_phase) >> std::quoted(m_reason) >> m_task >> m_task_paused >> m_tracking >> m_seen_zero >> m_highest >> m_last_position >> m_epoch >> m_target >> m_done >> m_pending >> m_submitting_signal >> std::quoted(m_confirmed_basis) >> std::quoted(m_bar_basis) >> m_seed_begin >> m_last_bar >> m_bar_version >> m_samples >> m_relation >> m_short_ema >> m_long_ema >> count) || (100000 < count) || (0 > m_done) || (0 > m_highest))
 	{
 		throw std::runtime_error("Invalid strategy checkpoint");
 	}
@@ -211,14 +211,14 @@ void CConfiguredStrategy::Restore(const std::string& text)
 		m_phase = "待处理";
 		m_reason = "配置已变更，请重新布防";
 	}
-	else if (Protection() && !m_task && (0 < m_lastPosition) && ("已完成" != m_phase))
+	else if (Protection() && !m_task && (0 < m_last_position) && ("已完成" != m_phase))
 	{
 		m_phase = "待处理";
 		m_reason = "重启后的持仓周期待确认，请重新布防";
 	}
-	if ((0 == m_pending) && (0 != m_submittingSignal))
+	if ((0 == m_pending) && (0 != m_submitting_signal))
 	{
-		std::optional<CExecutionRecord> record = m_pContext->FindSignal(m_submittingSignal);
+		std::optional<CExecutionRecord> record = m_p_context->FindSignal(m_submitting_signal);
 		if (record.has_value())
 		{
 			m_pending = record->m_intent.m_clientOrderId;
@@ -228,7 +228,7 @@ void CConfiguredStrategy::Restore(const std::string& text)
 			m_phase = "待处理";
 			m_reason = "提交前中断，尚未建立委托，请重新布防";
 		}
-		m_submittingSignal = 0;
+		m_submitting_signal = 0;
 	}
 }
 
@@ -255,21 +255,21 @@ void CConfiguredStrategy::SetPhase(const std::string& phase, const std::string& 
 	writer.Key("client_order_id");
 	writer.Uint64(m_pending);
 	writer.Key("task_paused");
-	writer.Bool(m_taskPaused);
+	writer.Bool(m_task_paused);
 	writer.EndObject();
-	m_pContext->PublishBusiness(m_phase, std::string(buffer.GetString(), buffer.GetSize()));
+	m_p_context->PublishBusiness(m_phase, std::string(buffer.GetString(), buffer.GetSize()));
 }
 
 void CConfiguredStrategy::OnStart()
 {
 	m_running = true;
 	m_previous = 0;
-	m_quoteTime = 0;
+	m_quote_time = 0;
 	if (strategy::Kind::DualMaCross == m_kind)
 	{
-		m_historyReady = false;
-		m_lastHistoryPoll = m_pContext->NowMs();
-		m_pContext->RequestHistory(m_seedBegin);
+		m_history_ready = false;
+		m_last_history_poll = m_p_context->NowMs();
+		m_p_context->RequestHistory(m_seed_begin);
 	}
 	SetPhase(m_phase, m_reason);
 }
@@ -280,6 +280,7 @@ void CConfiguredStrategy::OnPause()
 	m_previous = 0;
 	Persist(m_task);
 }
+
 void CConfiguredStrategy::OnStop()
 {
 	OnPause();
@@ -288,14 +289,14 @@ void CConfiguredStrategy::OnStop()
 void CConfiguredStrategy::OnMarketState(bool available)
 {
 	m_previous = 0;
-	m_quoteTime = 0;
+	m_quote_time = 0;
 	if (available && (strategy::Kind::DualMaCross == m_kind))
 	{
-		m_historyReady = false;
-		m_lastHistoryPoll = m_pContext->NowMs();
-		m_pContext->RequestHistory(m_seedBegin);
+		m_history_ready = false;
+		m_last_history_poll = m_p_context->NowMs();
+		m_p_context->RequestHistory(m_seed_begin);
 	}
-	if (!available && Protection() && !m_task && (0 < m_lastPosition) && ("已完成" != m_phase))
+	if (!available && Protection() && !m_task && (0 < m_last_position) && ("已完成" != m_phase))
 	{
 		SetPhase("待处理", "行情中断，持仓周期和价格基准待确认");
 	}
@@ -348,19 +349,19 @@ int CConfiguredStrategy::QuotePriority(const _TyQuoteData& quote) const
 	{
 		return 2;
 	}
-	return Threshold(m_settings.m_stopLoss, price, m_pContext->GetTradingSnapshot(m_security).m_position, false) ? 0 : 2;
+	return Threshold(m_settings.m_stop_loss, price, m_p_context->GetTradingSnapshot(m_security).m_position, false) ? 0 : 2;
 }
 
 std::int64_t CConfiguredStrategy::SellTarget(const CPositionSnapshot& position) const
 {
 	std::int64_t target = position.m_totalQuantity;
-	if ("quantity" == m_settings.m_sellMode)
+	if ("quantity" == m_settings.m_sell_mode)
 	{
-		target = std::min(target, m_settings.m_sellValue);
+		target = std::min(target, m_settings.m_sell_value);
 	}
-	if ("position_ratio" == m_settings.m_sellMode)
+	if ("position_ratio" == m_settings.m_sell_mode)
 	{
-		if (!utility::MultiplyDivide(target, m_settings.m_sellValue, 1000000, target))
+		if (!utility::MultiplyDivide(target, m_settings.m_sell_value, 1000000, target))
 		{
 			return 0;
 		}
@@ -371,16 +372,16 @@ std::int64_t CConfiguredStrategy::SellTarget(const CPositionSnapshot& position) 
 std::int64_t CConfiguredStrategy::BuyQuantity(const CStrategyAccountView& view, const trade::CExecutionRule& rules) const
 {
 	const trade::CRule& rule = rules.m_rule;
-	std::int64_t available = m_pContext->AvailableFunds(view);
+	std::int64_t available = m_p_context->AvailableFunds(view);
 	std::int64_t price = m_price / Power(6 - rule.m_nPriceScale);
-	if ("quantity" == m_settings.m_buyMode)
+	if ("quantity" == m_settings.m_buy_mode)
 	{
-		return Rounded(m_settings.m_buyValue, rule.m_nBuyMinimum, rule.m_nBuyStep);
+		return Rounded(m_settings.m_buy_value, rule.m_nBuyMinimum, rule.m_nBuyStep);
 	}
-	std::int64_t budget = std::min(available, m_settings.m_buyValue);
-	if ("funds_ratio" == m_settings.m_buyMode)
+	std::int64_t budget = std::min(available, m_settings.m_buy_value);
+	if ("funds_ratio" == m_settings.m_buy_mode)
 	{
-		if (!utility::MultiplyDivide(available, m_settings.m_buyValue, 1000000, budget))
+		if (!utility::MultiplyDivide(available, m_settings.m_buy_value, 1000000, budget))
 		{
 			return 0;
 		}
@@ -431,20 +432,20 @@ void CConfiguredStrategy::Submit(bool buy, const CStrategyAccountView& view, con
 		return;
 	}
 	std::int64_t debit = 0;
-	if (buy && (!trade::MaximumDebit(rule, price, quantity, debit) || (debit > m_pContext->AvailableFunds(view))))
+	if (buy && (!trade::MaximumDebit(rule, price, quantity, debit) || (debit > m_p_context->AvailableFunds(view))))
 	{
 		SetPhase(m_task ? "待处理" : "监控", "资金不足以覆盖本金和费用");
 		return;
 	}
-	m_submittingSignal = m_pContext->AllocateSignal();
-	if (0 == m_submittingSignal)
+	m_submitting_signal = m_p_context->AllocateSignal();
+	if (0 == m_submitting_signal)
 	{
 		throw std::runtime_error("Cannot allocate a durable signal ID");
 	}
 	Persist(m_task);
 	COrderIntent intent;
 	intent.m_id = m_config.m_id;
-	intent.m_signal_id = m_submittingSignal;
+	intent.m_signal_id = m_submitting_signal;
 	intent.m_security = m_security;
 	intent.m_side = buy ? OrderSide::Buy : OrderSide::Sell;
 	intent.m_positionEffect = buy ? PositionEffect::Open : PositionEffect::Close;
@@ -452,11 +453,11 @@ void CConfiguredStrategy::Submit(bool buy, const CStrategyAccountView& view, con
 	intent.m_nPriceScale = rule.m_nPriceScale;
 	intent.m_quantity = quantity;
 	intent.m_maximumDebit = debit;
-	intent.m_quoteTimeMs = m_quoteTime;
-	intent.m_basisVersion = m_confirmedBasis;
-	COrderSubmitResult result = m_pContext->SubmitOrder(intent);
+	intent.m_quoteTimeMs = m_quote_time;
+	intent.m_basisVersion = m_confirmed_basis;
+	COrderSubmitResult result = m_p_context->SubmitOrder(intent);
 	m_pending = result.m_clientOrderId;
-	m_submittingSignal = 0;
+	m_submitting_signal = 0;
 	Persist(m_task);
 	if (0 != m_pending)
 	{
@@ -473,7 +474,7 @@ void CConfiguredStrategy::StartExit(const std::string& reason)
 	m_task = true;
 	m_target = -1;
 	m_done = 0;
-	m_taskPaused = false;
+	m_task_paused = false;
 	m_reason = reason;
 	m_phase = "等待委托终结";
 	Persist(true);
@@ -482,11 +483,11 @@ void CConfiguredStrategy::StartExit(const std::string& reason)
 
 void CConfiguredStrategy::Tick()
 {
-	if (!m_running || ("待处理" == m_phase) || (0 != m_submittingSignal))
+	if (!m_running || ("待处理" == m_phase) || (0 != m_submitting_signal))
 	{
 		return;
 	}
-	CStrategyAccountView view = m_pContext->GetTradingSnapshot(m_security);
+	CStrategyAccountView view = m_p_context->GetTradingSnapshot(m_security);
 	if (!view.m_account.m_bReady || !view.m_position.m_bReady)
 	{
 		SetPhase("等待账户同步", "资金或持仓尚未就绪");
@@ -494,7 +495,7 @@ void CConfiguredStrategy::Tick()
 	}
 	if (0 != m_pending)
 	{
-		std::optional<CExecutionRecord> record = m_pContext->FindExecution(m_pending);
+		std::optional<CExecutionRecord> record = m_p_context->FindExecution(m_pending);
 		if (!record.has_value() || (ExecutionState::Unknown == record->m_state))
 		{
 			SetPhase("结果待核实", "委托结果未知，请对账");
@@ -510,12 +511,12 @@ void CConfiguredStrategy::Tick()
 			SetPhase("执行中", record->m_message);
 			return;
 		}
-		if (trade::Status::Filled != record->m_brokerStatus)
+		if (trade::Status::Filled != record->m_broker_status)
 		{
 			SetPhase("待处理", record->m_message);
 			return;
 		}
-		m_done += record->m_filledQuantity;
+		m_done += record->m_filled_quantity;
 		m_pending = 0;
 		Persist(m_task);
 		if (!m_task)
@@ -525,18 +526,18 @@ void CConfiguredStrategy::Tick()
 	}
 	if (!m_task)
 	{
-		if (Protection() && ("已完成" == m_phase) && m_settings.m_autoRearm && m_seenZero && m_pContext->ReleaseExit(true))
+		if (Protection() && ("已完成" == m_phase) && m_settings.m_auto_rearm && m_seen_zero && m_p_context->ReleaseExit(true))
 		{
 			SetPhase("等待持仓");
 		}
 		return;
 	}
-	if (m_taskPaused)
+	if (m_task_paused)
 	{
 		SetPhase("退出任务已暂停");
 		return;
 	}
-	if (!m_pContext->ClaimExit())
+	if (!m_p_context->ClaimExit())
 	{
 		SetPhase("等待其他保护任务");
 		return;
@@ -551,7 +552,7 @@ void CConfiguredStrategy::Tick()
 	}
 	if (active)
 	{
-		m_pContext->CancelConflicts();
+		m_p_context->CancelConflicts();
 		SetPhase("等待委托终结", "等待撤单结果及账户同步");
 		return;
 	}
@@ -563,7 +564,7 @@ void CConfiguredStrategy::Tick()
 	std::int64_t remaining = std::min(m_target - m_done, view.m_position.m_totalQuantity);
 	if (0 >= remaining)
 	{
-		if (!m_pContext->ReleaseExit(false))
+		if (!m_p_context->ReleaseExit(false))
 		{
 			SetPhase("等待账户同步");
 			return;
@@ -573,8 +574,8 @@ void CConfiguredStrategy::Tick()
 		Persist();
 		return;
 	}
-	std::optional<trade::CExecutionRule> rules = m_pContext->GetRules(m_security);
-	if (!rules.has_value() || (0 == m_quoteTime) || (5000 < m_pContext->NowMs() - m_quoteTime))
+	std::optional<trade::CExecutionRule> rules = m_p_context->GetRules(m_security);
+	if (!rules.has_value() || (0 == m_quote_time) || (5000 < m_p_context->NowMs() - m_quote_time))
 	{
 		SetPhase("等待有效行情或交易规则");
 		return;
@@ -589,8 +590,8 @@ void CConfiguredStrategy::OnQuote(const _TyQuoteData& quote)
 		return;
 	}
 	std::int64_t time = quote.receive_time_ms();
-	std::int64_t now = m_pContext->NowMs();
-	if ((0 >= time) || (time <= m_quoteTime) || (5000 < now - time) || (1000 < time - now))
+	std::int64_t now = m_p_context->NowMs();
+	if ((0 >= time) || (time <= m_quote_time) || (5000 < now - time) || (1000 < time - now))
 	{
 		return;
 	}
@@ -599,14 +600,14 @@ void CConfiguredStrategy::OnQuote(const _TyQuoteData& quote)
 	{
 		return;
 	}
-	if ((strategy::Kind::DualMaCross == m_kind) && (now - m_lastHistoryPoll >= 60000))
+	if ((strategy::Kind::DualMaCross == m_kind) && (now - m_last_history_poll >= 60000))
 	{
-		m_lastHistoryPoll = now;
-		m_pContext->RequestHistory(m_historyReady ? m_lastBar : m_seedBegin);
+		m_last_history_poll = now;
+		m_p_context->RequestHistory(m_history_ready ? m_last_bar : m_seed_begin);
 	}
 	m_price = price;
-	m_quoteTime = time;
-	m_rawPrice = quote.last_price();
+	m_quote_time = time;
+	m_raw_price = quote.last_price();
 	m_scale = quote.price_scale();
 	if (m_task || (0 != m_pending))
 	{
@@ -620,14 +621,14 @@ void CConfiguredStrategy::OnQuote(const _TyQuoteData& quote)
 	{
 		return;
 	}
-	CStrategyAccountView view = m_pContext->GetTradingSnapshot(m_security);
+	CStrategyAccountView view = m_p_context->GetTradingSnapshot(m_security);
 	if (!view.m_position.m_bReady || !view.m_account.m_bReady)
 	{
 		m_previous = 0;
 		SetPhase("等待账户同步");
 		return;
 	}
-	std::optional<trade::CExecutionRule> rules = m_pContext->GetRules(m_security);
+	std::optional<trade::CExecutionRule> rules = m_p_context->GetRules(m_security);
 	if (!rules.has_value())
 	{
 		m_previous = 0;
@@ -647,7 +648,7 @@ void CConfiguredStrategy::OnQuote(const _TyQuoteData& quote)
 		SetPhase("等待有效价格");
 		return;
 	}
-	if (rule.m_bCorporateAction && (m_confirmedBasis != rule.m_strVersion))
+	if (rule.m_bCorporateAction && (m_confirmed_basis != rule.m_strVersion))
 	{
 		SetPhase("待处理", "公司行动影响价格基准，请确认基准");
 		return;
@@ -661,18 +662,18 @@ void CConfiguredStrategy::OnQuote(const _TyQuoteData& quote)
 			return;
 		}
 		m_epoch = view.m_connectionEpoch;
-		if (m_lastPosition != view.m_position.m_totalQuantity)
+		if (m_last_position != view.m_position.m_totalQuantity)
 		{
-			if ((0 == m_lastPosition) && (0 < view.m_position.m_totalQuantity) && ("已完成" != m_phase))
+			if ((0 == m_last_position) && (0 < view.m_position.m_totalQuantity) && ("已完成" != m_phase))
 			{
-				m_seenZero = false;
+				m_seen_zero = false;
 				m_tracking = false;
 				m_highest = 0;
 			}
-			m_lastPosition = view.m_position.m_totalQuantity;
-			if (0 == m_lastPosition)
+			m_last_position = view.m_position.m_totalQuantity;
+			if (0 == m_last_position)
 			{
-				m_seenZero = true;
+				m_seen_zero = true;
 				m_tracking = false;
 				m_highest = 0;
 			}
@@ -680,7 +681,7 @@ void CConfiguredStrategy::OnQuote(const _TyQuoteData& quote)
 		}
 		if ("已完成" == m_phase)
 		{
-			if (m_settings.m_autoRearm && m_seenZero && m_pContext->ReleaseExit(true))
+			if (m_settings.m_auto_rearm && m_seen_zero && m_p_context->ReleaseExit(true))
 			{
 				SetPhase("等待持仓");
 			}
@@ -693,22 +694,22 @@ void CConfiguredStrategy::OnQuote(const _TyQuoteData& quote)
 		}
 		if (strategy::Kind::TakeProfitStopLoss == m_kind)
 		{
-			if (m_settings.m_takeProfit.m_enabled && m_settings.m_stopLoss.m_enabled && view.m_position.m_bCostKnown && ((m_settings.m_takeProfit.m_percent && !m_settings.m_stopLoss.m_percent && Threshold(m_settings.m_takeProfit, m_settings.m_stopLoss.m_value, view.m_position, true)) || (!m_settings.m_takeProfit.m_percent && m_settings.m_stopLoss.m_percent && Threshold(m_settings.m_stopLoss, m_settings.m_takeProfit.m_value, view.m_position, false))))
+			if (m_settings.m_take_profit.m_enabled && m_settings.m_stop_loss.m_enabled && view.m_position.m_bCostKnown && ((m_settings.m_take_profit.m_percent && !m_settings.m_stop_loss.m_percent && Threshold(m_settings.m_take_profit, m_settings.m_stop_loss.m_value, view.m_position, true)) || (!m_settings.m_take_profit.m_percent && m_settings.m_stop_loss.m_percent && Threshold(m_settings.m_stop_loss, m_settings.m_take_profit.m_value, view.m_position, false))))
 			{
 				SetPhase("待处理", "当前成本下止损线不得高于或等于止盈线");
 				return;
 			}
-			if (Threshold(m_settings.m_stopLoss, price, view.m_position, false))
+			if (Threshold(m_settings.m_stop_loss, price, view.m_position, false))
 			{
 				StartExit("止损触发");
 				return;
 			}
-			if (Threshold(m_settings.m_takeProfit, price, view.m_position, true))
+			if (Threshold(m_settings.m_take_profit, price, view.m_position, true))
 			{
 				StartExit("止盈触发");
 				return;
 			}
-			if (((m_settings.m_takeProfit.m_enabled && m_settings.m_takeProfit.m_percent) || (m_settings.m_stopLoss.m_enabled && m_settings.m_stopLoss.m_percent)) && !view.m_position.m_bCostKnown)
+			if (((m_settings.m_take_profit.m_enabled && m_settings.m_take_profit.m_percent) || (m_settings.m_stop_loss.m_enabled && m_settings.m_stop_loss.m_percent)) && !view.m_position.m_bCostKnown)
 			{
 				SetPhase("等待有效成本");
 				return;
@@ -743,18 +744,18 @@ void CConfiguredStrategy::OnQuote(const _TyQuoteData& quote)
 	{
 		if ("已完成" == m_phase)
 		{
-			if (!m_settings.m_autoRearm)
+			if (!m_settings.m_auto_rearm)
 			{
 				return;
 			}
-			if (m_settings.m_up ? price < m_settings.m_triggerPrice : price > m_settings.m_triggerPrice)
+			if (m_settings.m_up ? price < m_settings.m_trigger_price : price > m_settings.m_trigger_price)
 			{
 				m_previous = price;
 				SetPhase("监控");
 			}
 			return;
 		}
-		bool crossed = (0 != m_previous) && (m_settings.m_up ? ((m_previous < m_settings.m_triggerPrice) && (price >= m_settings.m_triggerPrice)) : ((m_previous > m_settings.m_triggerPrice) && (price <= m_settings.m_triggerPrice)));
+		bool crossed = (0 != m_previous) && (m_settings.m_up ? ((m_previous < m_settings.m_trigger_price) && (price >= m_settings.m_trigger_price)) : ((m_previous > m_settings.m_trigger_price) && (price <= m_settings.m_trigger_price)));
 		m_previous = price;
 		if (crossed)
 		{
@@ -765,13 +766,13 @@ void CConfiguredStrategy::OnQuote(const _TyQuoteData& quote)
 
 void CConfiguredStrategy::OnBar(const _TyBarData& bar)
 {
-	if ((strategy::Kind::DualMaCross == m_kind) && m_historyReady && !m_feedingHistory && (bar.begin_time_ms() == m_lastBar) && (bar.data_version() > m_barVersion))
+	if ((strategy::Kind::DualMaCross == m_kind) && m_history_ready && !m_feeding_history && (bar.begin_time_ms() == m_last_bar) && (bar.data_version() > m_bar_version))
 	{
-		m_historyReady = false;
-		m_pContext->RequestHistory(m_seedBegin);
+		m_history_ready = false;
+		m_p_context->RequestHistory(m_seed_begin);
 		return;
 	}
-	if (!m_running || (("待处理" == m_phase) && !m_feedingHistory) || (strategy::Kind::DualMaCross != m_kind) || (!m_historyReady && !m_feedingHistory) || !bar.completed() || (0 == bar.data_version()) || ("none" != bar.adjustment()) || (bar.security().symbol() != m_security.m_strCode) || (static_cast<int>(bar.security().exchange()) != static_cast<int>(m_security.m_market)) || (static_cast<int>(bar.channel()) != static_cast<int>("1m" == m_settings.m_barPeriod ? Channel::bar_1m : Channel::bar_1d)) || (bar.begin_time_ms() <= m_lastBar) || (bar.end_time_ms() <= bar.begin_time_ms()) || (bar.end_time_ms() > m_pContext->NowMs()) || (0 >= bar.close_price()) || (0 > bar.price_scale()) || (6 < bar.price_scale()))
+	if (!m_running || (("待处理" == m_phase) && !m_feeding_history) || (strategy::Kind::DualMaCross != m_kind) || (!m_history_ready && !m_feeding_history) || !bar.completed() || (0 == bar.data_version()) || ("none" != bar.adjustment()) || (bar.security().symbol() != m_security.m_strCode) || (static_cast<int>(bar.security().exchange()) != static_cast<int>(m_security.m_market)) || (static_cast<int>(bar.channel()) != static_cast<int>("1m" == m_settings.m_bar_period ? Channel::bar_1m : Channel::bar_1d)) || (bar.begin_time_ms() <= m_last_bar) || (bar.end_time_ms() <= bar.begin_time_ms()) || (bar.end_time_ms() > m_p_context->NowMs()) || (0 >= bar.close_price()) || (0 > bar.price_scale()) || (6 < bar.price_scale()))
 	{
 		return;
 	}
@@ -780,52 +781,52 @@ void CConfiguredStrategy::OnBar(const _TyBarData& bar)
 		SetPhase("待处理", "K 线价格基准版本缺失");
 		return;
 	}
-	if (!m_barBasis.empty() && (m_barBasis != bar.basis_version()))
+	if (!m_bar_basis.empty() && (m_bar_basis != bar.basis_version()))
 	{
 		SetPhase("待处理", "K 线价格基准变化，请确认基准后重新预热");
 		return;
 	}
-	m_barBasis = bar.basis_version();
+	m_bar_basis = bar.basis_version();
 	double price = static_cast<double>(bar.close_price()) / static_cast<double>(Power(bar.price_scale()));
-	if (0 == m_seedBegin)
+	if (0 == m_seed_begin)
 	{
-		m_seedBegin = bar.begin_time_ms();
+		m_seed_begin = bar.begin_time_ms();
 	}
-	m_lastBar = bar.begin_time_ms();
-	m_barVersion = bar.data_version();
+	m_last_bar = bar.begin_time_ms();
+	m_bar_version = bar.data_version();
 	++m_samples;
 	m_prices.emplace_back(price);
-	if (m_prices.size() > static_cast<std::size_t>(m_settings.m_longWindow))
+	if (m_prices.size() > static_cast<std::size_t>(m_settings.m_long_window))
 	{
 		m_prices.erase(m_prices.begin());
 	}
-	if (m_samples == static_cast<std::uint64_t>(m_settings.m_shortWindow))
+	if (m_samples == static_cast<std::uint64_t>(m_settings.m_short_window))
 	{
-		m_shortEma = std::accumulate(m_prices.begin(), m_prices.end(), 0.0) / m_settings.m_shortWindow;
+		m_short_ema = std::accumulate(m_prices.begin(), m_prices.end(), 0.0) / m_settings.m_short_window;
 	}
-	else if (m_samples > static_cast<std::uint64_t>(m_settings.m_shortWindow))
+	else if (m_samples > static_cast<std::uint64_t>(m_settings.m_short_window))
 	{
-		m_shortEma += 2.0 / (m_settings.m_shortWindow + 1) * (price - m_shortEma);
+		m_short_ema += 2.0 / (m_settings.m_short_window + 1) * (price - m_short_ema);
 	}
-	if (m_samples == static_cast<std::uint64_t>(m_settings.m_longWindow))
+	if (m_samples == static_cast<std::uint64_t>(m_settings.m_long_window))
 	{
-		m_longEma = std::accumulate(m_prices.begin(), m_prices.end(), 0.0) / m_settings.m_longWindow;
+		m_long_ema = std::accumulate(m_prices.begin(), m_prices.end(), 0.0) / m_settings.m_long_window;
 	}
-	else if (m_samples > static_cast<std::uint64_t>(m_settings.m_longWindow))
+	else if (m_samples > static_cast<std::uint64_t>(m_settings.m_long_window))
 	{
-		m_longEma += 2.0 / (m_settings.m_longWindow + 1) * (price - m_longEma);
+		m_long_ema += 2.0 / (m_settings.m_long_window + 1) * (price - m_long_ema);
 	}
-	if (m_prices.size() < static_cast<std::size_t>(m_settings.m_longWindow))
+	if (m_prices.size() < static_cast<std::size_t>(m_settings.m_long_window))
 	{
 		SetPhase("预热", "完成的历史 K 线不足");
 		Persist();
 		return;
 	}
-	double shortAverage = m_shortEma, longAverage = m_longEma;
+	double shortAverage = m_short_ema, longAverage = m_long_ema;
 	if (!m_settings.m_ema)
 	{
 		std::string error;
-		if ((nullptr == m_pIndicator) || !m_pIndicator->CalculateSma(m_prices, m_settings.m_shortWindow, shortAverage, error) || !m_pIndicator->CalculateSma(m_prices, m_settings.m_longWindow, longAverage, error))
+		if ((nullptr == m_p_indicator) || !m_p_indicator->CalculateSma(m_prices, m_settings.m_short_window, shortAverage, error) || !m_p_indicator->CalculateSma(m_prices, m_settings.m_long_window, longAverage, error))
 		{
 			SetPhase("待处理", error);
 			return;
@@ -839,17 +840,17 @@ void CConfiguredStrategy::OnBar(const _TyBarData& bar)
 		m_relation = relation;
 	}
 	Persist();
-	if (m_feedingHistory)
+	if (m_feeding_history)
 	{
 		return;
 	}
 	Tick();
-	if (!crossed || (0 != m_pending) || ("待处理" == m_phase) || (0 == m_quoteTime) || (5000 < m_pContext->NowMs() - m_quoteTime))
+	if (!crossed || (0 != m_pending) || ("待处理" == m_phase) || (0 == m_quote_time) || (5000 < m_p_context->NowMs() - m_quote_time))
 	{
 		return;
 	}
-	CStrategyAccountView view = m_pContext->GetTradingSnapshot(m_security);
-	std::optional<trade::CExecutionRule> rules = m_pContext->GetRules(m_security);
+	CStrategyAccountView view = m_p_context->GetTradingSnapshot(m_security);
+	std::optional<trade::CExecutionRule> rules = m_p_context->GetRules(m_security);
 	if (rules.has_value() && view.m_account.m_bReady)
 	{
 		Submit(0 < relation, view, *rules, SellTarget(view.m_position));
@@ -862,30 +863,30 @@ void CConfiguredStrategy::OnHistory(const std::vector<_TyBarData>& data)
 	{
 		return;
 	}
-	if (m_historyReady)
+	if (m_history_ready)
 	{
 		std::size_t fresh = 0;
 		std::int64_t latest = 0;
 		for (const auto& bar : data)
 		{
-			if (bar.completed() && (bar.begin_time_ms() > m_lastBar))
+			if (bar.completed() && (bar.begin_time_ms() > m_last_bar))
 			{
 				++fresh;
 				latest = std::max(latest, bar.end_time_ms());
 			}
 		}
-		m_feedingHistory = (1 < fresh) || ((0 < fresh) && (5000 < m_pContext->NowMs() - latest));
+		m_feeding_history = (1 < fresh) || ((0 < fresh) && (5000 < m_p_context->NowMs() - latest));
 		for (const auto& bar : data)
 		{
 			OnBar(bar);
 		}
-		m_feedingHistory = false;
+		m_feeding_history = false;
 		Persist();
 		return;
 	}
-	if (!m_barBasis.empty() && (0 < m_seedBegin) && !std::any_of(data.begin(), data.end(), [this](const _TyBarData& bar)
+	if (!m_bar_basis.empty() && (0 < m_seed_begin) && !std::any_of(data.begin(), data.end(), [this](const _TyBarData& bar)
 	{
-		return bar.completed() && (bar.begin_time_ms() == m_seedBegin) && (bar.basis_version() == m_barBasis);
+		return bar.completed() && (bar.begin_time_ms() == m_seed_begin) && (bar.basis_version() == m_bar_basis);
 	}))
 	{
 		SetPhase("待处理", "历史预热起点缺失，不能改变 EMA 计算起点");
@@ -896,16 +897,16 @@ void CConfiguredStrategy::OnHistory(const std::vector<_TyBarData>& data)
 	m_prices.clear();
 	m_samples = 0;
 	m_relation = 0;
-	m_lastBar = 0;
-	m_shortEma = 0;
-	m_longEma = 0;
-	m_feedingHistory = true;
+	m_last_bar = 0;
+	m_short_ema = 0;
+	m_long_ema = 0;
+	m_feeding_history = true;
 	for (const auto& bar : data)
 	{
 		OnBar(bar);
 	}
-	m_feedingHistory = false;
-	m_historyReady = true;
+	m_feeding_history = false;
+	m_history_ready = true;
 	if (attention)
 	{
 		m_phase = phase;
@@ -913,7 +914,7 @@ void CConfiguredStrategy::OnHistory(const std::vector<_TyBarData>& data)
 	}
 	if ("待处理" != m_phase)
 	{
-		SetPhase(m_prices.size() < static_cast<std::size_t>(m_settings.m_longWindow) ? "预热" : "监控");
+		SetPhase(m_prices.size() < static_cast<std::size_t>(m_settings.m_long_window) ? "预热" : "监控");
 	}
 	Persist();
 }
@@ -922,16 +923,18 @@ void CConfiguredStrategy::OnOrder(const COrderEvent&)
 {
 	Tick();
 }
+
 void CConfiguredStrategy::OnTrade(const CTradeEvent&)
 {
 	Tick();
 }
+
 void CConfiguredStrategy::OnTimer(const CTimerEvent& event)
 {
-	if (event.m_zeroPosition && Protection())
+	if (event.m_zero_position && Protection())
 	{
-		m_seenZero = true;
-		m_lastPosition = 0;
+		m_seen_zero = true;
+		m_last_position = 0;
 		m_tracking = false;
 		m_highest = 0;
 		Persist(m_task);
@@ -947,7 +950,7 @@ bool CConfiguredStrategy::OnAction(const std::string& action)
 		{
 			return false;
 		}
-		m_taskPaused = true;
+		m_task_paused = true;
 		Persist(m_task);
 		SetPhase("退出任务已暂停");
 		return true;
@@ -960,33 +963,33 @@ bool CConfiguredStrategy::OnAction(const std::string& action)
 		}
 		if (0 != m_pending)
 		{
-			std::optional<CExecutionRecord> record = m_pContext->FindExecution(m_pending);
+			std::optional<CExecutionRecord> record = m_p_context->FindExecution(m_pending);
 			if (!record.has_value() || ((ExecutionState::Closed != record->m_state) && (ExecutionState::NotSent != record->m_state)))
 			{
 				return false;
 			}
-			m_done += record->m_filledQuantity;
+			m_done += record->m_filled_quantity;
 			m_pending = 0;
 		}
-		m_taskPaused = false;
-		m_pContext->CancelConflicts(true);
+		m_task_paused = false;
+		m_p_context->CancelConflicts(true);
 		SetPhase("监控");
 		Tick();
 		return true;
 	}
 	if (("confirm_basis" == action) && m_task)
 	{
-		if ((0 != m_submittingSignal) || (0 != m_pending))
+		if ((0 != m_submitting_signal) || (0 != m_pending))
 		{
 			return false;
 		}
-		std::optional<trade::CExecutionRule> rules = m_pContext->GetRules(m_security);
+		std::optional<trade::CExecutionRule> rules = m_p_context->GetRules(m_security);
 		if (!rules.has_value())
 		{
 			return false;
 		}
-		m_confirmedBasis = rules->m_rule.m_strVersion;
-		m_taskPaused = true;
+		m_confirmed_basis = rules->m_rule.m_strVersion;
+		m_task_paused = true;
 		SetPhase("退出任务已暂停", "价格基准已确认，请核实剩余退出数量后恢复任务");
 		Persist(true);
 		return true;
@@ -995,13 +998,13 @@ bool CConfiguredStrategy::OnAction(const std::string& action)
 	{
 		return false;
 	}
-	if (m_task || (0 != m_submittingSignal))
+	if (m_task || (0 != m_submitting_signal))
 	{
 		return false;
 	}
 	if (0 != m_pending)
 	{
-		std::optional<CExecutionRecord> record = m_pContext->FindExecution(m_pending);
+		std::optional<CExecutionRecord> record = m_p_context->FindExecution(m_pending);
 		if (!record.has_value() || ((ExecutionState::Closed != record->m_state) && (ExecutionState::NotSent != record->m_state)))
 		{
 			return false;
@@ -1010,40 +1013,40 @@ bool CConfiguredStrategy::OnAction(const std::string& action)
 	}
 	if ("unlock" == action)
 	{
-		return m_pContext->ReleaseExit(true);
+		return m_p_context->ReleaseExit(true);
 	}
 	if ("confirm_basis" == action)
 	{
-		std::optional<trade::CExecutionRule> rules = m_pContext->GetRules(m_security);
+		std::optional<trade::CExecutionRule> rules = m_p_context->GetRules(m_security);
 		if (!rules.has_value())
 		{
 			return false;
 		}
-		m_confirmedBasis = rules->m_rule.m_strVersion;
+		m_confirmed_basis = rules->m_rule.m_strVersion;
 		if (strategy::Kind::DualMaCross == m_kind)
 		{
-			m_seedBegin = rules->m_calendar.m_nOpen;
-			m_barBasis.clear();
+			m_seed_begin = rules->m_calendar.m_nOpen;
+			m_bar_basis.clear();
 		}
 	}
-	if (!m_pContext->ReleaseExit(true))
+	if (!m_p_context->ReleaseExit(true))
 	{
 		return false;
 	}
 	m_previous = 0;
 	m_tracking = false;
 	m_highest = 0;
-	m_seenZero = false;
-	m_lastPosition = 0;
+	m_seen_zero = false;
+	m_last_position = 0;
 	m_target = -1;
 	m_done = 0;
 	SetPhase("监控");
 	Persist();
 	if (strategy::Kind::DualMaCross == m_kind)
 	{
-		m_historyReady = false;
-		m_lastHistoryPoll = m_pContext->NowMs();
-		m_pContext->RequestHistory(m_seedBegin);
+		m_history_ready = false;
+		m_last_history_poll = m_p_context->NowMs();
+		m_p_context->RequestHistory(m_seed_begin);
 	}
 	return true;
 }

@@ -73,7 +73,7 @@ int main(int nArgs, char** pArgs)
 	std::get<trade::CSubmitParam>(request.m_param).m_order.m_clientId = 700;
 	std::get<trade::CSubmitParam>(request.m_param).m_order.m_account = account;
 	std::get<trade::CSubmitParam>(request.m_param).m_order.m_id = 77;
-	std::get<trade::CSubmitParam>(request.m_param).m_order.m_signalId = 78;
+	std::get<trade::CSubmitParam>(request.m_param).m_order.m_signal_id = 78;
 	std::get<trade::CSubmitParam>(request.m_param).m_order.m_strSecurity = "600000.SSE";
 	std::get<trade::CSubmitParam>(request.m_param).m_order.m_nPrice = 1000;
 	std::get<trade::CSubmitParam>(request.m_param).m_order.m_nPriceScale = 2;

@@ -5,6 +5,7 @@
 #include "../database/CDBEngine.h"
 #include <memory>
 #include <map>
+#include <unordered_map>
 #include <mutex>
 #include <optional>
 #include <tuple>
@@ -27,13 +28,13 @@ struct CExecutionRecord
 {
 	COrderIntent m_intent;
 	ExecutionState m_state{ ExecutionState::Prepared };
-	std::int64_t m_reservedMoney{ 0 };
-	std::uint64_t m_orderId{ 0 };
-	std::uint64_t m_evidenceVersion{ 0 };
-	bool m_bBrokerCovered{ false };
+	std::int64_t m_reserved_money{ 0 };
+	std::uint64_t m_order_id{ 0 };
+	std::uint64_t m_evidence_version{ 0 };
+	bool m_b_broker_covered{ false };
 	std::string m_message;
-	std::int64_t m_filledQuantity{ 0 };
-	trade::Status m_brokerStatus{ trade::Status::Unknown };
+	std::int64_t m_filled_quantity{ 0 };
+	trade::Status m_broker_status{ trade::Status::Unknown };
 };
 
 // One MySQL session owns execution admission for the database.
@@ -51,6 +52,7 @@ public:
 	{
 		return Open(CDBEngine::InstanceRef().GetDBPtr(db::em_database::mysql));
 	}
+
 	bool Open(db::_TyDBPtr pDB);
 	std::string GetLastError() const;
 	bool HasUnresolved(_TyStrategyId strategyId) const;
@@ -83,11 +85,11 @@ private:
 
 	mutable std::mutex m_mtx_state;
 	std::unique_ptr<CExecutionDatabase> m_database;
-	bool m_bHealthy{ false };
-	std::string m_strLastError;
+	bool m_b_healthy{ false };
+	std::string m_str_last_error;
 	std::map<std::uint64_t, CExecutionRecord> m_records;
 	std::map<_TyLockKey, std::string> m_locks;
-	std::map<_TyAccount, std::uint64_t> m_snapshotVersions;
-	std::map<_TyAccount, std::uint64_t> m_snapshotEpochs;
-	std::map<std::pair<_TyAccount, std::string>, _TyStrategyId> m_exitOwners;
+	std::unordered_map<_TyAccount, std::uint64_t, CAccountHash> m_snapshot_versions;
+	std::unordered_map<_TyAccount, std::uint64_t, CAccountHash> m_snapshot_epochs;
+	std::map<std::pair<_TyAccount, std::string>, _TyStrategyId> m_exit_owners;
 };

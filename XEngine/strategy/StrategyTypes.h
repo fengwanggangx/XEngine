@@ -49,13 +49,13 @@ struct CStrategyConfig
 {
 	_TyAccount m_account{};
 	_TyStrategyId m_id{ 0 };
-	std::string m_strType;
+	std::string m_str_type;
 	std::uint64_t m_revision{ 1 };
-	std::string m_strName;
+	std::string m_str_name;
 	std::unordered_map<std::string, std::string> m_params;
 	std::vector<CQuoteInfo> m_subscriptions;
-	std::size_t m_eventQueueLimit{ 4096 };
-	bool m_bAutoStart{ false };
+	std::size_t m_event_queue_limit{ 4096 };
+	bool m_b_auto_start{ false };
 
 	bool IsValid() const;
 };
@@ -63,28 +63,28 @@ struct CStrategyConfig
 // 携带策略定时回调的事件数据。
 struct CTimerEvent
 {
-	_TyTimerId m_timerId{ 0 };
-	std::chrono::steady_clock::time_point m_fireTime;
-	bool m_zeroPosition{ false };
+	_TyTimerId m_timer_id{ 0 };
+	std::chrono::steady_clock::time_point m_fire_time;
+	bool m_zero_position{ false };
 };
 
 // 汇总策略生命周期、业务状态、错误及运行指标，供查询和状态通知使用。
 struct CStrategySnapshot
 {
 	_TyStrategyId m_id{ 0 };
-	std::string m_strType;
-	std::string m_strName;
+	std::string m_str_type;
+	std::string m_str_name;
 	StrategyState m_state{ StrategyState::Created };
-	bool m_bMarketAvailable{ false };
-	std::size_t m_queueLength{ 0 };
-	std::size_t m_activeOrderCount{ 0 };
-	std::uint64_t m_lastEventSequence{ 0 };
-	std::uint64_t m_droppedMarketEvents{ 0 };
-	std::int64_t m_lastCallbackDurationUs{ 0 };
-	std::int64_t m_maxCallbackDurationUs{ 0 };
-	std::string m_strLastError;
-	std::string m_businessState;
-	std::string m_detailsJson;
+	bool m_b_market_available{ false };
+	std::size_t m_queue_length{ 0 };
+	std::size_t m_active_order_count{ 0 };
+	std::uint64_t m_last_event_sequence{ 0 };
+	std::uint64_t m_dropped_market_events{ 0 };
+	std::int64_t m_last_callback_duration_us{ 0 };
+	std::int64_t m_max_callback_duration_us{ 0 };
+	std::string m_str_last_error;
+	std::string m_business_state;
+	std::string m_details_json;
 };
 
 #endif

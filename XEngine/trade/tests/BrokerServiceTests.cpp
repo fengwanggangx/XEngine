@@ -32,7 +32,7 @@ class CBrokerServiceTests
 
 	static void Prepare(CTradeService& service, std::uint64_t nCycle)
 	{
-		service.m_pAccountService->m_accounts[TestAccount(1)].m_info.m_state = TradeAccountState::Connected;
+		service.m_p_account_service->m_accounts[TestAccount(1)].m_info.m_state = TradeAccountState::Connected;
 		CTradeService::CSync& pending = service.m_syncing[TestAccount(1)];
 		pending.m_cycle = nCycle;
 		pending.m_completed = 3;
@@ -148,12 +148,12 @@ class CBrokerServiceTests
 		Check(indicator.Initialize(indicatorError), "indicator runtime initializes");
 		CStrategyService strategies(nullptr, &service, &accounts, indicator);
 		std::shared_ptr<CStrategyRuntime> runtime = std::make_shared<CStrategyRuntime>();
-		runtime->m_instanceId = 11;
+		runtime->m_instance_id = 11;
 		runtime->m_config.m_id = 7;
 		runtime->m_config.m_account = TestAccount(1);
-		runtime->m_config.m_eventQueueLimit = 100;
+		runtime->m_config.m_event_queue_limit = 100;
 		runtime->m_state.store(StrategyState::Stopped);
-		runtime->m_bScheduled = true;
+		runtime->m_b_scheduled = true;
 		strategies.m_runtimes.emplace(7, runtime);
 		strategies.m_signals[{ 7, 8 }] = SignalState::Pending;
 		struct CRuntimeGuard
@@ -164,7 +164,7 @@ class CBrokerServiceTests
 			{
 				m_runtimes.clear();
 				m_runtime.m_events.clear();
-				m_runtime.m_bScheduled = false;
+				m_runtime.m_b_scheduled = false;
 			}
 		};
 		CRuntimeGuard guard{ strategies.m_runtimes, *runtime };
@@ -196,7 +196,7 @@ class CBrokerServiceTests
 		strategies.OnReply(origin, reply);
 		Check(1 == runtime->m_events.size(), "deleted strategy reply is ignored");
 		runtime->m_events.clear();
-		runtime->m_bScheduled = false;
+		runtime->m_b_scheduled = false;
 	}
 
 public:
@@ -206,7 +206,7 @@ public:
 		CSession session(CLoginInfo{});
 		CAccountService accounts(&session);
 		CTradeService service(&accounts, &session);
-		service.m_bRunning.store(true);
+		service.m_b_running.store(true);
 		CAccountInfo info = FmtAccountInfo(TestAccount(1));
 		info.m_state = TradeAccountState::Connected;
 		accounts.m_accounts[TestAccount(1)].m_info = info;
@@ -256,7 +256,7 @@ public:
 		Check(service.Snapshot(TestAccount(1)).m_bReady && 30 == service.Snapshot(TestAccount(1)).m_version, "fresh reconnect restores all categories");
 		session.NotifyState(SessionState::Disconnected, "test disconnect");
 		Prepare(service, 3);
-		service.m_syncing.at(TestAccount(1)).m_bOverflow = true;
+		service.m_syncing.at(TestAccount(1)).m_b_overflow = true;
 		service.CompleteQuery(Trades(40), service.m_generation, 3);
 		Check(!service.Snapshot(TestAccount(1)).m_bReady && !service.m_syncing.contains(TestAccount(1)), "buffer overflow leaves cache unavailable for retry");
 		Prepare(service, 4);

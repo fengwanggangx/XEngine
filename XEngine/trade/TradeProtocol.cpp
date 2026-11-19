@@ -238,11 +238,11 @@ namespace trade::protocol
 	{
 		request::TradeAccountRecord payload;
 		SetAccountIdentity(FmtAccount(info), payload);
-		payload.set_site(info.m_strSite);
-		payload.set_broker_name(info.m_strBrokerName);
-		payload.set_name(info.m_strName);
+		payload.set_site(info.m_str_site);
+		payload.set_broker_name(info.m_str_broker_name);
+		payload.set_name(info.m_str_name);
 		payload.set_state(static_cast<request::TradeAccountState>(info.m_state));
-		payload.set_last_error(info.m_strLastError);
+		payload.set_last_error(info.m_str_last_error);
 		return payload;
 	}
 

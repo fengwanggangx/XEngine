@@ -27,55 +27,58 @@ public:
 	int QuotePriority(const _TyQuoteData& data) const override;
 
 protected:
-	CIndicator* m_pIndicator{ nullptr };
+	CIndicator* m_p_indicator{ nullptr };
 
 private:
 	bool Protection() const;
-	bool Threshold(const strategy::CThreshold& threshold, std::int64_t price, const CPositionSnapshot& position, bool above) const;
-	void SetPhase(const std::string& phase, const std::string& reason = {});
-	void Persist(bool protect = false);
-	void Restore(const std::string& data);
-	void Tick();
-	void Submit(bool buy, const CStrategyAccountView& view, const trade::CExecutionRule& rule, std::int64_t quantity);
-	void StartExit(const std::string& reason);
 	std::int64_t SellTarget(const CPositionSnapshot& position) const;
 	std::int64_t BuyQuantity(const CStrategyAccountView& view, const trade::CExecutionRule& rules) const;
+	bool Threshold(const strategy::CThreshold& threshold, std::int64_t price, const CPositionSnapshot& position, bool above) const;
+
+	void Tick();
+	void StartExit(const std::string& reason);
+	void Submit(bool buy, const CStrategyAccountView& view, const trade::CExecutionRule& rule, std::int64_t quantity);
+
+	void Persist(bool protect = false);
+	void Restore(const std::string& data);
+	void SetPhase(const std::string& phase, const std::string& reason = {});
+
 	std::string m_signature;
 	strategy::Kind m_kind;
 	strategy::CSettings m_settings;
-	IStrategyContext* m_pContext{ nullptr };
+	IStrategyContext* m_p_context{ nullptr };
 	CStrategyConfig m_config;
 	CSecurity m_security;
 	std::string m_phase{ "监控" };
 	std::string m_reason;
 	bool m_running{ false };
-	bool m_taskPaused{ false };
+	bool m_task_paused{ false };
 	bool m_task{ false };
-	bool m_historyReady{ false };
-	bool m_feedingHistory{ false };
+	bool m_history_ready{ false };
+	bool m_feeding_history{ false };
 	bool m_tracking{ false };
-	bool m_seenZero{ false };
+	bool m_seen_zero{ false };
 	std::int64_t m_highest{ 0 };
 	std::int64_t m_previous{ 0 };
-	std::int64_t m_quoteTime{ 0 };
-	std::int64_t m_lastHistoryPoll{ 0 };
+	std::int64_t m_quote_time{ 0 };
+	std::int64_t m_last_history_poll{ 0 };
 	std::int64_t m_price{ 0 };
 	int m_scale{ 2 };
-	std::int64_t m_rawPrice{ 0 };
-	std::int64_t m_lastPosition{ 0 };
+	std::int64_t m_raw_price{ 0 };
+	std::int64_t m_last_position{ 0 };
 	std::uint64_t m_epoch{ 0 };
 	std::int64_t m_target{ -1 };
 	std::int64_t m_done{ 0 };
 	std::uint64_t m_pending{ 0 };
-	std::uint64_t m_submittingSignal{ 0 };
-	std::string m_confirmedBasis;
-	std::string m_barBasis;
-	std::int64_t m_lastBar{ 0 };
-	std::int64_t m_seedBegin{ 0 };
-	std::uint64_t m_barVersion{ 0 };
+	std::uint64_t m_submitting_signal{ 0 };
+	std::string m_confirmed_basis;
+	std::string m_bar_basis;
+	std::int64_t m_last_bar{ 0 };
+	std::int64_t m_seed_begin{ 0 };
+	std::uint64_t m_bar_version{ 0 };
 	std::uint64_t m_samples{ 0 };
 	int m_relation{ 0 };
-	double m_shortEma{ 0 };
-	double m_longEma{ 0 };
+	double m_short_ema{ 0 };
+	double m_long_ema{ 0 };
 	std::vector<double> m_prices;
 };

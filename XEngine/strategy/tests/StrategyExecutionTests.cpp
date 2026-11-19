@@ -56,7 +56,7 @@ namespace
 		COrderIntent intent;
 		intent.m_account = Account();
 		intent.m_id = 42;
-		intent.m_signalId = signal;
+		intent.m_signal_id = signal;
 		intent.m_security = Security(code);
 		intent.m_side = OrderSide::Buy;
 		intent.m_positionEffect = PositionEffect::Open;
@@ -71,7 +71,7 @@ namespace
 		order.m_account = record.m_intent.m_account;
 		order.m_clientId = record.m_intent.m_clientOrderId;
 		order.m_id = record.m_intent.m_id;
-		order.m_signalId = record.m_intent.m_signalId;
+		order.m_signal_id = record.m_intent.m_signal_id;
 		order.m_orderId = order.m_clientId + 1;
 		order.m_strSecurity = record.m_intent.m_security.String();
 		order.m_side = OrderSide::Buy == record.m_intent.m_side ? trade::Side::Buy : trade::Side::Sell;
@@ -221,11 +221,11 @@ namespace
 		Check(journal.Prepare(Intent(), MakeStrategyAccountView(data, Security()), 100500).m_bAccepted, "prepare disappearing order");
 		data.m_orders.emplace_back(BrokerOrder(journal.GetRecords().front(), trade::Status::Accepted));
 		Check(journal.Reconcile(Account(), MakeStrategyAccountView(data, Security())), "broker freeze covers reservation");
-		Check(journal.GetRecords().front().m_bBrokerCovered, "covered before disappearance");
+		Check(journal.GetRecords().front().m_b_broker_covered, "covered before disappearance");
 		data.m_version = 20;
 		data.m_orders.clear();
 		Check(journal.Reconcile(Account(), MakeStrategyAccountView(data, Security())), "missing row is uncertain");
-		Check(!journal.GetRecords().front().m_bBrokerCovered, "missing row restores local reservation");
+		Check(!journal.GetRecords().front().m_b_broker_covered, "missing row restores local reservation");
 		Check(!journal.Prepare(Intent(2, "600001"), MakeStrategyAccountView(data, Security("600001")), 100500).m_bAccepted, "missing evidence cannot make funds available");
 	}
 
@@ -339,48 +339,57 @@ namespace
 		explicit CCommitFailureDatabase(db::_TyDBPtr connection) : m_connection(std::move(connection))
 		{
 		}
+
 		int Connect(const db::CConnectParam& parameters) override
 		{
 			return m_connection->Connect(parameters);
 		}
+
 		int Close() override
 		{
 			return m_connection->Close();
 		}
+
 		int ExecUpdate(const std::string& sql) override
 		{
 			return m_connection->ExecUpdate(sql);
 		}
+
 		int ExecScript(const std::string& sql) override
 		{
 			return m_connection->ExecScript(sql);
 		}
+
 		const db::CTable& ExecQuery(const std::string& sql) override
 		{
 			return m_connection->ExecQuery(sql);
 		}
+
 		bool BeginTransaction() override
 		{
 			return m_connection->BeginTransaction();
 		}
+
 		bool RollBackTransaction() override
 		{
 			return m_connection->RollBackTransaction();
 		}
+
 		void FailCommitResult()
 		{
-			m_failCommit = true;
+			m_fail_commit = true;
 		}
+
 		bool EndTransaction() override
 		{
 			// The server commits, but the caller cannot establish the result.
 			bool committed = m_connection->EndTransaction();
-			return committed && !m_failCommit;
+			return committed && !m_fail_commit;
 		}
 
 	private:
 		db::_TyDBPtr m_connection;
-		bool m_failCommit{ false };
+		bool m_fail_commit{ false };
 	};
 
 	void TestAmbiguousCommit()

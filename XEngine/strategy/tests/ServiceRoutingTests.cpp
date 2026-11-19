@@ -128,14 +128,14 @@ class CServiceRoutingTests
 		Check(!market.m_subscriptions.IsSubscribed(FmtHQSubID(HQOrigin::Client, 7070), quote) && LastResponse(event).GetErrorInfo().has_value(), "subscription timeout rolls back subscription");
 
 		market.m_subscriptions.Subscribe(FmtHQSubID(HQOrigin::Client, 7070), { quote });
-		strategies.m_bMarketAvailable.store(true);
+		strategies.m_b_market_available.store(true);
 		// Hold the synthetic runtime scheduled so no worker is needed to observe delivery.
 		std::shared_ptr<CStrategyRuntime> runtime = std::make_shared<CStrategyRuntime>();
-		runtime->m_bAcceptMarketEvents.store(true);
-		runtime->m_bScheduled = true;
-		runtime->m_config.m_eventQueueLimit = 16;
+		runtime->m_b_accept_market_events.store(true);
+		runtime->m_b_scheduled = true;
+		runtime->m_config.m_event_queue_limit = 16;
 		strategies.m_runtimes.emplace(7, runtime);
-		strategies.m_marketRoutes[quote.String()].insert(7);
+		strategies.m_market_routes[quote.String()].insert(7);
 		_TyQuoteData data;
 		data.mutable_security()->set_symbol("600519");
 		data.mutable_security()->set_exchange(hqmarket::market::v1::SSE);
@@ -146,7 +146,7 @@ class CServiceRoutingTests
 		bool bRouted = center.OnHQMarketReply(push);
 		bool bDelivered = LastResponse(event).GetData().has_quote() && 1 == runtime->m_events.size();
 		strategies.m_runtimes.clear();
-		strategies.m_marketRoutes.clear();
+		strategies.m_market_routes.clear();
 		Check(bRouted && bDelivered, "same market push reaches client and strategy even when client service handles it");
 
 		pending.m_deadline = std::chrono::steady_clock::time_point::min();
@@ -210,7 +210,7 @@ class CServiceRoutingTests
 
 		void OnTimer(const CTimerEvent& event) override
 		{
-			if (event.m_zeroPosition)
+			if (event.m_zero_position)
 			{
 				++m_resets;
 			}
@@ -235,8 +235,8 @@ class CServiceRoutingTests
 		std::unique_ptr<CRecordingStrategy> secondStrategy = std::make_unique<CRecordingStrategy>();
 		CRecordingStrategy& a = *firstStrategy;
 		CRecordingStrategy& b = *secondStrategy;
-		runtime.m_stockInstances.push_back({ first, nullptr, std::move(firstStrategy) });
-		runtime.m_stockInstances.push_back({ second, nullptr, std::move(secondStrategy) });
+		runtime.m_securities.push_back({ first, nullptr, std::move(firstStrategy) });
+		runtime.m_securities.push_back({ second, nullptr, std::move(secondStrategy) });
 		CStrategyEvent event;
 		event.m_type = StrategyEventType::Start;
 		Check(service.DispatchEvent(runtime, event), "start both securities");
@@ -261,7 +261,7 @@ class CServiceRoutingTests
 		Check(service.DispatchEvent(runtime, event), "dispatch order");
 		event.m_type = StrategyEventType::Timer;
 		CTimerEvent timer;
-		timer.m_zeroPosition = true;
+		timer.m_zero_position = true;
 		event.m_security = first.String();
 		event.m_data = timer;
 		Check(service.DispatchEvent(runtime, event), "dispatch zero position");
@@ -365,13 +365,13 @@ public:
 			Check(!strategies.BeginAccountUse(account, 7), "duplicate strategy does not acquire twice");
 			strategies.EndAccountUse(account, 7);
 			strategies.EndAccountUse(account, 7);
-			Check(0 == accounts.m_accounts.at(account).m_useCount, "strategy releases account use exactly once");
+			Check(0 == accounts.m_accounts.at(account).m_use_count, "strategy releases account use exactly once");
 			strategies.StopAll();
 			Check(accounts.AcquireAccount(account), "stopping strategies does not stop the shared trade service");
 			accounts.ReleaseAccount(account);
 		}
 		Check(accounts.AcquireAccount(account), "catalogue refresh starts with an occupied account");
-		accounts.m_accounts.at(account).m_bDisconnecting = true;
+		accounts.m_accounts.at(account).m_b_disconnecting = true;
 		request::TradeAccountList catalogue;
 		request::TradeAccountRecord* record = catalogue.add_accounts();
 		record->set_broker_id(account.first);
@@ -380,13 +380,13 @@ public:
 		CRequest catalogueResponse;
 		catalogueResponse.SetData(catalogue);
 		accounts.OnAccountListReply(catalogueResponse, accounts.m_broker_connect_id);
-		Check(1 == accounts.m_accounts.at(account).m_useCount && accounts.m_accounts.at(account).m_bDisconnecting, "catalogue refresh preserves local runtime guards");
+		Check(1 == accounts.m_accounts.at(account).m_use_count && accounts.m_accounts.at(account).m_b_disconnecting, "catalogue refresh preserves local runtime guards");
 		Check(!accounts.AcquireAccount(account), "disconnecting account rejects new use");
 		catalogue.clear_accounts();
 		catalogueResponse.SetData(catalogue);
 		accounts.OnAccountListReply(catalogueResponse, accounts.m_broker_connect_id);
 		Check(!accounts.HasAccount(account) && accounts.GetAccounts().empty(), "removed runtime is hidden from the account directory");
-		Check(1 == accounts.m_accounts.at(account).m_useCount && accounts.m_accounts.at(account).m_bDisconnecting, "missing account retains outstanding use and disconnect guards");
+		Check(1 == accounts.m_accounts.at(account).m_use_count && accounts.m_accounts.at(account).m_b_disconnecting, "missing account retains outstanding use and disconnect guards");
 		accounts.ReleaseAccount(account);
 		Check(accounts.m_accounts.contains(account), "disconnect guard retains runtime after final release");
 		accounts.FinishDisconnect(account);

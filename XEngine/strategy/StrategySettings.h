@@ -81,20 +81,20 @@ namespace strategy
 	struct CSettings
 	{
 		Kind m_kind{ Kind::DualMaCross };
-		bool m_autoRearm{ false };
-		std::string m_buyMode{ "quantity" };
-		std::int64_t m_buyValue{ 100 };
-		std::string m_sellMode{ "all" };
-		std::int64_t m_sellValue{ 0 };
-		int m_shortWindow{ 5 };
-		int m_longWindow{ 20 };
+		bool m_auto_rearm{ false };
+		std::string m_buy_mode{ "quantity" };
+		std::int64_t m_buy_value{ 100 };
+		std::string m_sell_mode{ "all" };
+		std::int64_t m_sell_value{ 0 };
+		int m_short_window{ 5 };
+		int m_long_window{ 20 };
 		bool m_ema{ false };
-		std::string m_barPeriod{ "1m" };
-		CThreshold m_takeProfit;
-		CThreshold m_stopLoss;
+		std::string m_bar_period{ "1m" };
+		CThreshold m_take_profit;
+		CThreshold m_stop_loss;
 		CThreshold m_activation;
 		CThreshold m_drawdown;
-		std::int64_t m_triggerPrice{ 0 };
+		std::int64_t m_trigger_price{ 0 };
 		bool m_up{ true };
 		bool m_buy{ true };
 
@@ -153,28 +153,28 @@ namespace strategy
 				error = "auto_rearm 必须为 0 或 1";
 				return false;
 			}
-			parsed.m_autoRearm = "1" == rearm;
-			parsed.m_buyMode = Value(parameters, "buy_mode", "quantity");
-			parsed.m_sellMode = Value(parameters, "sell_mode", "all");
-			if (("quantity" != parsed.m_buyMode) && ("amount" != parsed.m_buyMode) && ("funds_ratio" != parsed.m_buyMode))
+			parsed.m_auto_rearm = "1" == rearm;
+			parsed.m_buy_mode = Value(parameters, "buy_mode", "quantity");
+			parsed.m_sell_mode = Value(parameters, "sell_mode", "all");
+			if (("quantity" != parsed.m_buy_mode) && ("amount" != parsed.m_buy_mode) && ("funds_ratio" != parsed.m_buy_mode))
 			{
 				error = "买入模式无效";
 				return false;
 			}
-			if (("all" != parsed.m_sellMode) && ("quantity" != parsed.m_sellMode) && ("position_ratio" != parsed.m_sellMode))
+			if (("all" != parsed.m_sell_mode) && ("quantity" != parsed.m_sell_mode) && ("position_ratio" != parsed.m_sell_mode))
 			{
 				error = "卖出模式无效";
 				return false;
 			}
-			int buyScale = "quantity" == parsed.m_buyMode ? 0 : ("amount" == parsed.m_buyMode ? 2 : 4);
-			if (!ParseFixed(Value(parameters, "buy_value", "100"), buyScale, parsed.m_buyValue) || (0 >= parsed.m_buyValue) || (("funds_ratio" == parsed.m_buyMode) && (1000000 < parsed.m_buyValue)))
+			int buyScale = "quantity" == parsed.m_buy_mode ? 0 : ("amount" == parsed.m_buy_mode ? 2 : 4);
+			if (!ParseFixed(Value(parameters, "buy_value", "100"), buyScale, parsed.m_buy_value) || (0 >= parsed.m_buy_value) || (("funds_ratio" == parsed.m_buy_mode) && (1000000 < parsed.m_buy_value)))
 			{
 				error = "买入数量、金额或比例无效";
 				return false;
 			}
-			if ("all" != parsed.m_sellMode)
+			if ("all" != parsed.m_sell_mode)
 			{
-				if (!ParseFixed(Value(parameters, "sell_value"), "quantity" == parsed.m_sellMode ? 0 : 4, parsed.m_sellValue) || (0 >= parsed.m_sellValue) || (("position_ratio" == parsed.m_sellMode) && (1000000 < parsed.m_sellValue)))
+				if (!ParseFixed(Value(parameters, "sell_value"), "quantity" == parsed.m_sell_mode ? 0 : 4, parsed.m_sell_value) || (0 >= parsed.m_sell_value) || (("position_ratio" == parsed.m_sell_mode) && (1000000 < parsed.m_sell_value)))
 				{
 					error = "卖出数量或比例无效";
 					return false;
@@ -182,14 +182,14 @@ namespace strategy
 			}
 			if (Kind::DualMaCross == parsed.m_kind)
 			{
-				if (!utility::to_number(Value(parameters, "short_window", "5"), parsed.m_shortWindow) || !utility::to_number(Value(parameters, "long_window", "20"), parsed.m_longWindow) || (0 >= parsed.m_shortWindow) || (parsed.m_shortWindow >= parsed.m_longWindow) || (100000 < parsed.m_longWindow))
+				if (!utility::to_number(Value(parameters, "short_window", "5"), parsed.m_short_window) || !utility::to_number(Value(parameters, "long_window", "20"), parsed.m_long_window) || (0 >= parsed.m_short_window) || (parsed.m_short_window >= parsed.m_long_window) || (100000 < parsed.m_long_window))
 				{
 					error = "均线窗口必须满足 1 <= short_window < long_window <= 100000";
 					return false;
 				}
 				std::string algorithm = Value(parameters, "ma_type", "sma");
-				parsed.m_barPeriod = Value(parameters, "bar_period", "1m");
-				if ((("sma" != algorithm) && ("ema" != algorithm)) || (("1m" != parsed.m_barPeriod) && ("1d" != parsed.m_barPeriod)))
+				parsed.m_bar_period = Value(parameters, "bar_period", "1m");
+				if ((("sma" != algorithm) && ("ema" != algorithm)) || (("1m" != parsed.m_bar_period) && ("1d" != parsed.m_bar_period)))
 				{
 					error = "均线算法或 K 线周期无效";
 					return false;
@@ -226,16 +226,16 @@ namespace strategy
 					error = "至少启用一个止盈止损条件";
 					return false;
 				}
-				if (!readThreshold("take_profit", parsed.m_takeProfit, "1" == profit, false) || !readThreshold("stop_loss", parsed.m_stopLoss, "1" == loss, false))
+				if (!readThreshold("take_profit", parsed.m_take_profit, "1" == profit, false) || !readThreshold("stop_loss", parsed.m_stop_loss, "1" == loss, false))
 				{
 					return false;
 				}
-				if (parsed.m_stopLoss.m_percent && (1000000 <= parsed.m_stopLoss.m_value))
+				if (parsed.m_stop_loss.m_percent && (1000000 <= parsed.m_stop_loss.m_value))
 				{
 					error = "止损比例必须小于 100%";
 					return false;
 				}
-				if (parsed.m_takeProfit.m_enabled && parsed.m_stopLoss.m_enabled && !parsed.m_takeProfit.m_percent && !parsed.m_stopLoss.m_percent && (parsed.m_takeProfit.m_value <= parsed.m_stopLoss.m_value))
+				if (parsed.m_take_profit.m_enabled && parsed.m_stop_loss.m_enabled && !parsed.m_take_profit.m_percent && !parsed.m_stop_loss.m_percent && (parsed.m_take_profit.m_value <= parsed.m_stop_loss.m_value))
 				{
 					error = "止损价必须低于止盈价";
 					return false;
@@ -249,7 +249,7 @@ namespace strategy
 			{
 				std::string direction = Value(parameters, "direction", "up");
 				std::string action = Value(parameters, "action", "buy");
-				if ((("up" != direction) && ("down" != direction)) || (("buy" != action) && ("sell" != action)) || !ParseFixed(Value(parameters, "trigger_price"), 6, parsed.m_triggerPrice) || (0 >= parsed.m_triggerPrice))
+				if ((("up" != direction) && ("down" != direction)) || (("buy" != action) && ("sell" != action)) || !ParseFixed(Value(parameters, "trigger_price"), 6, parsed.m_trigger_price) || (0 >= parsed.m_trigger_price))
 				{
 					error = "突破方向、动作或价格无效";
 					return false;

@@ -1,11 +1,22 @@
 #pragma once
 #include <cstdint>
+#include <functional>
 #include <string>
 #include <utility>
 #include <iomanip>
 #include <sstream>
 
 using _TyAccount = std::pair<std::uint64_t, std::string>;
+
+struct CAccountHash
+{
+	std::size_t operator()(const _TyAccount& account) const noexcept
+	{
+		std::size_t brokerHash = std::hash<std::uint64_t>{}(account.first);
+		std::size_t accountHash = std::hash<std::string>{}(account.second);
+		return brokerHash ^ (accountHash + 0x9e3779b9U + (brokerHash << 6) + (brokerHash >> 2));
+	}
+};
 
 inline bool IsAccountValid(const _TyAccount& account)
 {
