@@ -4,20 +4,34 @@ std::string GetMarketString(Exchange exchange)
 {
 	switch (exchange)
 	{
-	case Exchange::sse: return "SSE";
-	case Exchange::szse: return "SZSE";
-	case Exchange::bse: return "BSE";
-	case Exchange::hkex: return "HKEX";
-	case Exchange::cffex: return "CFFEX";
-	case Exchange::shfe: return "SHFE";
-	case Exchange::dce: return "DCE";
-	case Exchange::czce: return "CZCE";
-	case Exchange::ine: return "INE";
-	case Exchange::gfex: return "GFEX";
-	case Exchange::nasdaq: return "NASDAQ";
-	case Exchange::nyse: return "NYSE";
-	case Exchange::crypto: return "CRYPTO";
-	default: return { };
+	case Exchange::sse:
+		return "SSE";
+	case Exchange::szse:
+		return "SZSE";
+	case Exchange::bse:
+		return "BSE";
+	case Exchange::hkex:
+		return "HKEX";
+	case Exchange::cffex:
+		return "CFFEX";
+	case Exchange::shfe:
+		return "SHFE";
+	case Exchange::dce:
+		return "DCE";
+	case Exchange::czce:
+		return "CZCE";
+	case Exchange::ine:
+		return "INE";
+	case Exchange::gfex:
+		return "GFEX";
+	case Exchange::nasdaq:
+		return "NASDAQ";
+	case Exchange::nyse:
+		return "NYSE";
+	case Exchange::crypto:
+		return "CRYPTO";
+	default:
+		return {};
 	}
 }
 
@@ -25,13 +39,20 @@ std::string GetChannelString(Channel channel)
 {
 	switch (channel)
 	{
-	case Channel::quote: return "quote";
-	case Channel::depth: return "depth";
-	case Channel::trade: return "trade";
-	case Channel::bar_1m: return "bar_1m";
-	case Channel::bar_1d: return "bar_1d";
-	case Channel::market_status: return "market_status";
-	default: return { };
+	case Channel::quote:
+		return "quote";
+	case Channel::depth:
+		return "depth";
+	case Channel::trade:
+		return "trade";
+	case Channel::bar_1m:
+		return "bar_1m";
+	case Channel::bar_1d:
+		return "bar_1d";
+	case Channel::market_status:
+		return "market_status";
+	default:
+		return {};
 	}
 }
 
@@ -39,10 +60,14 @@ std::string GetMarketStateString(MarketState status)
 {
 	switch (status)
 	{
-	case MarketState::normal: return "normal";
-	case MarketState::suspended: return "suspended";
-	case MarketState::delisted: return "delisted";
-	default: return "unknown";
+	case MarketState::normal:
+		return "normal";
+	case MarketState::suspended:
+		return "suspended";
+	case MarketState::delisted:
+		return "delisted";
+	default:
+		return "unknown";
 	}
 }
 
@@ -154,7 +179,7 @@ std::string FmtSecurityString(const std::string& strCode, Exchange mk)
 	std::string strMarket = GetMarketString(mk);
 	if (strCode.empty() || strMarket.empty())
 	{
-		return { };
+		return {};
 	}
 	return strCode + "." + strMarket;
 }

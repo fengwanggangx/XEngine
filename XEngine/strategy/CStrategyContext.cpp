@@ -145,11 +145,11 @@ bool CStrategyContext::CancelConflicts(bool reset)
 	std::string security = m_security.String();
 	for (const auto& order : m_p_snapshot_provider->GetOrders(m_account))
 	{
-		if ((security == order.m_strSecurity) && trade::IsActive(order.m_status) && !order.m_bCancelPending && !container::with(m_cancelled, order.m_orderId))
+		if ((security == order.m_strSecurity) && trade::IsActive(order.m_status) && !order.m_b_cancel_pending && !container::with(m_cancelled, order.m_order_id))
 		{
-			if (m_p_strategy_service->CancelOrder(order.m_id, order.m_orderId))
+			if (m_p_strategy_service->CancelOrder(order.m_id, order.m_order_id))
 			{
-				m_cancelled.emplace(order.m_orderId);
+				m_cancelled.emplace(order.m_order_id);
 			}
 			else
 			{

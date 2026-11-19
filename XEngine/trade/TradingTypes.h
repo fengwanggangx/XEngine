@@ -43,21 +43,21 @@ enum class OrderStatus
 
 struct COrderIntent
 {
-	std::uint64_t m_clientOrderId{ 0 };
-	int m_nPriceScale{ 2 };
+	std::uint64_t m_client_order_id{ 0 };
+	int m_n_price_scale{ 2 };
 	_TyAccount m_account{};
 	_TyStrategyId m_id{ 0 };
 	_TySignalId m_signal_id{ 0 };
 	CSecurity m_security;
 	OrderSide m_side{ OrderSide::Unknown };
-	OrderType m_orderType{ OrderType::Limit };
-	PositionEffect m_positionEffect{ PositionEffect::Unknown };
+	OrderType m_order_type{ OrderType::Limit };
+	PositionEffect m_position_effect{ PositionEffect::Unknown };
 	std::int64_t m_price{ 0 };
 	std::int64_t m_quantity{ 0 };
 	std::string m_strReason;
-	std::int64_t m_maximumDebit{ 0 };
-	std::int64_t m_quoteTimeMs{ 0 };
-	std::string m_basisVersion;
+	std::int64_t m_maximum_debit{ 0 };
+	std::int64_t m_quote_time_ms{ 0 };
+	std::string m_basis_version;
 
 	bool IsValid() const;
 };
@@ -67,8 +67,8 @@ struct COrderSubmitResult
 	// Queue admission only; final acceptance/rejection is an order event.
 	bool m_bAccepted{ false };
 	bool m_bRetryable{ false };
-	_TyClientOrderId m_clientOrderId{ 0 };
-	_TyOrderId m_orderId{ 0 };
+	_TyClientOrderId m_client_order_id{ 0 };
+	_TyOrderId m_order_id{ 0 };
 	std::string m_strReason;
 };
 
@@ -78,31 +78,31 @@ struct COrderEvent
 	_TyAccount m_account{};
 	_TyStrategyId m_id{ 0 };
 	_TySignalId m_signal_id{ 0 };
-	_TyClientOrderId m_clientOrderId{ 0 };
-	_TyOrderId m_orderId{ 0 };
+	_TyClientOrderId m_client_order_id{ 0 };
+	_TyOrderId m_order_id{ 0 };
 	CSecurity m_security;
 	OrderStatus m_status{ OrderStatus::Unknown };
 	std::int64_t m_quantity{ 0 };
-	std::int64_t m_filledQuantity{ 0 };
-	std::int64_t m_eventTimeMs{ 0 };
+	std::int64_t m_filled_quantity{ 0 };
+	std::int64_t m_event_time_ms{ 0 };
 	std::string m_strReason;
 };
 
 struct CTradeEvent
 {
-	int m_nPriceScale{ 2 };
+	int m_n_price_scale{ 2 };
 	std::uint64_t m_sequence{ 0 };
 	_TyAccount m_account{};
 	_TyStrategyId m_id{ 0 };
 	_TySignalId m_signal_id{ 0 };
-	_TyClientOrderId m_clientOrderId{ 0 };
-	_TyOrderId m_orderId{ 0 };
-	std::string m_strTradeId;
+	_TyClientOrderId m_client_order_id{ 0 };
+	_TyOrderId m_order_id{ 0 };
+	std::string m_str_trade_id;
 	CSecurity m_security;
 	OrderSide m_side{ OrderSide::Unknown };
 	std::int64_t m_price{ 0 };
 	std::int64_t m_quantity{ 0 };
-	std::int64_t m_tradeTimeMs{ 0 };
+	std::int64_t m_trade_time_ms{ 0 };
 };
 
 struct CPositionSnapshot
@@ -111,15 +111,15 @@ struct CPositionSnapshot
 	std::uint64_t m_version{ 0 };
 	std::int64_t m_nTime{ 0 };
 	CSecurity m_security;
-	std::int64_t m_totalQuantity{ 0 };
-	std::int64_t m_availableQuantity{ 0 };
-	std::int64_t m_frozenQuantity{ 0 };
-	std::int64_t m_averageCost{ 0 };
+	std::int64_t m_total_quantity{ 0 };
+	std::int64_t m_available_quantity{ 0 };
+	std::int64_t m_frozen_quantity{ 0 };
+	std::int64_t m_average_cost{ 0 };
 	// Cost is a total amount in cents; divide only at the final comparison.
-	std::int64_t m_totalCost{ 0 };
-	int m_moneyScale{ 2 };
-	bool m_bCostKnown{ false };
-	bool m_bFrozenKnown{ false };
+	std::int64_t m_total_cost{ 0 };
+	int m_money_scale{ 2 };
+	bool m_b_cost_known{ false };
+	bool m_b_frozen_known{ false };
 };
 
 struct CAccountSnapshot
@@ -130,6 +130,6 @@ struct CAccountSnapshot
 	std::int64_t m_balance{ 0 };
 	std::int64_t m_available{ 0 };
 	std::int64_t m_frozen{ 0 };
-	std::int64_t m_marketValue{ 0 };
-	bool m_bFrozenKnown{ false };
+	std::int64_t m_market_value{ 0 };
+	bool m_b_frozen_known{ false };
 };

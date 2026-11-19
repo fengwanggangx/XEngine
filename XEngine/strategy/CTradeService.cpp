@@ -264,15 +264,15 @@ void CTradeService::CompleteQuery(const trade::CCounterReply& reply, std::uint64
 		{
 		case trade::Operation::Funds:
 			data.m_account = std::get<trade::CFunds>(reply.m_data);
-			data.m_fundsVersion = reply.m_version;
+			data.m_funds_version = reply.m_version;
 			break;
 		case trade::Operation::Positions:
 			data.m_positions = std::get<std::vector<trade::CPosition>>(reply.m_data);
-			data.m_positionsVersion = reply.m_version;
+			data.m_positions_version = reply.m_version;
 			break;
 		case trade::Operation::Orders:
 			data.m_orders = std::get<std::vector<trade::COrder>>(reply.m_data);
-			data.m_ordersVersion = reply.m_version;
+			data.m_orders_version = reply.m_version;
 			break;
 		case trade::Operation::Trades:
 			data.m_trades = std::get<std::vector<trade::CTrade>>(reply.m_data);
@@ -293,10 +293,10 @@ void CTradeService::CompleteQuery(const trade::CCounterReply& reply, std::uint64
 			previousTrades.reserve(cached.m_trades.size());
 			for (const auto& row : cached.m_trades)
 			{
-				previousTrades.emplace(row.m_tradeId);
+				previousTrades.emplace(row.m_trade_id);
 			}
 			cached = std::move(pending->second.m_data);
-			cached.m_bReady = m_p_account_service->IsConnected(account) && cached.m_account.m_bConnected && cached.m_account.m_bFundsValid;
+			cached.m_bReady = m_p_account_service->IsConnected(account) && cached.m_account.m_bConnected && cached.m_account.m_b_funds_valid;
 			// Reconcile complete state before the final session-ready notification.
 			for (const auto& order : cached.m_orders)
 			{
@@ -309,7 +309,7 @@ void CTradeService::CompleteQuery(const trade::CCounterReply& reply, std::uint64
 			}
 			for (const auto& row : cached.m_trades)
 			{
-				if (container::with(previousTrades, row.m_tradeId))
+				if (container::with(previousTrades, row.m_trade_id))
 				{
 					continue;
 				}
@@ -320,7 +320,7 @@ void CTradeService::CompleteQuery(const trade::CCounterReply& reply, std::uint64
 				ev.m_funds = cached.m_account;
 				for (const auto& order : cached.m_orders)
 				{
-					if (row.m_orderId == order.m_orderId)
+					if (row.m_order_id == order.m_order_id)
 					{
 						ev.m_order = order;
 						break;
@@ -391,27 +391,27 @@ trade::CAccountData CTradeService::Snapshot(const _TyAccount& account) const
 	}
 	trade::CAccountData data = mIter->second;
 	const auto epochIter = m_account_epochs.find(account);
-	data.m_connectionEpoch = m_account_epochs.end() == epochIter ? 0 : epochIter->second;
+	data.m_connection_epoch = m_account_epochs.end() == epochIter ? 0 : epochIter->second;
 	data.m_bReady = data.m_bReady && m_b_running.load() && m_p_account_service->IsConnected(account);
 	return data;
 }
 
 void CTradeService::ApplyEvent(trade::CAccountData& data, trade::CCounterEvent& ev)
 {
-	if (ev.m_bAccountValid && (0 != ev.m_sequence))
+	if (ev.m_b_account_valid && (0 != ev.m_sequence))
 	{
-		data.m_fundsVersion = std::max(data.m_fundsVersion, ev.m_sequence);
+		data.m_funds_version = std::max(data.m_funds_version, ev.m_sequence);
 	}
 	if ((trade::EventTy::Position == ev.m_kind) && (0 != ev.m_sequence))
 	{
-		data.m_positionsVersion = std::max(data.m_positionsVersion, ev.m_sequence);
+		data.m_positions_version = std::max(data.m_positions_version, ev.m_sequence);
 	}
 	if ((trade::EventTy::Order == ev.m_kind) && (0 != ev.m_sequence))
 	{
-		data.m_ordersVersion = std::max(data.m_ordersVersion, ev.m_sequence);
+		data.m_orders_version = std::max(data.m_orders_version, ev.m_sequence);
 	}
 
-	if (trade::EventTy::Funds != ev.m_kind && !ev.m_bAccountValid)
+	if (trade::EventTy::Funds != ev.m_kind && !ev.m_b_account_valid)
 	{
 		bool bConnected = ev.m_funds.m_bConnected;
 		int state = ev.m_funds.m_nState;
@@ -422,16 +422,16 @@ void CTradeService::ApplyEvent(trade::CAccountData& data, trade::CCounterEvent& 
 			ev.m_funds.m_nState = state;
 			if (!bConnected)
 			{
-				ev.m_funds.m_bFundsValid = false;
+				ev.m_funds.m_b_funds_valid = false;
 			}
 		}
-		ev.m_bAccountValid = true;
+		ev.m_b_account_valid = true;
 	}
 	if (trade::EventTy::Deal == ev.m_kind)
 	{
 		for (const auto& order : data.m_orders)
 		{
-			if (ev.m_trade.m_orderId == order.m_orderId)
+			if (ev.m_trade.m_order_id == order.m_order_id)
 			{
 				ev.m_order = order;
 				break;
@@ -459,7 +459,7 @@ void CTradeService::OnBrokerEvent(trade::CCounterEvent ev)
 		trade::CAccountData& data = m_snapshots[ev.m_account];
 		data.m_bReady = false;
 		data.m_account.m_bConnected = ev.m_funds.m_bConnected;
-		data.m_account.m_bFundsValid = false;
+		data.m_account.m_b_funds_valid = false;
 		return;
 	}
 	{
@@ -562,7 +562,7 @@ void CTradeService::OnBrokerState(SessionState state, const std::string&)
 			m_account_epochs[entry.first] = ++m_next_account_epoch;
 			entry.second.m_bReady = false;
 			entry.second.m_account.m_bConnected = false;
-			entry.second.m_account.m_bFundsValid = false;
+			entry.second.m_account.m_b_funds_valid = false;
 		}
 	}
 	{
@@ -598,7 +598,7 @@ void CTradeService::RefreshTrades()
 			if (!container::with(connected, entry.first))
 			{
 				entry.second.m_bReady = false;
-				entry.second.m_account.m_bFundsValid = false;
+				entry.second.m_account.m_b_funds_valid = false;
 			}
 		}
 	}
@@ -626,7 +626,7 @@ void CTradeService::OnAccountState(const _TyAccount& account)
 		if (m_snapshots.end() != mIter)
 		{
 			mIter->second.m_bReady = false;
-			mIter->second.m_account.m_bFundsValid = false;
+			mIter->second.m_account.m_b_funds_valid = false;
 			if (!m_p_account_service->HasAccount(account))
 			{
 				m_snapshots.erase(mIter);
@@ -782,7 +782,7 @@ bool CTradeService::DispatchReply(const CRequest& origin, const CRequest& respon
 		reply.m_data = std::monostate{};
 	}
 	reply.m_account = account;
-	reply.m_requestId = origin.GetId();
+	reply.m_request_id = origin.GetId();
 	reply.m_operation = operation;
 	{
 		std::lock_guard<std::mutex> lock(m_mtx_state);
@@ -855,14 +855,15 @@ std::optional<trade::CExecutionRule> CTradeService::GetExecutionRules(const _TyA
 	{
 		return std::nullopt;
 	}
-	CRequest request;
-	request.SetType(_TyRequest::TRADE_EXECUTION_RULES_QUERY);
-	WriteAccountIdentity(account, request);
-	request.SetExtraData("security", security.String());
-	request.SetExtraData("request_source", "ExecutionRules");
+	std::string securityKey = security.String();
+	CRequest req;
+	req.SetType(_TyRequest::TRADE_EXECUTION_RULES_QUERY);
+	WriteAccountIdentity(account, req);
+	req.SetExtraData("security", securityKey);
+	req.SetExtraData("request_source", "ExecutionRules");
 	{
 		std::lock_guard<std::mutex> lock(m_mtx_state);
-		CRuleCache& cache = m_rules[{ account, security.String() }];
+		CRuleCache& cache = m_rules[{ account, securityKey }];
 		std::int64_t now = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
 		if (cache.m_value.has_value() && (now < cache.m_value->m_calendar.m_nClose))
 		{
@@ -873,14 +874,15 @@ std::optional<trade::CExecutionRule> CTradeService::GetExecutionRules(const _TyA
 		{
 			return std::nullopt;
 		}
-		cache.m_request_id = request.GetId();
-		request.SetExtraData("broker_connect_id", std::to_string(m_generation));
+		cache.m_request_id = req.GetId();
+		req.SetExtraData("broker_connect_id", std::to_string(m_generation));
 	}
-	if (!SendRequest(std::move(request)))
+	if (!SendRequest(std::move(req)))
 	{
 		std::lock_guard<std::mutex> lock(m_mtx_state);
-		m_rules[{ account, security.String() }].m_request_id = 0;
-		m_rules[{ account, security.String() }].m_retry = std::chrono::steady_clock::now() + std::chrono::seconds(5);
+		CRuleCache& cache = m_rules[{ account, securityKey }];
+		cache.m_request_id = 0;
+		cache.m_retry = std::chrono::steady_clock::now() + std::chrono::seconds(5);
 	}
 	return std::nullopt;
 }

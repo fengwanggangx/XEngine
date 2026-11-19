@@ -37,14 +37,14 @@ namespace
 			Check(m_execution.Open(OpenTestDatabase()), "open execution journal");
 			m_data.m_bReady = true;
 			m_data.m_version = 10;
-			m_data.m_ordersVersion = 10;
-			m_data.m_positionsVersion = 10;
-			m_data.m_fundsVersion = 10;
+			m_data.m_orders_version = 10;
+			m_data.m_positions_version = 10;
+			m_data.m_funds_version = 10;
 			m_data.m_account.m_account = Account();
 			m_data.m_account.m_bConnected = true;
 			m_data.m_account.m_nBalance = 10000000;
 			m_data.m_account.m_nAvailable = 10000000;
-			m_data.m_account.m_bExplicitAvailable = true;
+			m_data.m_account.m_b_explicit_available = true;
 			trade::CPosition position;
 			position.m_account = Account();
 			position.m_strSecurity = Security().String();
@@ -52,8 +52,8 @@ namespace
 			position.m_nAvailable = 100;
 			position.m_nCost = 300000;
 			m_data.m_positions.emplace_back(position);
-			m_rules.m_reliableQuery = true;
-			m_rules.m_idempotentClientId = true;
+			m_rules.m_reliable_query = true;
+			m_rules.m_idempotent_client_id = true;
 			m_rules.m_calendar = { 20261118, 900000, 1500000, 1600000, 2000000 };
 			m_rules.m_rule.m_strVersion = "test-rules";
 			m_rules.m_rule.m_strSecurity = Security().String();
@@ -65,12 +65,12 @@ namespace
 		{
 			COrderIntent routed = intent;
 			routed.m_account = Account();
-			COrderSubmitResult result = m_execution.Prepare(routed, GetTradingSnapshot(Security()), intent.m_maximumDebit);
+			COrderSubmitResult result = m_execution.Prepare(routed, GetTradingSnapshot(Security()), intent.m_maximum_debit);
 			if (result.m_bAccepted)
 			{
-				routed.m_clientOrderId = result.m_clientOrderId;
+				routed.m_client_order_id = result.m_client_order_id;
 				m_orders.emplace_back(routed);
-				m_execution.MarkSubmission(result.m_clientOrderId, true);
+				m_execution.MarkSubmission(result.m_client_order_id, true);
 			}
 			return result;
 		}
@@ -187,14 +187,14 @@ namespace
 			const COrderIntent& intent = m_orders.back();
 			trade::COrder order;
 			order.m_account = Account();
-			order.m_clientId = intent.m_clientOrderId;
-			order.m_orderId = order.m_clientId;
+			order.m_client_id = intent.m_client_order_id;
+			order.m_order_id = order.m_client_id;
 			order.m_id = 42;
 			order.m_signal_id = intent.m_signal_id;
 			order.m_strSecurity = Security().String();
 			order.m_side = OrderSide::Buy == intent.m_side ? trade::Side::Buy : trade::Side::Sell;
 			order.m_nPrice = intent.m_price;
-			order.m_nPriceScale = intent.m_nPriceScale;
+			order.m_n_price_scale = intent.m_n_price_scale;
 			order.m_nQuantity = intent.m_quantity;
 			order.m_nFilled = intent.m_quantity;
 			order.m_status = trade::Status::Filled;
@@ -202,7 +202,7 @@ namespace
 			m_data.m_positions.front().m_nTotal = remaining;
 			m_data.m_positions.front().m_nAvailable = available;
 			m_data.m_version += 10;
-			m_data.m_ordersVersion = m_data.m_fundsVersion = m_data.m_positionsVersion = m_data.m_version;
+			m_data.m_orders_version = m_data.m_funds_version = m_data.m_positions_version = m_data.m_version;
 			Check(m_execution.Reconcile(Account(), GetTradingSnapshot(Security())), "reconcile completed order");
 			strategy.OnOrder({});
 		}
@@ -360,7 +360,7 @@ namespace
 		context.Quote(strategy, 900);
 		context.Quote(strategy, 1000);
 		Check(1 == context.m_orders.size(), "rules enable execution");
-		context.m_execution.MarkSubmission(context.m_orders.back().m_clientOrderId, false);
+		context.m_execution.MarkSubmission(context.m_orders.back().m_client_order_id, false);
 		context.Quote(strategy, 1100);
 		Check(!strategy.OnAction("rearm") && !strategy.OnAction("resume_execution"), "unknown result cannot be reset or resent");
 	}

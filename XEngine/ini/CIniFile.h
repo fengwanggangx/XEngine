@@ -14,13 +14,13 @@ namespace ini
 {
 	class CIniFile
 	{
-	  public:
+	public:
 		explicit CIniFile(const std::string& strFile);
 		~CIniFile();
 		std::vector<std::pair<std::string, std::string>> GetSection(const std::string& strSection) const;
 		bool UpdateEntry(const std::string& strSection, const std::string& strKey, const std::optional<std::string>& value, const std::string& oldKey = {});
 
-	  public:
+	public:
 		int GetInt(const std::string& strSection, const std::string& strKey, int nDefault = -1) const;
 		bool GetBool(const std::string& strSection, const std::string& strKey, bool bDefault = false) const;
 		double GetDouble(const std::string& strSection, const std::string& strKey, double fDefault = 0.0) const;
@@ -41,19 +41,19 @@ namespace ini
 		bool SetValue(const std::string& strSection, const std::string& strKey, double fVal);
 		bool SetValue(const std::string& strSection, const std::string& strKey, const std::string& strVal);
 
-	  private:
+	private:
 		bool IsSectionExists(const std::string& strSection) const;
 		std::vector<std::string> GetSections() const;
 
-	  private:
+	private:
 		bool Load(const std::string& strFile);
 		bool Save() const;
 
-	  private:
+	private:
 		mutable std::shared_mutex m_mtx_parser;
 		std::unique_ptr<CSimpleIniA> m_pParser;
-		std::string m_strFileName;
-		std::atomic_bool m_bUpdated{false};
+		std::string m_str_file_name;
+		std::atomic_bool m_bUpdated{ false };
 	};
 } // namespace ini
 

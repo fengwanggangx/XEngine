@@ -33,9 +33,8 @@ namespace net
 		em_event m_event{ em_event::unknown };
 		_TyConnectionId m_connection_id{ -1 };
 		std::unique_ptr<CRequest> m_request{ nullptr };
-		int m_error{-1};
+		int m_error{ -1 };
 	};
-
 
 	bool IsThreadEnable();
 	void EnvInitialize();

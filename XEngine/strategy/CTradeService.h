@@ -26,7 +26,7 @@ public:
 
 	bool OnReply(const CRequest& req);
 	bool OnRequest(const CRequest& req);
-	void OnBrokerEvent(trade::CCounterEvent event);
+	void OnBrokerEvent(trade::CCounterEvent ev);
 	void OnAccountState(const _TyAccount& account);
 	trade::CResult SendStrategyRequest(CRequest&& request);
 	void OnBrokerState(SessionState state, const std::string& reason = {});

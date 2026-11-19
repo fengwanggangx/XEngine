@@ -10,7 +10,7 @@ namespace db
 		CConnectParam(const std::string& strHost, unsigned int nPort, const std::string& strAccount, const std::string& strPasswd, const std::string& strDB, const std::string& strCharset);
 		CConnectParam(const std::string& strParam, char delimiter);
 		std::string m_strHost;
-		unsigned int m_nPort{0};
+		unsigned int m_nPort{ 0 };
 		std::string m_strAccount;
 		std::string m_strPasswd;
 		std::string m_strDataBase;

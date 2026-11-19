@@ -5,6 +5,7 @@
 #include <optional>
 #include <string>
 #include <vector>
+
 namespace net
 {
 	/*
@@ -17,18 +18,18 @@ namespace net
 
 	class CFrameBuffer final
 	{
-		public:
-			CFrameBuffer();
+	public:
+		CFrameBuffer();
 
-			void Reset();
-			bool HasError() const;
-			static std::optional<std::string> Encode(const std::string& strPayload);
-			std::optional<std::vector<std::string>> Decode(const void* pData, std::size_t nLength);
+		void Reset();
+		bool HasError() const;
+		static std::optional<std::string> Encode(const std::string& strPayload);
+		std::optional<std::vector<std::string>> Decode(const void* pData, std::size_t nLength);
 
-		private:
-			static const std::size_t m_nMaxFrameSize{ 8 * 1024 * 1024 };
-			std::vector<std::uint8_t> m_recv_buffer;
-			bool m_bError{ false };
+	private:
+		static const std::size_t m_n_max_frame_size{ 8 * 1024 * 1024 };
+		std::vector<std::uint8_t> m_recv_buffer;
+		bool m_bError{ false };
 	};
 } // namespace net
 #endif

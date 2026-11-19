@@ -4,6 +4,7 @@
 #include "../strategy/AccountInfo.h"
 #include "TradeTypes.h"
 #include "TradingTypes.h"
+
 namespace trade::protocol
 {
 	request::TradeAccountRecord AccountPayload(const CAccountInfo& info);

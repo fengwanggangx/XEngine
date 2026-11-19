@@ -99,9 +99,9 @@ private:
 	std::mutex m_mtx_handlers;
 	std::vector<_TyRequestNotify> m_handlers;
 
-	std::vector<_TyStateHandler> m_stateHandlers;
-	int m_nHeartbeatSeconds{ 5 };
-	int m_nMaxReconnectSeconds{ 30 };
+	std::vector<_TyStateHandler> m_state_handlers;
+	int m_n_heartbeat_seconds{ 5 };
+	int m_n_max_reconnect_seconds{ 30 };
 };
 
 #endif

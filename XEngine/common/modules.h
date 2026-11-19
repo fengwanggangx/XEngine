@@ -2,6 +2,7 @@
 #define __MODULES_H__
 
 #include <string>
+
 namespace md
 {
 	enum class modules
@@ -12,6 +13,6 @@ namespace md
 	};
 
 	std::string GetModuleName(md::modules m);
-}
+} // namespace md
 
 #endif

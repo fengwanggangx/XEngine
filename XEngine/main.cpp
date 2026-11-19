@@ -10,7 +10,7 @@
 
 std::unique_ptr<net::CHttpResponseData> MakeResponse(int nStatus, std::string strBody, const std::string& strContentType = "text/plain; charset=utf-8")
 {
-	auto response = std::make_unique<net::CHttpResponseData>();
+	std::unique_ptr<net::CHttpResponseData> response = std::make_unique<net::CHttpResponseData>();
 	response->m_nStatus = nStatus;
 	response->m_headers["Content-Type"] = strContentType;
 	response->m_strBody = std::move(strBody);

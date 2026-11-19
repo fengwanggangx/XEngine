@@ -15,14 +15,14 @@ enum class SessionState;
 
 struct CPendingQueryClient
 {
-	net::_TyConnectionId m_routerId{ -1 };
-	_TyRequestId m_requestId{ 0 };
+	net::_TyConnectionId m_router_id{ -1 };
+	_TyRequestId m_request_id{ 0 };
 	std::function<void(const CRequest&)> m_handler;
 };
 
 struct CPendingQuery
 {
-	_TyRequestId m_routerId{ 0 };
+	_TyRequestId m_router_id{ 0 };
 	std::string m_strKey;
 	_TyRequest m_type{ _TyRequest::UNKNOWN };
 	std::chrono::steady_clock::time_point m_deadline;
@@ -38,10 +38,11 @@ struct CPendingSubscriptionBatch
 	std::vector<CQuoteInfo> m_changed;
 	std::string m_strError;
 };
+
 struct CUpstreamSubscription
 {
 	CQuoteInfo m_quote;
-	_TyRequestId m_requestId{ 0 };
+	_TyRequestId m_request_id{ 0 };
 	_TyRequest m_type{ _TyRequest::UNKNOWN };
 	bool m_bConfirmed{ false };
 	std::chrono::steady_clock::time_point m_deadline;
@@ -94,11 +95,11 @@ private:
 	std::mutex m_mtx_state;
 	CSubscriptionMgr m_subscriptions;
 	std::mutex m_mtx_subscriptions;
-	bool m_bMarketReady{ false };
-	std::unordered_map<std::string, CUpstreamSubscription> m_upstreamSubscriptions;
-	std::unordered_map<_TyRequestId, CPendingSubscriptionBatch> m_pendingBatchSubscriptions;
-	std::unordered_map<std::string, CPendingQuery> m_pendingQueries;
-	std::atomic_uint64_t m_routerId{ std::uint64_t(1) << 63 };
+	bool m_b_market_ready{ false };
+	std::unordered_map<std::string, CUpstreamSubscription> m_upstream_subscriptions;
+	std::unordered_map<_TyRequestId, CPendingSubscriptionBatch> m_pending_batch_subscriptions;
+	std::unordered_map<std::string, CPendingQuery> m_pending_queries;
+	std::atomic_uint64_t m_router_id{ std::uint64_t(1) << 63 };
 
 	CSession* m_pSession{ nullptr };
 };

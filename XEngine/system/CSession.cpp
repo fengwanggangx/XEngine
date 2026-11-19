@@ -95,10 +95,10 @@ void CSession::RegisterHandler(_TyRequestNotify&& handler)
 void CSession::SetStateHandler(_TyStateHandler&& handler)
 {
 	std::lock_guard<std::mutex> lock(m_mtx_handlers);
-	m_stateHandlers.clear();
+	m_state_handlers.clear();
 	if (nullptr != handler)
 	{
-		m_stateHandlers.emplace_back(std::move(handler));
+		m_state_handlers.emplace_back(std::move(handler));
 	}
 }
 
@@ -109,7 +109,7 @@ void CSession::RegisterStateHandler(_TyStateHandler&& handler)
 		return;
 	}
 	std::lock_guard<std::mutex> lock(m_mtx_handlers);
-	m_stateHandlers.emplace_back(std::move(handler));
+	m_state_handlers.emplace_back(std::move(handler));
 }
 
 SessionState CSession::GetState() const
@@ -179,7 +179,7 @@ void CSession::ConnectionLoop()
 		{
 			return m_bStopping.load();
 		});
-		nReConnectSeconds = bAuthed ? 1 : (std::min)(m_nMaxReconnectSeconds, nReConnectSeconds * 2);
+		nReConnectSeconds = bAuthed ? 1 : (std::min)(m_n_max_reconnect_seconds, nReConnectSeconds * 2);
 	}
 }
 
@@ -202,10 +202,11 @@ void CSession::MaintenanceLoop()
 		if (IsAuthenticated() && (nTmNextHearbeat <= now))
 		{
 			SendRequest(request::HeartBeat());
-			nTmNextHearbeat = now + std::chrono::seconds(m_nHeartbeatSeconds);
+			nTmNextHearbeat = now + std::chrono::seconds(m_n_heartbeat_seconds);
 		}
 	}
 }
+
 int CSession::OnClientNetEvent(const net::CNetEvent& ev)
 {
 	if (net::em_event::connected == ev.m_event)
@@ -312,7 +313,7 @@ void CSession::NotifyState(SessionState state, const std::string& strMessage)
 	std::vector<_TyStateHandler> handlers;
 	{
 		std::lock_guard<std::mutex> lock(m_mtx_handlers);
-		handlers = m_stateHandlers;
+		handlers = m_state_handlers;
 	}
 	for (const auto& handler : handlers)
 	{
@@ -343,5 +344,5 @@ void CSession::ClearHandlers()
 {
 	std::lock_guard<std::mutex> lock(m_mtx_handlers);
 	m_handlers.clear();
-	m_stateHandlers.clear();
+	m_state_handlers.clear();
 }

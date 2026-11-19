@@ -49,7 +49,7 @@ namespace ini
 		{
 			parser->Delete(strSection.c_str(), strKey.c_str());
 		}
-		if (0 > parser->SaveFile(m_strFileName.c_str()))
+		if (0 > parser->SaveFile(m_str_file_name.c_str()))
 		{
 			return false;
 		}
@@ -58,7 +58,7 @@ namespace ini
 		return true;
 	}
 
-	CIniFile::CIniFile(const std::string& strFile) : m_pParser(std::make_unique<CSimpleIniA>(false, false, false)), m_strFileName(strFile)
+	CIniFile::CIniFile(const std::string& strFile) : m_pParser(std::make_unique<CSimpleIniA>(false, false, false)), m_str_file_name(strFile)
 	{
 		Load(strFile);
 	}
@@ -86,7 +86,7 @@ namespace ini
 	bool CIniFile::Save() const
 	{
 		std::unique_lock<std::shared_mutex> lck(m_mtx_parser);
-		SI_Error ret = m_pParser->SaveFile(m_strFileName.c_str());
+		SI_Error ret = m_pParser->SaveFile(m_str_file_name.c_str());
 		return 0 <= ret;
 	}
 
@@ -150,10 +150,12 @@ namespace ini
 	{
 		return GetInt(strSection, strKey, nDefault);
 	}
+
 	bool CIniFile::GetValue(const std::string& strSection, const std::string& strKey, bool bDefault) const
 	{
 		return GetBool(strSection, strKey, bDefault);
 	}
+
 	double CIniFile::GetValue(const std::string& strSection, const std::string& strKey, double fDefault) const
 	{
 		return GetDouble(strSection, strKey, fDefault);

@@ -18,7 +18,7 @@ namespace db
 
 	int CMySQL::Connect(const db::CConnectParam& param)
 	{
-		std::lock_guard<std::mutex> lock(m_mtx);
+		std::lock_guard<std::mutex> lock(m_mtx_db);
 		if (IsValid())
 		{
 			return 0;
@@ -66,8 +66,8 @@ namespace db
 
 	void CMySQL::DisConnect()
 	{
-		std::lock_guard<std::mutex> lock(m_mtx);
-		if (m_pDB != nullptr)
+		std::lock_guard<std::mutex> lock(m_mtx_db);
+		if (nullptr != m_pDB)
 		{
 			mysql_close(m_pDB);
 		}
@@ -88,7 +88,7 @@ namespace db
 	const CTable& CMySQL::ExecQuery(const std::string& strSQL)
 	{
 		thread_local CTable s_table;
-		std::lock_guard<std::mutex> lock(m_mtx);
+		std::lock_guard<std::mutex> lock(m_mtx_db);
 
 		CTable::_TyColumns& columns = s_table.m_columns;
 		CTable::_TyRows& rows = s_table.m_rows;
@@ -107,12 +107,12 @@ namespace db
 		}
 
 		std::unique_ptr<MYSQL_RES, void (*)(MYSQL_RES*)> result(mysql_store_result(m_pDB), [](MYSQL_RES* p)
-																{
-																	if (nullptr != p)
-																	{
-																		mysql_free_result(p);
-																	}
-																});
+		{
+			if (nullptr != p)
+			{
+				mysql_free_result(p);
+			}
+		});
 		if (nullptr == result.get())
 		{
 			//(0 == mysql_field_count(m_pDB))
@@ -164,7 +164,7 @@ namespace db
 
 	int CMySQL::ExecUpdate(const std::string& strSQL)
 	{
-		std::lock_guard<std::mutex> lock(m_mtx);
+		std::lock_guard<std::mutex> lock(m_mtx_db);
 		if (!IsValid())
 		{
 			return -1;
@@ -178,7 +178,7 @@ namespace db
 
 	int CMySQL::ExecScript(const std::string& strSQL)
 	{
-		std::lock_guard<std::mutex> lock(m_mtx);
+		std::lock_guard<std::mutex> lock(m_mtx_db);
 		if (!IsValid())
 		{
 			return -1;
@@ -209,8 +209,7 @@ namespace db
 				{
 					nRet = mysql_errno(m_pDB);
 				}
-			}
-			while (0 == nNextResult);
+			} while (0 == nNextResult);
 		}
 
 		int nDisableRet = mysql_set_server_option(m_pDB, MYSQL_OPTION_MULTI_STATEMENTS_OFF);
@@ -223,7 +222,7 @@ namespace db
 
 	bool CMySQL::BeginTransaction()
 	{
-		std::lock_guard<std::mutex> lock(m_mtx);
+		std::lock_guard<std::mutex> lock(m_mtx_db);
 		if (!IsValid())
 		{
 			return false;
@@ -233,7 +232,7 @@ namespace db
 
 	bool CMySQL::EndTransaction()
 	{
-		std::lock_guard<std::mutex> lock(m_mtx);
+		std::lock_guard<std::mutex> lock(m_mtx_db);
 		if (!IsValid())
 		{
 			return false;
@@ -245,7 +244,7 @@ namespace db
 
 	bool CMySQL::RollBackTransaction()
 	{
-		std::lock_guard<std::mutex> lock(m_mtx);
+		std::lock_guard<std::mutex> lock(m_mtx_db);
 		if (!IsValid())
 		{
 			return false;

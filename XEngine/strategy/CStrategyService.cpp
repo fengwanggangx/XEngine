@@ -257,6 +257,13 @@ std::size_t CSignalKeyHash::operator()(const CSignalKey& key) const
 	return strategyHash ^ (signalHash + 0x9e3779b9U + (strategyHash << 6) + (strategyHash >> 2));
 }
 
+std::size_t CStrategyService::COrderRouteHash::operator()(const _TyOrderRouteIndex& key) const noexcept
+{
+	std::size_t accountHash = CAccountHash{}(key.first);
+	std::size_t orderHash = std::hash<_TyOrderId>{}(key.second);
+	return accountHash ^ (orderHash + 0x9e3779b9U + (accountHash << 6) + (accountHash >> 2));
+}
+
 CStrategyService::CStrategyService(CHQService* pHQService, CTradeService* pTradeService, CAccountService* pAccountService, CIndicator& indicator) : m_indicator(indicator), m_p_hq_service(pHQService), m_p_trade_service(pTradeService), m_p_account_service(pAccountService)
 {
 }
@@ -363,7 +370,7 @@ void CStrategyService::OnReply(const CRequest& origin, const trade::CCounterRepl
 	event.m_status = OrderStatus::Rejected;
 	event.m_strReason = reply.m_result.m_strMessage;
 	std::uint64_t quantity = 0;
-	if (!tradingroute::ReadNumber(origin, "signal_id", event.m_signal_id) || !tradingroute::ReadNumber(origin, "client_order_id", event.m_clientOrderId) || !tradingroute::ReadNumber(origin, "quantity", quantity) || static_cast<std::uint64_t>((std::numeric_limits<std::int64_t>::max)()) < quantity)
+	if (!tradingroute::ReadNumber(origin, "signal_id", event.m_signal_id) || !tradingroute::ReadNumber(origin, "client_order_id", event.m_client_order_id) || !tradingroute::ReadNumber(origin, "quantity", quantity) || static_cast<std::uint64_t>((std::numeric_limits<std::int64_t>::max)()) < quantity)
 	{
 		std::cerr << "Invalid rejected strategy order metadata\n";
 		return;
@@ -958,7 +965,7 @@ bool CStrategyService::CreateStrategy(const CStrategyConfig& cfg)
 		}
 	}
 
-	const auto& orders = m_p_trade_service->GetOrders(cfg.m_account);
+	std::vector<trade::COrder> orders = m_p_trade_service->GetOrders(cfg.m_account);
 	for (const auto& item : orders)
 	{
 		if (cfg.m_id != item.m_id)
@@ -973,12 +980,12 @@ bool CStrategyService::CreateStrategy(const CStrategyConfig& cfg)
 		{
 			{
 				std::lock_guard<std::mutex> lock(runtime->m_mtx_orders);
-				runtime->m_active_order_ids.emplace(item.m_orderId);
+				runtime->m_active_order_ids.emplace(item.m_order_id);
 			}
 			{
 				std::unique_lock<std::shared_mutex> lock(m_mtx_orders);
-				m_order_routes[{ item.m_account, item.m_orderId }] = cfg.m_id;
-				m_client_order_routes[{ item.m_account, item.m_clientId }] = cfg.m_id;
+				m_order_routes[{ item.m_account, item.m_order_id }] = cfg.m_id;
+				m_client_order_routes[{ item.m_account, item.m_client_id }] = cfg.m_id;
 			}
 		}
 	}
@@ -1261,14 +1268,14 @@ void CStrategyService::OnOrderEvent(const COrderEvent& ev)
 	if (0 == id)
 	{
 		std::shared_lock<std::shared_mutex> lock(m_mtx_orders);
-		const auto mIter = m_order_routes.find({ ev.m_account, ev.m_orderId });
+		const auto mIter = m_order_routes.find({ ev.m_account, ev.m_order_id });
 		if (m_order_routes.end() != mIter)
 		{
 			id = mIter->second;
 		}
 		else
 		{
-			const auto clientIter = m_client_order_routes.find({ ev.m_account, ev.m_clientOrderId });
+			const auto clientIter = m_client_order_routes.find({ ev.m_account, ev.m_client_order_id });
 			if (m_client_order_routes.end() != clientIter)
 			{
 				id = clientIter->second;
@@ -1289,18 +1296,18 @@ void CStrategyService::OnOrderEvent(const COrderEvent& ev)
 		std::lock_guard<std::mutex> lock(runtime->m_mtx_orders);
 		if (IsFinishedOrderStatus(ev.m_status))
 		{
-			runtime->m_active_order_ids.erase(ev.m_orderId);
+			runtime->m_active_order_ids.erase(ev.m_order_id);
 		}
-		else if (0 != ev.m_orderId)
+		else if (0 != ev.m_order_id)
 		{
-			runtime->m_active_order_ids.emplace(ev.m_orderId);
+			runtime->m_active_order_ids.emplace(ev.m_order_id);
 		}
 	}
-	if (!IsFinishedOrderStatus(ev.m_status) && 0 != ev.m_orderId)
+	if (!IsFinishedOrderStatus(ev.m_status) && 0 != ev.m_order_id)
 	{
 		std::unique_lock<std::shared_mutex> lock(m_mtx_orders);
-		m_order_routes[{ ev.m_account, ev.m_orderId }] = id;
-		m_client_order_routes[{ ev.m_account, ev.m_clientOrderId }] = id;
+		m_order_routes[{ ev.m_account, ev.m_order_id }] = id;
+		m_client_order_routes[{ ev.m_account, ev.m_client_order_id }] = id;
 	}
 	// Keep correlation through terminal order reports: a broker may deliver its fill afterward.
 
@@ -1316,7 +1323,7 @@ void CStrategyService::OnTradeEvent(const CTradeEvent& ev)
 	if (0 == id)
 	{
 		std::shared_lock<std::shared_mutex> lock(m_mtx_orders);
-		const auto mIter = m_order_routes.find({ ev.m_account, ev.m_orderId });
+		const auto mIter = m_order_routes.find({ ev.m_account, ev.m_order_id });
 		if (m_order_routes.end() != mIter)
 		{
 			id = mIter->second;
@@ -1689,7 +1696,7 @@ COrderSubmitResult CStrategyService::SubmitTradingOrder(const COrderIntent& inte
 	{
 		return { false, true, 0, 0, "Account not synchronized" };
 	}
-	if (OrderType::Limit != intent.m_orderType)
+	if (OrderType::Limit != intent.m_order_type)
 	{
 		return { false, false, 0, 0, "UNSUPPORTED: only limit orders" };
 	}
@@ -1697,16 +1704,16 @@ COrderSubmitResult CStrategyService::SubmitTradingOrder(const COrderIntent& inte
 	trade::CReqParam request;
 	trade::CSubmitParam& params = request.m_param.emplace<trade::CSubmitParam>();
 	request.m_account = intent.m_account;
-	params.m_order.m_clientId = intent.m_clientOrderId;
-	request.m_requestId = params.m_order.m_clientId;
+	params.m_order.m_client_id = intent.m_client_order_id;
+	request.m_request_id = params.m_order.m_client_id;
 	params.m_order.m_id = intent.m_id;
 	params.m_order.m_signal_id = intent.m_signal_id;
 	params.m_order.m_strSecurity = intent.m_security.String();
 	params.m_order.m_side = OrderSide::Buy == intent.m_side ? trade::Side::Buy : trade::Side::Sell;
 	params.m_order.m_nPrice = intent.m_price;
 	params.m_order.m_nQuantity = intent.m_quantity;
-	params.m_order.m_nPriceScale = intent.m_nPriceScale;
-	std::uint64_t nClientId = params.m_order.m_clientId;
+	params.m_order.m_n_price_scale = intent.m_n_price_scale;
+	std::uint64_t nClientId = params.m_order.m_client_id;
 	if (nullptr == runtime || runtime->m_b_removing.load())
 	{
 		return { false, false, nClientId, 0, "Strategy is unavailable" };
@@ -1727,36 +1734,36 @@ COrderSubmitResult CStrategyService::SubmitOrder(_TyStrategyId id, const COrderI
 		return { false, true, 0, 0, "Strategy or market is unavailable" };
 	}
 	std::int64_t now = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
-	if ((0 >= intent.m_quoteTimeMs) || (5000 < now - intent.m_quoteTimeMs) || (1000 < intent.m_quoteTimeMs - now))
+	if ((0 >= intent.m_quote_time_ms) || (5000 < now - intent.m_quote_time_ms) || (1000 < intent.m_quote_time_ms - now))
 	{
 		return { false, true, 0, 0, "Quote is stale" };
 	}
 	std::optional<trade::CExecutionRule> rules = m_p_trade_service->GetExecutionRules(runtime->m_config.m_account, intent.m_security);
-	if (!rules.has_value() || !rules->m_reliableQuery || !rules->m_idempotentClientId)
+	if (!rules.has_value() || !rules->m_reliable_query || !rules->m_idempotent_client_id)
 	{
 		return { false, true, 0, 0, "Reliable execution rules and fee bounds are unavailable" };
 	}
 	const trade::CRule& rule = rules->m_rule;
-	if (rule.m_bCorporateAction && (intent.m_basisVersion != rule.m_strVersion))
+	if (rule.m_b_corporate_action && (intent.m_basis_version != rule.m_strVersion))
 	{
 		return { false, false, 0, 0, "Price basis needs explicit confirmation" };
 	}
 	const trade::CCalendar& calendar = rules->m_calendar;
-	if ((rule.m_strSecurity != intent.m_security.String()) || (rule.m_nPriceScale != intent.m_nPriceScale) || (0 >= rule.m_nTick) || (0 != intent.m_price % rule.m_nTick) || (intent.m_price < rule.m_nLower) || (intent.m_price > rule.m_nUpper) || (now < calendar.m_nOpen) || (now >= calendar.m_nClose) || ((now >= calendar.m_nBreak) && (now < calendar.m_nResume)))
+	if ((rule.m_strSecurity != intent.m_security.String()) || (rule.m_n_price_scale != intent.m_n_price_scale) || (0 >= rule.m_nTick) || (0 != intent.m_price % rule.m_nTick) || (intent.m_price < rule.m_nLower) || (intent.m_price > rule.m_nUpper) || (now < calendar.m_nOpen) || (now >= calendar.m_nClose) || ((now >= calendar.m_nBreak) && (now < calendar.m_nResume)))
 	{
 		return { false, true, 0, 0, "Price, tick or trading session is invalid" };
 	}
 	CStrategyAccountView view = m_p_trade_service->GetStrategyAccountView(runtime->m_config.m_account, intent.m_security);
 	bool buy = OrderSide::Buy == intent.m_side;
-	std::int64_t minimum = buy ? rule.m_nBuyMinimum : rule.m_nSellMinimum;
-	std::int64_t step = buy ? rule.m_nBuyStep : rule.m_nSellStep;
-	bool entirePosition = !buy && (intent.m_quantity == view.m_position.m_totalQuantity) && (intent.m_quantity <= view.m_position.m_availableQuantity);
+	std::int64_t minimum = buy ? rule.m_n_buy_minimum : rule.m_n_sell_minimum;
+	std::int64_t step = buy ? rule.m_n_buy_step : rule.m_n_sell_step;
+	bool entirePosition = !buy && (intent.m_quantity == view.m_position.m_total_quantity) && (intent.m_quantity <= view.m_position.m_available_quantity);
 	if (!entirePosition && ((0 >= minimum) || (0 >= step) || (intent.m_quantity < minimum) || (0 != (intent.m_quantity - minimum) % step)))
 	{
 		return { false, false, 0, 0, "Quantity violates instrument rules" };
 	}
 	std::int64_t debit = 0;
-	if (buy && (!trade::MaximumDebit(rule, intent.m_price, intent.m_quantity, debit) || (debit != intent.m_maximumDebit)))
+	if (buy && (!trade::MaximumDebit(rule, intent.m_price, intent.m_quantity, debit) || (debit != intent.m_maximum_debit)))
 	{
 		return { false, false, 0, 0, "Fee bound does not match current rules" };
 	}
@@ -1768,11 +1775,11 @@ COrderSubmitResult CStrategyService::SubmitOrder(_TyStrategyId id, const COrderI
 	{
 		return prepared;
 	}
-	routed.m_clientOrderId = prepared.m_clientOrderId;
+	routed.m_client_order_id = prepared.m_client_order_id;
 	COrderSubmitResult result = SubmitTradingOrder(routed, runtime);
 	// SendStrategyRequest returns failure only before admitting the transport request.
-	m_execution.MarkSubmission(routed.m_clientOrderId, result.m_bAccepted, !result.m_bAccepted);
-	result.m_clientOrderId = routed.m_clientOrderId;
+	m_execution.MarkSubmission(routed.m_client_order_id, result.m_bAccepted, !result.m_bAccepted);
+	result.m_client_order_id = routed.m_client_order_id;
 	result.m_bRetryable = false;
 	return result;
 }
@@ -1800,7 +1807,7 @@ bool CStrategyService::CancelOrder(_TyStrategyId id, _TyOrderId orderId)
 	std::vector<trade::COrder> orders = m_p_trade_service->GetOrders(runtime->m_config.m_account);
 	if (!std::any_of(orders.begin(), orders.end(), [id, orderId](const trade::COrder& item)
 	{
-		return orderId == item.m_orderId && id == item.m_id && trade::IsActive(item.m_status);
+		return orderId == item.m_order_id && id == item.m_id && trade::IsActive(item.m_status);
 	}))
 	{
 		return false;

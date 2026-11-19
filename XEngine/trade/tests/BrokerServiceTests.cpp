@@ -6,6 +6,7 @@
 #include "../../strategy/CStrategyContext.h"
 #include <iostream>
 #include <stdexcept>
+
 static _TyAccount TestAccount(std::uint64_t number)
 {
 	return 0 == number ? _TyAccount{} : _TyAccount{ 1, std::to_string(number) };
@@ -20,6 +21,7 @@ class CBrokerServiceTests
 			throw std::runtime_error(strMessage);
 		}
 	}
+
 	static trade::CCounterReply Trades(std::uint64_t nVersion)
 	{
 		trade::CCounterReply reply;
@@ -74,7 +76,7 @@ class CBrokerServiceTests
 		trade::Error lastError = trade::Error::None;
 		service.SetStrategyReplyHandler([&replies, &lastError](const CRequest& origin, const trade::CCounterReply& reply)
 		{
-			Check(42 == origin.GetId() && 42 == reply.m_requestId && TestAccount(1) == reply.m_account, "strategy reply restores original identity");
+			Check(42 == origin.GetId() && 42 == reply.m_request_id && TestAccount(1) == reply.m_account, "strategy reply restores original identity");
 			++replies;
 			lastError = reply.m_result.m_error;
 		});
@@ -125,7 +127,7 @@ class CBrokerServiceTests
 		service.m_snapshots[TestAccount(1)].m_bReady = true;
 		service.m_snapshots[TestAccount(1)].m_account.m_account = TestAccount(1);
 		service.m_snapshots[TestAccount(1)].m_account.m_bConnected = true;
-		service.m_snapshots[TestAccount(1)].m_account.m_bFundsValid = true;
+		service.m_snapshots[TestAccount(1)].m_account.m_b_funds_valid = true;
 		service.SetStrategyReplyHandler([&replies, &lastError](const CRequest&, const trade::CCounterReply& reply)
 		{
 			++replies;
@@ -156,10 +158,12 @@ class CBrokerServiceTests
 		runtime->m_b_scheduled = true;
 		strategies.m_runtimes.emplace(7, runtime);
 		strategies.m_signals[{ 7, 8 }] = SignalState::Pending;
+
 		struct CRuntimeGuard
 		{
 			std::unordered_map<_TyStrategyId, std::shared_ptr<CStrategyRuntime>>& m_runtimes;
 			CStrategyRuntime& m_runtime;
+
 			~CRuntimeGuard()
 			{
 				m_runtimes.clear();
@@ -167,6 +171,7 @@ class CBrokerServiceTests
 				m_runtime.m_b_scheduled = false;
 			}
 		};
+
 		CRuntimeGuard guard{ strategies.m_runtimes, *runtime };
 		CRequest origin = StrategyRequest(service, _TyRequest::TRADE_ORDER_SUBMIT);
 		trade::CCounterReply reply;
@@ -283,6 +288,7 @@ public:
 		TestRouting(service, accounts, session);
 	}
 };
+
 int main()
 {
 	try

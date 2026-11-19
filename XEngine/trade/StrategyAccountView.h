@@ -10,10 +10,10 @@ struct CStrategyAccountView
 	CAccountSnapshot m_account;
 	CPositionSnapshot m_position;
 	std::vector<trade::COrder> m_orders;
-	std::uint64_t m_connectionEpoch{ 0 };
-	std::uint64_t m_fundsVersion{ 0 };
-	std::uint64_t m_positionsVersion{ 0 };
-	std::uint64_t m_ordersVersion{ 0 };
+	std::uint64_t m_connection_epoch{ 0 };
+	std::uint64_t m_funds_version{ 0 };
+	std::uint64_t m_positions_version{ 0 };
+	std::uint64_t m_orders_version{ 0 };
 };
 
 CStrategyAccountView MakeStrategyAccountView(trade::CAccountData data, const CSecurity& security);

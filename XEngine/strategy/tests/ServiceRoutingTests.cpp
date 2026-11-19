@@ -82,19 +82,19 @@ class CServiceRoutingTests
 		query.SetExtraData("security", "600519.SSE");
 		std::string key = market.GetQueryKey(query);
 		CPendingQuery pending;
-		pending.m_routerId = 9001;
+		pending.m_router_id = 9001;
 		pending.m_strKey = key;
 		pending.m_type = query.GetType();
 		pending.m_deadline = std::chrono::steady_clock::now() + std::chrono::seconds(10);
 		pending.m_clients.push_back({ 7070, 200 });
-		market.m_pendingQueries.emplace(key, pending);
+		market.m_pending_queries.emplace(key, pending);
 		center.OnRequest(query);
-		Check(2 == market.m_pendingQueries.at(key).m_clients.size(), "identical client market queries merge");
+		Check(2 == market.m_pending_queries.at(key).m_clients.size(), "identical client market queries merge");
 		CRequest response;
 		response.SetId(9001);
 		response.SetType(query.GetType());
 		Check(center.OnHQMarketReply(response), "HQ reply reaches the pending query owner");
-		Check(201 == LastResponse(event).GetId() && market.m_pendingQueries.empty(), "market response restores client request identity and consumes pending state");
+		Check(201 == LastResponse(event).GetId() && market.m_pending_queries.empty(), "market response restores client request identity and consumes pending state");
 		Check(!center.OnBrokerReply(response), "wrong upstream cannot consume a market response");
 
 		CQuoteInfo quote("600519", Exchange::sse, Channel::quote);
@@ -106,8 +106,8 @@ class CServiceRoutingTests
 		strategies.RemoveRoutes(cfg);
 		Check(!market.HasDemand(quote), "removing strategy routes releases HQ demand");
 		market.m_subscriptions.Subscribe(FmtHQSubID(HQOrigin::Client, 7070), { quote });
-		market.m_upstreamSubscriptions[quote.String()] = { quote, 9002, _TyRequest::MARKET_SUBSCRIBE, false, pending.m_deadline };
-		market.m_pendingBatchSubscriptions.emplace(9002, CPendingSubscriptionBatch{ { 7070, 202 }, _TyRequest::MARKET_SUBSCRIBE, pending.m_deadline, { quote }, { quote } });
+		market.m_upstream_subscriptions[quote.String()] = { quote, 9002, _TyRequest::MARKET_SUBSCRIBE, false, pending.m_deadline };
+		market.m_pending_batch_subscriptions.emplace(9002, CPendingSubscriptionBatch{ { 7070, 202 }, _TyRequest::MARKET_SUBSCRIBE, pending.m_deadline, { quote }, { quote } });
 		response.SetId(9002);
 		response.SetType(_TyRequest::MARKET_SUBSCRIBE);
 		response.SetErrorInfo(1006, "rejected");
@@ -115,15 +115,15 @@ class CServiceRoutingTests
 		Check(!market.m_subscriptions.IsSubscribed(FmtHQSubID(HQOrigin::Client, 7070), quote) && 202 == LastResponse(event).GetId(), "subscription failure rolls back client subscription");
 
 		market.m_subscriptions.Subscribe(FmtHQSubID(HQOrigin::Client, 7070), { quote });
-		market.m_upstreamSubscriptions[quote.String()] = { quote, 9003, _TyRequest::MARKET_SUBSCRIBE, false, pending.m_deadline };
-		market.m_pendingBatchSubscriptions.emplace(9003, CPendingSubscriptionBatch{ { 7070, 203 }, _TyRequest::MARKET_SUBSCRIBE, pending.m_deadline, { quote }, { quote } });
+		market.m_upstream_subscriptions[quote.String()] = { quote, 9003, _TyRequest::MARKET_SUBSCRIBE, false, pending.m_deadline };
+		market.m_pending_batch_subscriptions.emplace(9003, CPendingSubscriptionBatch{ { 7070, 203 }, _TyRequest::MARKET_SUBSCRIBE, pending.m_deadline, { quote }, { quote } });
 		CRequest accepted;
 		accepted.SetId(9003);
 		accepted.SetType(_TyRequest::MARKET_SUBSCRIBE);
 		center.OnHQMarketReply(accepted);
 		Check(market.m_subscriptions.IsSubscribed(FmtHQSubID(HQOrigin::Client, 7070), quote) && 203 == LastResponse(event).GetId(), "successful subscription ACK retains subscription and original id");
-		market.m_upstreamSubscriptions[quote.String()] = { quote, 9004, _TyRequest::MARKET_SUBSCRIBE, false, std::chrono::steady_clock::time_point::min() };
-		market.m_pendingBatchSubscriptions.emplace(9004, CPendingSubscriptionBatch{ { 7070, 204 }, _TyRequest::MARKET_SUBSCRIBE, std::chrono::steady_clock::time_point::min(), { quote }, { quote } });
+		market.m_upstream_subscriptions[quote.String()] = { quote, 9004, _TyRequest::MARKET_SUBSCRIBE, false, std::chrono::steady_clock::time_point::min() };
+		market.m_pending_batch_subscriptions.emplace(9004, CPendingSubscriptionBatch{ { 7070, 204 }, _TyRequest::MARKET_SUBSCRIBE, std::chrono::steady_clock::time_point::min(), { quote }, { quote } });
 		market.ExpirePendingSubscriptions();
 		Check(!market.m_subscriptions.IsSubscribed(FmtHQSubID(HQOrigin::Client, 7070), quote) && LastResponse(event).GetErrorInfo().has_value(), "subscription timeout rolls back subscription");
 
@@ -150,19 +150,19 @@ class CServiceRoutingTests
 		Check(bRouted && bDelivered, "same market push reaches client and strategy even when client service handles it");
 
 		pending.m_deadline = std::chrono::steady_clock::time_point::min();
-		market.m_pendingQueries.emplace(key, pending);
+		market.m_pending_queries.emplace(key, pending);
 		market.ExpirePendingQueries();
-		Check(1008 == LastResponse(event).GetErrorInfo()->first && market.m_pendingQueries.empty(), "market timeout completes and removes pending query");
+		Check(1008 == LastResponse(event).GetErrorInfo()->first && market.m_pending_queries.empty(), "market timeout completes and removes pending query");
 		pending.m_deadline = std::chrono::steady_clock::now() + std::chrono::seconds(10);
-		market.m_pendingQueries.emplace(key, pending);
+		market.m_pending_queries.emplace(key, pending);
 		center.OnHQMarketStateChanged(SessionState::Disconnected, "test disconnect");
-		Check(!strategies.IsMarketAvailable() && market.m_pendingQueries.empty(), "HQ disconnect invalidates strategy market and completes client queries");
+		Check(!strategies.IsMarketAvailable() && market.m_pending_queries.empty(), "HQ disconnect invalidates strategy market and completes client queries");
 		Check(1007 == LastResponse(event).GetErrorInfo()->first, "HQ disconnect retains unavailable error");
 		center.OnHQMarketStateChanged(SessionState::Ready, "");
 		Check(strategies.IsMarketAvailable() && market.m_subscriptions.IsSubscribed(FmtHQSubID(HQOrigin::Client, 7070), quote), "HQ reconnect retains subscriptions and restores availability");
-		market.m_pendingQueries.emplace(key, pending);
+		market.m_pending_queries.emplace(key, pending);
 		center.HandleClientDisconnected(7070);
-		Check(market.m_pendingQueries.empty() && !market.m_subscriptions.IsSubscribed(FmtHQSubID(HQOrigin::Client, 7070), quote), "client disconnect clears market requests and subscriptions");
+		Check(market.m_pending_queries.empty() && !market.m_subscriptions.IsSubscribed(FmtHQSubID(HQOrigin::Client, 7070), quote), "client disconnect clears market requests and subscriptions");
 	}
 
 	class CRecordingStrategy final : public IStrategy
@@ -310,8 +310,8 @@ public:
 		request.SetType(_TyRequest::TRADE_ACCOUNT_LOGIN);
 		engine.OnRequest(request);
 		Check("authentication required" == LastResponse(event).GetErrorInfo()->second, "unauthenticated account requests remain rejected");
-		engine.m_clientTokens.emplace("test-token", std::chrono::steady_clock::now() + std::chrono::hours(1));
-		engine.m_tokenUsers.emplace("test-token", "tester");
+		engine.m_client_tokens.emplace("test-token", std::chrono::steady_clock::now() + std::chrono::hours(1));
+		engine.m_token_users.emplace("test-token", "tester");
 		CRequest authentication;
 		authentication.SetConnectionId(7070);
 		authentication.SetType(_TyRequest::AUTH_LOGIN);
@@ -322,7 +322,7 @@ public:
 		engine.HandleClientDisconnected(7070);
 		Check(!engine.IsAuthenticated(7070).first, "disconnect removes the authenticated client identity");
 		engine.OnRequest(authentication);
-		Check("tester" == engine.m_authClients.at(7070), "token reconnect binds the user again");
+		Check("tester" == engine.m_auth_clients.at(7070), "token reconnect binds the user again");
 		for (_TyRequest type : { _TyRequest::TRADE_ACCOUNT_LOGIN, _TyRequest::TRADE_ACCOUNT_LIST_QUERY, _TyRequest::TRADE_FUNDS_QUERY, _TyRequest::SUPPORTED_BROKER_QUERY })
 		{
 			request.SetType(type);
@@ -342,7 +342,7 @@ public:
 		cached.m_bReady = true;
 		cached.m_account.m_account = account;
 		cached.m_account.m_bConnected = true;
-		cached.m_account.m_bFundsValid = true;
+		cached.m_account.m_b_funds_valid = true;
 		accounts.m_accounts[account].m_info = std::move(entry);
 		Check(accounts.AcquireAccount(account), "ready account permits strategy use");
 		Check(accounts.AcquireAccount(account), "multiple consumers can use one account");

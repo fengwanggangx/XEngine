@@ -8,38 +8,43 @@
 #include "common_net.h"
 
 struct bufferevent;
+
 namespace net
 {
 	template <typename _Ty>
 	class CNetRouter
 	{
-		public:
-			CNetRouter() = default;
-			virtual ~CNetRouter() = default;
+	public:
+		CNetRouter() = default;
+		virtual ~CNetRouter() = default;
 
-		protected:
-			static void ConnAccept_Callback(struct evconnlistener* pListener, _TyConnectionId id, struct sockaddr* pAddr, int nLength, void* pArg);
-			static void Event_Callback(struct bufferevent* pEvent, short events, void* pArg);
-			static void Read_Callback(struct bufferevent* pEvent, void* pArg);
-			static void Write_Callback(struct bufferevent* pEvent, void* pArg);
+	protected:
+		static void ConnAccept_Callback(struct evconnlistener* pListener, _TyConnectionId id, struct sockaddr* pAddr, int nLength, void* pArg);
+		static void Event_Callback(struct bufferevent* pEvent, short events, void* pArg);
+		static void Read_Callback(struct bufferevent* pEvent, void* pArg);
+		static void Write_Callback(struct bufferevent* pEvent, void* pArg);
 
-		public:
-			virtual void OnConnAccept(struct evconnlistener* pListener, _TyConnectionId id, struct sockaddr* pAddr, int nLength)
-			{
-			}
-			virtual void OnConnected(struct bufferevent* pEvent)
-			{
-			}
-			virtual void OnEvent(struct bufferevent* pEvent, short events)
-			{
-			}
-			virtual std::size_t OnRead(struct bufferevent* pEvent)
-			{
-				return 0;
-			}
-			virtual void OnWrite(struct bufferevent* pEvent)
-			{
-			}
+	public:
+		virtual void OnConnAccept(struct evconnlistener* pListener, _TyConnectionId id, struct sockaddr* pAddr, int nLength)
+		{
+		}
+
+		virtual void OnConnected(struct bufferevent* pEvent)
+		{
+		}
+
+		virtual void OnEvent(struct bufferevent* pEvent, short events)
+		{
+		}
+
+		virtual std::size_t OnRead(struct bufferevent* pEvent)
+		{
+			return 0;
+		}
+
+		virtual void OnWrite(struct bufferevent* pEvent)
+		{
+		}
 	};
 
 	template <typename _Ty>
@@ -58,7 +63,7 @@ namespace net
 		_Ty* pInstance = static_cast<_Ty*>(pArg);
 		if (nullptr != pInstance)
 		{
-			if ((events & BEV_EVENT_CONNECTED) != 0)
+			if (0 != (events & BEV_EVENT_CONNECTED))
 			{
 				pInstance->OnConnected(pEvent);
 			}

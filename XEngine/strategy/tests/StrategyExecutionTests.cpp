@@ -32,14 +32,14 @@ namespace
 		trade::CAccountData data;
 		data.m_bReady = true;
 		data.m_version = 10;
-		data.m_fundsVersion = 10;
-		data.m_positionsVersion = 10;
-		data.m_ordersVersion = 10;
+		data.m_funds_version = 10;
+		data.m_positions_version = 10;
+		data.m_orders_version = 10;
 		data.m_account.m_account = Account();
 		data.m_account.m_bConnected = true;
 		data.m_account.m_nBalance = 200000;
 		data.m_account.m_nAvailable = 200000;
-		data.m_account.m_bExplicitAvailable = true;
+		data.m_account.m_b_explicit_available = true;
 		trade::CPosition position;
 		position.m_account = Account();
 		position.m_strSecurity = Security().String();
@@ -59,7 +59,7 @@ namespace
 		intent.m_signal_id = signal;
 		intent.m_security = Security(code);
 		intent.m_side = OrderSide::Buy;
-		intent.m_positionEffect = PositionEffect::Open;
+		intent.m_position_effect = PositionEffect::Open;
 		intent.m_price = 1000;
 		intent.m_quantity = 100;
 		return intent;
@@ -69,14 +69,14 @@ namespace
 	{
 		trade::COrder order;
 		order.m_account = record.m_intent.m_account;
-		order.m_clientId = record.m_intent.m_clientOrderId;
+		order.m_client_id = record.m_intent.m_client_order_id;
 		order.m_id = record.m_intent.m_id;
 		order.m_signal_id = record.m_intent.m_signal_id;
-		order.m_orderId = order.m_clientId + 1;
+		order.m_order_id = order.m_client_id + 1;
 		order.m_strSecurity = record.m_intent.m_security.String();
 		order.m_side = OrderSide::Buy == record.m_intent.m_side ? trade::Side::Buy : trade::Side::Sell;
 		order.m_nPrice = record.m_intent.m_price;
-		order.m_nPriceScale = record.m_intent.m_nPriceScale;
+		order.m_n_price_scale = record.m_intent.m_n_price_scale;
 		order.m_nQuantity = record.m_intent.m_quantity;
 		order.m_status = status;
 		return order;
@@ -88,19 +88,19 @@ namespace
 		CStrategyAccountView view = MakeStrategyAccountView(data, Security());
 		Check(view.m_account.m_bReady && view.m_position.m_bReady, "ready snapshot");
 		Check(view.m_account.m_version == view.m_position.m_version, "one version for resources");
-		Check(100001 == view.m_position.m_totalCost, "preserve total cost remainder");
-		Check(view.m_position.m_bCostKnown, "cost validity is propagated");
-		data.m_positions.front().m_bCostKnown = false;
+		Check(100001 == view.m_position.m_total_cost, "preserve total cost remainder");
+		Check(view.m_position.m_b_cost_known, "cost validity is propagated");
+		data.m_positions.front().m_b_cost_known = false;
 		view = MakeStrategyAccountView(data, Security());
-		Check(!view.m_position.m_bCostKnown && 0 == view.m_position.m_averageCost, "unknown cost is not fabricated");
+		Check(!view.m_position.m_b_cost_known && 0 == view.m_position.m_average_cost, "unknown cost is not fabricated");
 		data.m_positions.front().m_nAvailable = 301;
 		Check(!MakeStrategyAccountView(data, Security()).m_position.m_bReady, "reject invalid quantities");
 		data = Data();
 		data.m_positions.emplace_back(data.m_positions.front());
 		Check(!MakeStrategyAccountView(data, Security()).m_position.m_bReady, "reject duplicate position rows");
 		data = Data();
-		data.m_account.m_bExplicitAvailable = false;
-		data.m_account.m_bFrozenKnown = false;
+		data.m_account.m_b_explicit_available = false;
+		data.m_account.m_b_frozen_known = false;
 		Check(!MakeStrategyAccountView(data, Security()).m_account.m_bReady, "no derived funds with unknown frozen amount");
 		data = Data();
 		data.m_bReady = false;
@@ -113,19 +113,19 @@ namespace
 		Check(journal.Open(OpenTestDatabase()), "open in-memory journal");
 		trade::CAccountData data = Data();
 		COrderSubmitResult first = journal.Prepare(Intent(), MakeStrategyAccountView(data, Security()), 100500);
-		Check(first.m_bAccepted && 0 != first.m_clientOrderId, "prepare before transport");
+		Check(first.m_bAccepted && 0 != first.m_client_order_id, "prepare before transport");
 		Check(!journal.Prepare(Intent(2), MakeStrategyAccountView(data, Security()), 100500).m_bAccepted, "one execution per security");
 		Check(!journal.Prepare(Intent(3, "600001"), MakeStrategyAccountView(data, Security("600001")), 100500).m_bAccepted, "cross-security account funds reservation");
 		Check(!journal.Prepare(Intent(4, "600002"), MakeStrategyAccountView(data, Security("600002")), 99999).m_bAccepted, "budget must cover principal");
 		COrderIntent mismatched = Intent(5, "600003");
 		mismatched.m_account = { 2, "000123" };
 		Check(!journal.Prepare(mismatched, MakeStrategyAccountView(data, Security("600003")), 100500).m_bAccepted, "snapshot cannot cross accounts");
-		Check(journal.MarkSubmission(first.m_clientOrderId, false, true), "definitely unsent can release");
+		Check(journal.MarkSubmission(first.m_client_order_id, false, true), "definitely unsent can release");
 		Check(!journal.HasUnresolved(42), "unsent is terminal");
 		Check(!journal.Prepare(Intent(), MakeStrategyAccountView(data, Security()), 100500).m_bAccepted, "signal stays deduplicated after release");
 		COrderIntent sell = Intent(6);
 		sell.m_side = OrderSide::Sell;
-		sell.m_positionEffect = PositionEffect::Close;
+		sell.m_position_effect = PositionEffect::Close;
 		sell.m_quantity = 200;
 		Check(!journal.Prepare(sell, MakeStrategyAccountView(data, Security()), 0).m_bAccepted, "cannot sell today's unavailable shares");
 		sell.m_quantity = 100;
@@ -139,17 +139,17 @@ namespace
 		trade::CAccountData data = Data();
 		COrderSubmitResult prepared = journal.Prepare(Intent(), MakeStrategyAccountView(data, Security()), 100500);
 		Check(prepared.m_bAccepted, "prepare watermark execution");
-		Check(journal.MarkSubmission(prepared.m_clientOrderId, true), "mark queued");
+		Check(journal.MarkSubmission(prepared.m_client_order_id, true), "mark queued");
 		data.m_orders.emplace_back(BrokerOrder(journal.GetRecords().front(), trade::Status::Filled));
 		data.m_version = 20;
-		data.m_ordersVersion = 20;
+		data.m_orders_version = 20;
 		Check(journal.Reconcile(Account(), MakeStrategyAccountView(data, Security())), "terminal order evidence");
 		Check(journal.HasUnresolved(42), "terminal order alone must not release money");
 		Check(ExecutionState::TerminalAwaitingSync == journal.GetRecords().front().m_state, "wait for funds watermark");
-		data.m_fundsVersion = 20;
+		data.m_funds_version = 20;
 		Check(journal.Reconcile(Account(), MakeStrategyAccountView(data, Security())), "resource evidence");
 		Check(!journal.HasUnresolved(42), "release only after funds catch up");
-		Check(journal.MarkSubmission(prepared.m_clientOrderId, true), "late transport completion is harmless");
+		Check(journal.MarkSubmission(prepared.m_client_order_id, true), "late transport completion is harmless");
 		Check(journal.GetRecords().empty(), "terminal history does not accumulate in the pending map");
 		data.m_version = 10;
 		Check(!journal.Prepare(Intent(8, "600008"), MakeStrategyAccountView(data, Security("600008")), 100500).m_bAccepted, "reject older snapshot after newer evidence");
@@ -163,8 +163,8 @@ namespace
 		Check(journal.Prepare(Intent(), MakeStrategyAccountView(data, Security()), 100500).m_bAccepted, "prepare first debit");
 		data.m_orders.emplace_back(BrokerOrder(journal.GetRecords().front(), trade::Status::Accepted));
 		data.m_version = 20;
-		data.m_ordersVersion = 20;
-		data.m_fundsVersion = 20;
+		data.m_orders_version = 20;
+		data.m_funds_version = 20;
 		data.m_account.m_nAvailable = 99499;
 		Check(journal.Reconcile(Account(), MakeStrategyAccountView(data, Security())), "handoff broker freeze");
 		COrderIntent smaller = Intent(2, "600001");
@@ -199,16 +199,16 @@ namespace
 		Check(journal.Open(OpenTestDatabase()), "open sell watermark journal");
 		COrderIntent intent = Intent();
 		intent.m_side = OrderSide::Sell;
-		intent.m_positionEffect = PositionEffect::Close;
+		intent.m_position_effect = PositionEffect::Close;
 		trade::CAccountData data = Data();
 		Check(journal.Prepare(intent, MakeStrategyAccountView(data, Security()), 0).m_bAccepted, "prepare sell");
 		data.m_orders.emplace_back(BrokerOrder(journal.GetRecords().front(), trade::Status::Filled));
 		data.m_version = 20;
-		data.m_ordersVersion = 20;
-		data.m_fundsVersion = 20;
+		data.m_orders_version = 20;
+		data.m_funds_version = 20;
 		Check(journal.Reconcile(Account(), MakeStrategyAccountView(data, Security())), "observe filled sell");
 		Check(journal.HasUnresolved(42), "funds cannot release a sell's share reservation");
-		data.m_positionsVersion = 20;
+		data.m_positions_version = 20;
 		Check(journal.Reconcile(Account(), MakeStrategyAccountView(data, Security())), "observe position watermark");
 		Check(!journal.HasUnresolved(42), "position evidence releases the sell");
 	}
@@ -251,7 +251,7 @@ namespace
 			Check(!secondOwner.Open(OpenTestDatabase(name)), "reject a second owning engine");
 			COrderSubmitResult prepared = journal.Prepare(Intent(), MakeStrategyAccountView(Data(), Security()), 100500);
 			Check(prepared.m_bAccepted, "persist prepared intent");
-			firstId = prepared.m_clientOrderId;
+			firstId = prepared.m_client_order_id;
 			Check(journal.LockBuys(Account(), Security(), 42, "stop_loss"), "persist protection lock");
 			Check(!journal.UnlockBuys(Account(), Security(), 42), "cannot unlock unresolved execution");
 		}
@@ -259,7 +259,7 @@ namespace
 			CStrategyExecutionManager journal;
 			Check(journal.Open(OpenTestDatabase(name)), "reopen journal after simulated crash");
 			Check(ExecutionState::Unknown == journal.GetRecords().front().m_state, "prepared crash window is uncertain");
-			Check(firstId == journal.GetRecords().front().m_intent.m_clientOrderId, "keep durable client identity");
+			Check(firstId == journal.GetRecords().front().m_intent.m_client_order_id, "keep durable client identity");
 			Check(ExecutionState::Unknown == journal.FindExecution(firstId)->m_state, "recovered unknown is durable in MySQL");
 			Check(journal.IsBuyLocked(Account(), Security()), "protection lock survives restart");
 			Check(journal.Reconcile(Account(), MakeStrategyAccountView(Data(), Security())), "empty broker query is accepted as observation");
@@ -273,7 +273,7 @@ namespace
 			Check(!journal.HasUnresolved(42), "recovered terminal and lock cleared");
 			Check(!journal.Prepare(Intent(), MakeStrategyAccountView(data, Security()), 100500).m_bAccepted, "durable unique signal survives restart");
 			COrderSubmitResult next = journal.Prepare(Intent(2, "600001"), MakeStrategyAccountView(data, Security("600001")), 100500);
-			Check(next.m_bAccepted && firstId < next.m_clientOrderId, "client ID never reused after reopen");
+			Check(next.m_bAccepted && firstId < next.m_client_order_id, "client ID never reused after reopen");
 		}
 	}
 

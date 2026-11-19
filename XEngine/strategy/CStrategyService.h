@@ -216,8 +216,14 @@ private:
 
 	mutable std::shared_mutex m_mtx_orders;
 	using _TyOrderRouteIndex = std::pair<_TyAccount, _TyOrderId>;
-	std::map<_TyOrderRouteIndex, _TyStrategyId> m_order_routes;
-	std::map<_TyOrderRouteIndex, _TyStrategyId> m_client_order_routes;
+
+	struct COrderRouteHash
+	{
+		std::size_t operator()(const _TyOrderRouteIndex& key) const noexcept;
+	};
+
+	std::unordered_map<_TyOrderRouteIndex, _TyStrategyId, COrderRouteHash> m_order_routes;
+	std::unordered_map<_TyOrderRouteIndex, _TyStrategyId, COrderRouteHash> m_client_order_routes;
 
 	std::mutex m_mtx_signals;
 	std::unordered_map<CSignalKey, SignalState, CSignalKeyHash> m_signals;

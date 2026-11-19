@@ -64,20 +64,20 @@ private:
 
 private:
 	mutable std::mutex m_mtx_state;
-	std::unordered_map<net::_TyConnectionId, std::string> m_authClients;
-	std::unordered_map<std::string, std::chrono::steady_clock::time_point> m_clientTokens;
+	std::unordered_map<net::_TyConnectionId, std::string> m_auth_clients;
+	std::unordered_map<std::string, std::chrono::steady_clock::time_point> m_client_tokens;
 
-	std::unordered_map<std::string, std::string> m_tokenUsers;
+	std::unordered_map<std::string, std::string> m_token_users;
 
 private:
 	// Borrowed from CBootLoader; callback producers stop before service destruction.
-	net::CTcpServer* m_pTcpServer{ nullptr };
-	CSession* m_pHQSession{ nullptr };
-	CSession* m_pBrokerSession{ nullptr };
-	CHQService* m_pHQService{ nullptr };
-	CStrategyService* m_pStrategyService{ nullptr };
-	CTradeService* m_pTradeService{ nullptr };
-	CAccountService* m_pAccountService{ nullptr };
+	net::CTcpServer* m_p_tcp_server{ nullptr };
+	CSession* m_p_hq_session{ nullptr };
+	CSession* m_p_broker_session{ nullptr };
+	CHQService* m_p_hq_service{ nullptr };
+	CStrategyService* m_p_strategy_service{ nullptr };
+	CTradeService* m_p_trade_service{ nullptr };
+	CAccountService* m_p_account_service{ nullptr };
 };
 
 #endif

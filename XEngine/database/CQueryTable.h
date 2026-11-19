@@ -22,7 +22,7 @@ namespace db
 
 	class CTable final
 	{
-	  public:
+	public:
 		using _TyColumns = std::vector<CColumn>;
 		using _TyRows = std::vector<_TyRow>;
 

@@ -17,6 +17,6 @@ namespace datetime
 	};
 
 	std::string GetSysDateTime(datetime::precision pr);
-}
+} // namespace datetime
 
 #endif

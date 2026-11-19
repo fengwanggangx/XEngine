@@ -2,54 +2,51 @@
 #define __COMMON_DEFINES_H__
 
 #define RETURN_EMTPTY_IFNULLPTR(...) \
-		if ((__VA_ARGS__) == nullptr) \
-		{	\
-			return {};	\
-		}\
+	if (nullptr == (__VA_ARGS__))    \
+	{                                \
+		return {};                   \
+	}
 
 #define RETURN_VALUE_IFNULLPTR(ptr, val) \
-		if (nullptr == ptr) \
-		{	\
-			return val;	\
-		}\
+	if (nullptr == ptr)                  \
+	{                                    \
+		return val;                      \
+	}
 
+#define RETURN_IFNULLPTR(...)     \
+	if (nullptr == (__VA_ARGS__)) \
+	{                             \
+		return;                   \
+	}
 
-#define RETURN_IFNULLPTR(...) \
-		if ((__VA_ARGS__) == nullptr) \
-		{	\
-			return;	\
-		}\
+#define IS_NOT_NULLPTR(...) ((__VA_ARGS__) != nullptr)
 
-#define IS_NOT_NULLPTR(...)  ((__VA_ARGS__) != nullptr)
+#define IS_NULLPTR(...) (nullptr == (__VA_ARGS__))
 
-#define IS_NULLPTR(...)  ((__VA_ARGS__) == nullptr)
+#define DECLARE_DELETE_COPY_CONSTRUCT(ClassName)     \
+private:                                             \
+	ClassName(const ClassName&) = delete;            \
+	ClassName(ClassName&&) = delete;                 \
+	ClassName& operator=(const ClassName&) = delete; \
+	ClassName& operator=(ClassName&&) = delete;
 
+#define DECLARE_ONLY_CUSTOM_CONSTRUCT(ClassName)     \
+public:                                              \
+	ClassName();                                     \
+	~ClassName();                                    \
+                                                     \
+private:                                             \
+	ClassName(const ClassName&) = delete;            \
+	ClassName(ClassName&&) = delete;                 \
+	ClassName& operator=(const ClassName&) = delete; \
+	ClassName& operator=(ClassName&&) = delete;
 
-#define DECLARE_DELETE_COPY_CONSTRUCT(ClassName) \
-    private: \
-		ClassName(const ClassName&) = delete;\
-		ClassName(ClassName&&) = delete;\
-		ClassName& operator=(const ClassName&) = delete;\
-		ClassName& operator=(ClassName&&) = delete;
-
-#define DECLARE_ONLY_CUSTOM_CONSTRUCT(ClassName) \
-  public: \
-		ClassName();\
-		~ClassName();\
-    private: \
-		ClassName(const ClassName&) = delete;\
-		ClassName(ClassName&&) = delete;\
-		ClassName& operator=(const ClassName&) = delete;\
-		ClassName& operator=(ClassName&&) = delete;
-
-
-#define DECLARE_DEFAULT_COPY_CONSTRUCT(ClassName) \
-    private: \
-		ClassName(const ClassName&) = default;\
-		ClassName(ClassName&&) = default;\
-		ClassName& operator=(const ClassName&) = default;\
-		ClassName& operator=(ClassName&&) = default;
-
+#define DECLARE_DEFAULT_COPY_CONSTRUCT(ClassName)     \
+private:                                              \
+	ClassName(const ClassName&) = default;            \
+	ClassName(ClassName&&) = default;                 \
+	ClassName& operator=(const ClassName&) = default; \
+	ClassName& operator=(ClassName&&) = default;
 
 #include "../thread/CThreadPool.h"
 CThreadPool* GetThreadPool();

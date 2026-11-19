@@ -160,7 +160,7 @@ public:
 			Check(1 == sent.size(), "strategies share one upstream subscribe");
 			market.OnRequest(ClientRequest(quote, true, 101));
 			Check(responses.empty(), "terminal joining an in-flight strategy subscription waits for ACK");
-			Check(!market.m_upstreamSubscriptions.at(quote.String()).m_bConfirmed, "write success does not confirm subscription");
+			Check(!market.m_upstream_subscriptions.at(quote.String()).m_bConfirmed, "write success does not confirm subscription");
 			market.OnReply(Reply(sent.back()));
 			Check(1 == responses.size() && !responses.back().GetErrorInfo().has_value(), "shared ACK completes terminal subscription");
 			market.Release(HQOrigin::Strategy, 1);
@@ -181,13 +181,13 @@ public:
 			market.HandleClientDisconnected(7070);
 			Check(4 == sent.size(), "terminal disconnect retains the strategy subscription");
 			market.OnSessionState(SessionState::Disconnected, "offline");
-			Check(!market.m_upstreamSubscriptions.at(quote.String()).m_bConfirmed, "disconnect invalidates confirmation");
+			Check(!market.m_upstream_subscriptions.at(quote.String()).m_bConfirmed, "disconnect invalidates confirmation");
 			market.OnSessionState(SessionState::Ready, "");
 			Check(5 == sent.size(), "reconnect restores shared strategy demand exactly once");
 			market.OnReply(Reply(sent.back()));
 			market.Release(HQOrigin::Strategy, 3);
 			market.OnReply(Reply(sent.back()));
-			Check(market.m_upstreamSubscriptions.empty(), "last unsubscribe ACK releases upstream state");
+			Check(market.m_upstream_subscriptions.empty(), "last unsubscribe ACK releases upstream state");
 		}
 		sent.clear();
 		responses.clear();
@@ -218,7 +218,7 @@ public:
 			market.OnReply(Reply(sent.back(), false));
 			Check(responses.back().GetErrorInfo().has_value(), "per-item rejection fails terminal even without top-level error");
 			Check(!market.m_subscriptions.IsSubscribed(FmtHQSubID(HQOrigin::Client, 7070), quote), "rejection rolls back terminal demand");
-			Check(market.HasDemand(quote) && !market.m_upstreamSubscriptions.at(quote.String()).m_bConfirmed, "strategy demand remains unconfirmed for reconnect");
+			Check(market.HasDemand(quote) && !market.m_upstream_subscriptions.at(quote.String()).m_bConfirmed, "strategy demand remains unconfirmed for reconnect");
 			market.OnSessionState(SessionState::Disconnected, "offline");
 			market.OnSessionState(SessionState::Ready, "");
 			Check(2 == sent.size(), "reconnect retries retained strategy demand");
@@ -244,7 +244,7 @@ public:
 			CHQService market(&session);
 			market.Subscribe(HQOrigin::Strategy, 1, { quote });
 			market.OnRequest(ClientRequest(quote, true, 401));
-			market.m_upstreamSubscriptions.at(quote.String()).m_deadline = std::chrono::steady_clock::time_point::min();
+			market.m_upstream_subscriptions.at(quote.String()).m_deadline = std::chrono::steady_clock::time_point::min();
 			market.ExpirePendingSubscriptions();
 			Check(responses.back().GetErrorInfo().has_value(), "timeout completes terminal waiter");
 			Check(market.HasDemand(quote), "terminal timeout preserves strategy demand");
@@ -285,7 +285,7 @@ public:
 			Check(responses.back().GetErrorInfo().has_value(), "one rejected batch item fails the request");
 			Check(2 == sent.size() && _TyRequest::MARKET_UNSUBSCRIBE == sent.back().GetType(), "accepted item in a rolled-back batch is released upstream");
 			market.OnReply(Reply(sent.back()));
-			Check(market.m_upstreamSubscriptions.empty(), "batch rollback leaves no orphan subscriptions");
+			Check(market.m_upstream_subscriptions.empty(), "batch rollback leaves no orphan subscriptions");
 		}
 
 		sent.clear();

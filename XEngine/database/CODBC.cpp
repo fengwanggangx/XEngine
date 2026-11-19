@@ -44,7 +44,7 @@ namespace db
 			}
 			return nResult;
 		}
-	}
+	} // namespace
 
 	CODBC::CODBC()
 	{

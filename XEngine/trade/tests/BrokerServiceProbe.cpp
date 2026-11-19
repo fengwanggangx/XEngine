@@ -3,6 +3,7 @@
 #include "../../system/CEngineCenter.h"
 #include <future>
 #include <iostream>
+
 static _TyAccount TestAccount(std::uint64_t number)
 {
 	return 0 == number ? _TyAccount{} : _TyAccount{ 1, std::to_string(number) };
@@ -33,19 +34,22 @@ int main(int nArgs, char** pArgs)
 	CEngineCenter center(nullptr, nullptr, &broker, nullptr, nullptr, &client, &accounts);
 	broker.RegisterHandler(std::bind_front(&CEngineCenter::OnBrokerReply, &center));
 	broker.RegisterStateHandler(std::bind_front(&CEngineCenter::OnBrokerStateChanged, &center));
+
 	struct CBrokerGuard
 	{
 		CSession* m_pBroker;
+
 		~CBrokerGuard()
 		{
 			m_pBroker->Stop();
 		}
 	};
+
 	CBrokerGuard guard{ &broker };
 	accounts.SetAccountStateHandler(std::bind_front(&CTradeService::OnAccountState, &client));
 	client.SetEventHandler([&nEvents, &bTradeCorrelated](const trade::CCounterEvent& event)
 	{
-		if (trade::EventTy::Deal == event.m_kind && 700 == event.m_order.m_clientId && 77 == event.m_order.m_id)
+		if (trade::EventTy::Deal == event.m_kind && 700 == event.m_order.m_client_id && 77 == event.m_order.m_id)
 		{
 			bTradeCorrelated.store(true);
 		}
@@ -69,14 +73,14 @@ int main(int nArgs, char** pArgs)
 	trade::CReqParam request;
 	request.m_account = account;
 	request.m_param = trade::CSubmitParam{};
-	request.m_requestId = 700;
-	std::get<trade::CSubmitParam>(request.m_param).m_order.m_clientId = 700;
+	request.m_request_id = 700;
+	std::get<trade::CSubmitParam>(request.m_param).m_order.m_client_id = 700;
 	std::get<trade::CSubmitParam>(request.m_param).m_order.m_account = account;
 	std::get<trade::CSubmitParam>(request.m_param).m_order.m_id = 77;
 	std::get<trade::CSubmitParam>(request.m_param).m_order.m_signal_id = 78;
 	std::get<trade::CSubmitParam>(request.m_param).m_order.m_strSecurity = "600000.SSE";
 	std::get<trade::CSubmitParam>(request.m_param).m_order.m_nPrice = 1000;
-	std::get<trade::CSubmitParam>(request.m_param).m_order.m_nPriceScale = 2;
+	std::get<trade::CSubmitParam>(request.m_param).m_order.m_n_price_scale = 2;
 	std::get<trade::CSubmitParam>(request.m_param).m_order.m_nQuantity = 100;
 	client.SetStrategyReplyHandler([&completion](const CRequest&, const trade::CCounterReply& reply)
 	{
@@ -105,7 +109,7 @@ int main(int nArgs, char** pArgs)
 		std::cout << "XEngine interrupted order reports UnknownResult and invalidates cache\n";
 		return 0;
 	}
-	if (!reply.m_result.Ok() || 700 != reply.m_requestId || !std::holds_alternative<trade::COperationReceipt>(reply.m_data) || 0 == std::get<trade::COperationReceipt>(reply.m_data).m_orderId || 0 == nEvents.load())
+	if (!reply.m_result.Ok() || 700 != reply.m_request_id || !std::holds_alternative<trade::COperationReceipt>(reply.m_data) || 0 == std::get<trade::COperationReceipt>(reply.m_data).m_order_id || 0 == nEvents.load())
 	{
 		return 6;
 	}

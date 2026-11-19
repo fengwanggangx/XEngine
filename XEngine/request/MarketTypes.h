@@ -97,6 +97,7 @@ std::string FmtSecurityString(const std::string& strCode, Exchange mk);
 struct CQuoteInfo
 {
 	CQuoteInfo() = default;
+
 	CQuoteInfo(const std::string& strCode, Exchange mk, Channel channel) : m_security(strCode, mk), m_channel(channel)
 	{
 	}

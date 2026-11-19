@@ -182,10 +182,12 @@ bool CRequest::IsMarket() const
 {
 	return (_TyRequest::MARKET_SUBSCRIBE <= GetType()) && (_TyRequest::MARKET_DEPTH_PUSH >= GetType());
 }
+
 bool CRequest::IsStrategy() const
 {
 	return (_TyRequest::STRATEGY_ADD <= GetType()) && (_TyRequest::STRATEGY_ACTION >= GetType());
 }
+
 std::string CRequest::GetTypeName() const
 {
 	return request::RequestType_Name(m_data->type());
@@ -203,6 +205,7 @@ void CRequest::SetExtraData(const std::string& strKey, const std::vector<std::ui
 	writer.EndArray();
 	SetExtraData(strKey, std::string(buffer.GetString(), buffer.GetSize()));
 }
+
 void CRequest::SetExtraData(const std::string& strKey, const _TyExtraRows& rows)
 {
 	rapidjson::StringBuffer buffer;
@@ -221,6 +224,7 @@ void CRequest::SetExtraData(const std::string& strKey, const _TyExtraRows& rows)
 	writer.EndArray();
 	SetExtraData(strKey, std::string(buffer.GetString(), buffer.GetSize()));
 }
+
 bool CRequest::GetExtraData(const std::string& strKey, std::vector<std::uint64_t>& values) const
 {
 	values.clear();
@@ -244,6 +248,7 @@ bool CRequest::GetExtraData(const std::string& strKey, std::vector<std::uint64_t
 	values = std::move(parsed);
 	return true;
 }
+
 bool CRequest::GetExtraData(const std::string& strKey, _TyExtraRows& rows) const
 {
 	rows.clear();
@@ -275,6 +280,7 @@ bool CRequest::GetExtraData(const std::string& strKey, _TyExtraRows& rows) const
 	rows = std::move(parsed);
 	return true;
 }
+
 void CRequest::SetData(const request::StrategyRuntimeList& value)
 {
 	m_data->mutable_strategy_runtime_list()->CopyFrom(value);
