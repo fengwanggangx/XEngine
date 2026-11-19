@@ -104,6 +104,14 @@ CREATE TABLE IF NOT EXISTS table_strategy_checkpoint
  PRIMARY KEY (strategy_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin;
 
+CREATE TABLE IF NOT EXISTS table_strategy_security_checkpoint
+(
+ strategy_id BIGINT NOT NULL,
+ security VARBINARY(32) NOT NULL,
+ data MEDIUMTEXT NOT NULL,
+ PRIMARY KEY (strategy_id,security)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin;
+
 CREATE TABLE IF NOT EXISTS table_strategy_exit_owner
 (
  account VARBINARY(1024) NOT NULL,

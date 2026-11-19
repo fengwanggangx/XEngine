@@ -25,6 +25,7 @@
 #include <chrono>
 #include <exception>
 #include <limits>
+#include <set>
 #include <rapidjson/document.h>
 #include <rapidjson/stringbuffer.h>
 #include <rapidjson/writer.h>
@@ -106,6 +107,18 @@ namespace
 			cfg.m_subscriptions.emplace_back(std::move(quote));
 		}
 		return !cfg.m_subscriptions.empty();
+	}
+
+	using _TySecuritySet = std::set<std::pair<std::string, std::string>>;
+
+	_TySecuritySet BoundSecurities(const request::StrategyInfo& info)
+	{
+		_TySecuritySet securities;
+		for (const auto& subscription : info.subscriptions())
+		{
+			securities.emplace(subscription.exchange(), subscription.security());
+		}
+		return securities;
 	}
 
 	bool MakeStrategyConfig(const request::StrategyInfo& info, CStrategyConfig& cfg)
@@ -399,7 +412,11 @@ void CStrategyService::OnTradeEvent(const trade::CCounterEvent& event)
 		CStrategyEvent tick;
 		tick.m_type = StrategyEventType::Timer;
 		CTimerEvent timer;
-		timer.m_zeroPosition = (trade::EventTy::Position == event.m_kind) && (0 == event.m_position.m_nTotal) && (event.m_position.m_strSecurity == runtime->m_config.m_subscriptions.front().m_security.String());
+		timer.m_zeroPosition = (trade::EventTy::Position == event.m_kind) && (0 == event.m_position.m_nTotal) && !event.m_position.m_strSecurity.empty();
+		if (trade::EventTy::Position == event.m_kind)
+		{
+			tick.m_security = event.m_position.m_strSecurity;
+		}
 		tick.m_data = timer;
 		EnqueueEvent(runtime, std::move(tick));
 	}
@@ -597,7 +614,7 @@ bool CStrategyService::ModifyStrategy(const CRequest& req)
 		return false;
 	}
 	request::StrategyInfo previous;
-	if (!FillStrategyInfo(existing.m_rows.front(), previous) || (0 == previous.subscriptions_size()) || (0 == info.config_revision()) || (previous.config_revision() != info.config_revision()) || (info.config_revision() >= static_cast<std::uint64_t>((std::numeric_limits<std::int64_t>::max)())) || (previous.strategy_type() != info.strategy_type()) || (FmtAccount(previous) != FmtAccount(info)) || (previous.subscriptions(0).security() != info.subscriptions(0).security()) || (previous.subscriptions(0).exchange() != info.subscriptions(0).exchange()) || m_execution.HasUnresolved(cfg.m_id))
+	if (!FillStrategyInfo(existing.m_rows.front(), previous) || (0 == previous.subscriptions_size()) || (0 == info.config_revision()) || (previous.config_revision() != info.config_revision()) || (info.config_revision() >= static_cast<std::uint64_t>((std::numeric_limits<std::int64_t>::max)())) || (previous.strategy_type() != info.strategy_type()) || (FmtAccount(previous) != FmtAccount(info)) || (BoundSecurities(previous) != BoundSecurities(info)) || m_execution.HasUnresolved(cfg.m_id))
 	{
 		net::SendError(req.GetConnectionId(), req, 1112, "Configuration revision changed, immutable binding changed, or execution remains unresolved");
 		return false;
@@ -899,21 +916,28 @@ bool CStrategyService::CreateStrategy(const CStrategyConfig& cfg)
 	{
 		return false;
 	}
-	std::unique_ptr<IStrategy> strategy(CreateStrategy(cfg.m_strType));
-	if (nullptr == strategy)
-	{
-		return false;
-	}
 	std::shared_ptr<CStrategyRuntime> runtime = std::make_shared<CStrategyRuntime>();
 	runtime->m_instanceId = m_nextInstanceId.fetch_add(1);
 	runtime->m_config = cfg;
-	runtime->m_strategy = std::move(strategy);
-	runtime->m_context = std::make_unique<CStrategyContext>(cfg.m_id, cfg.m_account, this, m_pTradeService);
+	std::map<std::string, std::vector<CQuoteInfo>> subscriptions;
+	for (const auto& subscription : cfg.m_subscriptions)
+	{
+		subscriptions[subscription.m_security.String()].push_back(subscription);
+	}
 	try
 	{
-		if (!runtime->m_strategy->Initialize(*runtime->m_context, runtime->m_config))
+		for (auto& [key, items] : subscriptions)
 		{
-			return false;
+			CStrategyLeg& leg = runtime->m_legs.emplace_back();
+			leg.m_security = items.front().m_security;
+			leg.m_strategy.reset(CreateStrategy(cfg.m_strType));
+			leg.m_context = std::make_unique<CStrategyContext>(cfg.m_id, cfg.m_account, this, m_pTradeService, leg.m_security, 1 < subscriptions.size());
+			CStrategyConfig config = cfg;
+			config.m_subscriptions = std::move(items);
+			if ((nullptr == leg.m_strategy) || !leg.m_strategy->Initialize(*leg.m_context, config))
+			{
+				return false;
+			}
 		}
 	}
 	catch (const std::exception& error)
@@ -990,7 +1014,10 @@ bool CStrategyService::RemoveStrategy(_TyStrategyId id)
 	runtime->m_bAcceptMarketEvents.store(false);
 	RemoveRoutes(runtime->m_config);
 	WaitUntilIdle(runtime);
-	runtime->m_context->Disable();
+	for (auto& leg : runtime->m_legs)
+	{
+		leg.m_context->Disable();
+	}
 	{
 		std::unique_lock<std::shared_mutex> lock(m_mtx_strategies);
 		m_runtimes.erase(id);
@@ -1144,7 +1171,10 @@ void CStrategyService::StopAll()
 	for (const auto& runtime : runtimes)
 	{
 		WaitUntilIdle(runtime);
-		runtime->m_context->Disable();
+		for (auto& leg : runtime->m_legs)
+		{
+			leg.m_context->Disable();
+		}
 		EndAccountUse(runtime->m_config.m_account, runtime->m_config.m_id);
 	}
 }
@@ -1166,21 +1196,25 @@ bool CStrategyService::OnReply(const CRequest& req)
 	{
 		ev.m_type = StrategyEventType::Quote;
 		ev.m_data = data.quote();
+		ev.m_security = MakeQuoteInfo(data.quote().security(), Channel::quote).m_security.String();
 	}
 	else if (data.has_depth())
 	{
 		ev.m_type = StrategyEventType::Depth;
 		ev.m_data = data.depth();
+		ev.m_security = MakeQuoteInfo(data.depth().security(), Channel::depth).m_security.String();
 	}
 	else if (data.has_trade())
 	{
 		ev.m_type = StrategyEventType::MarketTrade;
 		ev.m_data = data.trade();
+		ev.m_security = MakeQuoteInfo(data.trade().security(), Channel::trade).m_security.String();
 	}
 	else if (data.has_bar())
 	{
 		ev.m_type = StrategyEventType::Bar;
 		ev.m_data = data.bar();
+		ev.m_security = MakeQuoteInfo(data.bar().security(), Channel::bar_1d).m_security.String();
 	}
 	else
 	{
@@ -1455,51 +1489,73 @@ bool CStrategyService::DispatchEvent(CStrategyRuntime& runtime, CStrategyEvent& 
 	currentStrategyId = runtime.m_config.m_id;
 	try
 	{
-		switch (event.m_type)
+		for (auto& leg : runtime.m_legs)
 		{
-		case StrategyEventType::Action:
-			bResult = runtime.m_strategy->OnAction(event.m_action);
-			break;
-		case StrategyEventType::History:
-			runtime.m_strategy->OnHistory(std::get<std::vector<_TyBarData>>(event.m_data));
-			break;
-		case StrategyEventType::MarketState:
-			runtime.m_strategy->OnMarketState(std::get<bool>(event.m_data));
-			break;
-		case StrategyEventType::Start:
-			runtime.m_strategy->OnStart();
+			if (!event.m_security.empty() && (event.m_security != leg.m_security.String()))
+			{
+				continue;
+			}
+			switch (event.m_type)
+			{
+			case StrategyEventType::Action:
+				bResult = leg.m_strategy->OnAction(event.m_action) && bResult;
+				break;
+			case StrategyEventType::History:
+				leg.m_strategy->OnHistory(std::get<std::vector<_TyBarData>>(event.m_data));
+				break;
+			case StrategyEventType::MarketState:
+				leg.m_strategy->OnMarketState(std::get<bool>(event.m_data));
+				break;
+			case StrategyEventType::Start:
+				leg.m_strategy->OnStart();
+				break;
+			case StrategyEventType::Pause:
+				leg.m_strategy->OnPause();
+				break;
+			case StrategyEventType::Stop:
+				leg.m_strategy->OnStop();
+				break;
+			case StrategyEventType::Quote:
+				leg.m_strategy->OnQuote(std::get<_TyQuoteData>(event.m_data));
+				break;
+			case StrategyEventType::Depth:
+				leg.m_strategy->OnDepth(std::get<_TyDepthData>(event.m_data));
+				break;
+			case StrategyEventType::MarketTrade:
+				leg.m_strategy->OnMarketTrade(std::get<_TyMarketTradeData>(event.m_data));
+				break;
+			case StrategyEventType::Bar:
+				leg.m_strategy->OnBar(std::get<_TyBarData>(event.m_data));
+				break;
+			case StrategyEventType::Order:
+				if (leg.m_security == std::get<COrderEvent>(event.m_data).m_security)
+				{
+					leg.m_strategy->OnOrder(std::get<COrderEvent>(event.m_data));
+				}
+				break;
+			case StrategyEventType::Trade:
+				if (leg.m_security == std::get<CTradeEvent>(event.m_data).m_security)
+				{
+					leg.m_strategy->OnTrade(std::get<CTradeEvent>(event.m_data));
+				}
+				break;
+			case StrategyEventType::Timer:
+				leg.m_strategy->OnTimer(std::get<CTimerEvent>(event.m_data));
+				break;
+			}
+		}
+		if (StrategyEventType::Start == event.m_type)
+		{
 			runtime.m_state.store(StrategyState::Running);
 			runtime.m_bAcceptMarketEvents.store(true);
-			break;
-		case StrategyEventType::Pause:
-			runtime.m_strategy->OnPause();
+		}
+		else if (StrategyEventType::Pause == event.m_type)
+		{
 			runtime.m_state.store(StrategyState::Paused);
-			break;
-		case StrategyEventType::Stop:
-			runtime.m_strategy->OnStop();
+		}
+		else if (StrategyEventType::Stop == event.m_type)
+		{
 			runtime.m_state.store(StrategyState::Stopped);
-			break;
-		case StrategyEventType::Quote:
-			runtime.m_strategy->OnQuote(std::get<_TyQuoteData>(event.m_data));
-			break;
-		case StrategyEventType::Depth:
-			runtime.m_strategy->OnDepth(std::get<_TyDepthData>(event.m_data));
-			break;
-		case StrategyEventType::MarketTrade:
-			runtime.m_strategy->OnMarketTrade(std::get<_TyMarketTradeData>(event.m_data));
-			break;
-		case StrategyEventType::Bar:
-			runtime.m_strategy->OnBar(std::get<_TyBarData>(event.m_data));
-			break;
-		case StrategyEventType::Order:
-			runtime.m_strategy->OnOrder(std::get<COrderEvent>(event.m_data));
-			break;
-		case StrategyEventType::Trade:
-			runtime.m_strategy->OnTrade(std::get<CTradeEvent>(event.m_data));
-			break;
-		case StrategyEventType::Timer:
-			runtime.m_strategy->OnTimer(std::get<CTimerEvent>(event.m_data));
-			break;
 		}
 	}
 	catch (const std::exception& ex)
@@ -1560,8 +1616,19 @@ void CStrategyService::RouteMarketEvent(const std::string& strKey, CStrategyEven
 	}
 	std::sort(runtimes.begin(), runtimes.end(), [&ev](const auto& left, const auto& right)
 	{
-		int a = StrategyEventType::Quote == ev.m_type ? left->m_strategy->QuotePriority(std::get<_TyQuoteData>(ev.m_data)) : 3;
-		int b = StrategyEventType::Quote == ev.m_type ? right->m_strategy->QuotePriority(std::get<_TyQuoteData>(ev.m_data)) : 3;
+		auto priority = [&ev](const std::shared_ptr<CStrategyRuntime>& runtime)
+		{
+			for (const auto& leg : runtime->m_legs)
+			{
+				if (ev.m_security == leg.m_security.String())
+				{
+					return leg.m_strategy->QuotePriority(std::get<_TyQuoteData>(ev.m_data));
+				}
+			}
+			return 3;
+		};
+		int a = StrategyEventType::Quote == ev.m_type ? priority(left) : 3;
+		int b = StrategyEventType::Quote == ev.m_type ? priority(right) : 3;
 		return a == b ? left->m_config.m_id < right->m_config.m_id : a < b;
 	});
 	for (const auto& runtime : runtimes)
@@ -1864,7 +1931,7 @@ bool CStrategyService::ActionStrategy(const CRequest& req)
 	return SendStrategyResponse(req, "Action completed");
 }
 
-bool CStrategyService::RequestHistory(_TyStrategyId id, std::int64_t begin)
+bool CStrategyService::RequestHistory(_TyStrategyId id, const CSecurity& security, std::int64_t begin)
 {
 	std::shared_ptr<CStrategyRuntime> runtime = FindRuntime(id);
 	if ((nullptr == runtime) || (nullptr == m_pHQService))
@@ -1882,9 +1949,9 @@ bool CStrategyService::RequestHistory(_TyStrategyId id, std::int64_t begin)
 	{
 		begin = std::max<std::int64_t>(0, end - static_cast<std::int64_t>(settings.m_longWindow) * ("1m" == settings.m_barPeriod ? 60000 : 86400000) * 4);
 	}
-	CQuoteInfo quote(runtime->m_config.m_subscriptions.front().m_security.m_strCode, runtime->m_config.m_subscriptions.front().m_security.m_market, "1m" == settings.m_barPeriod ? Channel::bar_1m : Channel::bar_1d);
+	CQuoteInfo quote(security.m_strCode, security.m_market, "1m" == settings.m_barPeriod ? Channel::bar_1m : Channel::bar_1d);
 	std::weak_ptr<CStrategyRuntime> weak = runtime;
-	return m_pHQService->QueryBars(quote, begin, end, [this, weak](const CRequest& response)
+	return m_pHQService->QueryBars(quote, begin, end, [this, weak, security](const CRequest& response)
 	{
 		std::shared_ptr<CStrategyRuntime> target = weak.lock();
 		if ((nullptr == target) || target->m_bRemoving.load())
@@ -1894,7 +1961,7 @@ bool CStrategyService::RequestHistory(_TyStrategyId id, std::int64_t begin)
 		if (!response.GetData().has_query_response())
 		{
 			std::lock_guard<std::mutex> lock(target->m_mtx_metrics);
-			target->m_strLastError = "Historical K-line query failed";
+			target->m_strLastError = security.String() + ": Historical K-line query failed";
 			return;
 		}
 		std::map<std::int64_t, _TyBarData> ordered;
@@ -1910,6 +1977,7 @@ bool CStrategyService::RequestHistory(_TyStrategyId id, std::int64_t begin)
 		}
 		CStrategyEvent event;
 		event.m_type = StrategyEventType::History;
+		event.m_security = security.String();
 		event.m_data = std::move(bars);
 		EnqueueEvent(target, std::move(event));
 	});

@@ -61,8 +61,8 @@ public:
 	std::optional<CExecutionRecord> FindSignal(_TyStrategyId id, std::uint64_t signalId) const;
 	bool RejectBeforeAcceptance(std::uint64_t clientId, const std::string& reason);
 	std::optional<CExecutionRecord> FindExecution(std::uint64_t clientId) const;
-	std::string LoadCheckpoint(_TyStrategyId id) const;
-	bool SaveCheckpoint(_TyStrategyId id, const _TyAccount& account, const CSecurity& security, const std::string& data, bool protect);
+	std::string LoadCheckpoint(_TyStrategyId id, const std::string& key = {}) const;
+	bool SaveCheckpoint(_TyStrategyId id, const _TyAccount& account, const CSecurity& security, const std::string& data, bool protect, bool scoped = false);
 	bool ClaimExit(const _TyAccount& account, const CSecurity& security, _TyStrategyId id);
 	bool ReleaseExit(const _TyAccount& account, const CSecurity& security, _TyStrategyId id);
 	std::int64_t AvailableFunds(const _TyAccount& account, const CStrategyAccountView& view) const;

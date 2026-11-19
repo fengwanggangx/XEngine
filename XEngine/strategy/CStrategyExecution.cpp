@@ -881,15 +881,19 @@ std::optional<CExecutionRecord> CStrategyExecution::FindExecution(std::uint64_t 
 	return record;
 }
 
-std::string CStrategyExecution::LoadCheckpoint(_TyStrategyId id) const
+std::string CStrategyExecution::LoadCheckpoint(_TyStrategyId id, const std::string& key) const
 {
 	std::lock_guard<std::mutex> lock(m_mtx_state);
 	if (!m_bHealthy)
 	{
 		throw std::runtime_error("Execution journal is unavailable");
 	}
-	_TyStatement statement = Statement(m_database.get(), "SELECT data FROM table_strategy_checkpoint WHERE strategy_id=?");
+	_TyStatement statement = Statement(m_database.get(), key.empty() ? "SELECT data FROM table_strategy_checkpoint WHERE strategy_id=?" : "SELECT data FROM table_strategy_security_checkpoint WHERE strategy_id=? AND security=?");
 	Bind(statement.get(), 1, static_cast<std::int64_t>(id));
+	if (!key.empty())
+	{
+		Bind(statement.get(), 2, key);
+	}
 	StatementResult result = Step(statement.get());
 	if (StatementResult::Done == result)
 	{
@@ -902,7 +906,7 @@ std::string CStrategyExecution::LoadCheckpoint(_TyStrategyId id) const
 	return ReadText(statement.get(), 0);
 }
 
-bool CStrategyExecution::SaveCheckpoint(_TyStrategyId id, const _TyAccount& account, const CSecurity& security, const std::string& data, bool protect)
+bool CStrategyExecution::SaveCheckpoint(_TyStrategyId id, const _TyAccount& account, const CSecurity& security, const std::string& data, bool protect, bool scoped)
 {
 	std::lock_guard<std::mutex> lock(m_mtx_state);
 	if (!m_bHealthy || (0 == id) || !IsAccountValid(account) || !security.IsValid())
@@ -912,9 +916,13 @@ bool CStrategyExecution::SaveCheckpoint(_TyStrategyId id, const _TyAccount& acco
 	try
 	{
 		Execute(m_database.get(), "START TRANSACTION");
-		_TyStatement statement = Statement(m_database.get(), "INSERT INTO table_strategy_checkpoint(strategy_id,data) VALUES(?,?) ON DUPLICATE KEY UPDATE data=VALUES(data)");
+		_TyStatement statement = Statement(m_database.get(), scoped ? "INSERT INTO table_strategy_security_checkpoint(strategy_id,data,security) VALUES(?,?,?) ON DUPLICATE KEY UPDATE data=VALUES(data)" : "INSERT INTO table_strategy_checkpoint(strategy_id,data) VALUES(?,?) ON DUPLICATE KEY UPDATE data=VALUES(data)");
 		Bind(statement.get(), 1, static_cast<std::int64_t>(id));
 		Bind(statement.get(), 2, data);
+		if (scoped)
+		{
+			Bind(statement.get(), 3, security.String());
+		}
 		Done(m_database.get(), statement.get());
 		if (protect)
 		{

@@ -292,17 +292,31 @@ namespace
 
 	void TestCheckpointOwnership()
 	{
-		CStrategyExecution journal;
-		Check(journal.Open(OpenTestDatabase()), "open checkpoint journal");
-		std::uint64_t first = journal.AllocateSignal();
-		Check(0 != first && first < journal.AllocateSignal(), "durable signal sequence increases");
-		Check(journal.SaveCheckpoint(42, Account(), Security(), "active-task", true), "checkpoint and protection are atomic");
-		Check("active-task" == journal.LoadCheckpoint(42), "load strategy checkpoint");
-		Check(journal.ClaimExit(Account(), Security(), 42), "protected task claims symbol exit");
-		Check(!journal.UnlockBuys(Account(), Security(), 42), "active exit owner blocks unlock");
-		Check(!journal.ClaimExit(Account(), Security(), 43), "other task cannot claim owned exit");
-		Check(journal.ReleaseExit(Account(), Security(), 42), "release completed exit ownership");
-		Check(journal.UnlockBuys(Account(), Security(), 42), "unlock after ownership released");
+		std::string name = NewTestDatabaseName();
+		CSecurity other("000001", Exchange::szse);
+		{
+			CStrategyExecution journal;
+			Check(journal.Open(OpenTestDatabase(name)), "open checkpoint journal");
+			std::uint64_t first = journal.AllocateSignal();
+			Check(0 != first && first < journal.AllocateSignal(), "durable signal sequence increases");
+			Check(journal.SaveCheckpoint(42, Account(), Security(), "active-task", true), "checkpoint and protection are atomic");
+			Check("active-task" == journal.LoadCheckpoint(42), "load strategy checkpoint");
+			Check(journal.SaveCheckpoint(42, Account(), Security(), "first", false, true), "save first security checkpoint");
+			Check(journal.SaveCheckpoint(42, Account(), other, "second", false, true), "save second security checkpoint");
+			Check("first" == journal.LoadCheckpoint(42, Security().String()), "second security preserves first checkpoint");
+			Check("second" == journal.LoadCheckpoint(42, other.String()), "load second security checkpoint");
+			Check("active-task" == journal.LoadCheckpoint(42), "scoped saves preserve legacy checkpoint");
+			Check(journal.ClaimExit(Account(), Security(), 42), "protected task claims symbol exit");
+			Check(!journal.UnlockBuys(Account(), Security(), 42), "active exit owner blocks unlock");
+			Check(!journal.ClaimExit(Account(), Security(), 43), "other task cannot claim owned exit");
+			Check(journal.ReleaseExit(Account(), Security(), 42), "release completed exit ownership");
+			Check(journal.UnlockBuys(Account(), Security(), 42), "unlock after ownership released");
+		}
+		CStrategyExecution recovered;
+		Check(recovered.Open(OpenTestDatabase(name)), "reopen checkpoints after shutdown");
+		Check("first" == recovered.LoadCheckpoint(42, Security().String()), "restore first security checkpoint");
+		Check("second" == recovered.LoadCheckpoint(42, other.String()), "restore second security checkpoint");
+		Check("active-task" == recovered.LoadCheckpoint(42), "restore legacy checkpoint");
 	}
 
 	void TestConflict()

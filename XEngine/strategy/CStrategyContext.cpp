@@ -4,8 +4,11 @@
 #include "CTradeService.h"
 
 #include <iostream>
+#include <rapidjson/document.h>
+#include <rapidjson/stringbuffer.h>
+#include <rapidjson/writer.h>
 
-CStrategyContext::CStrategyContext(_TyStrategyId strategyId, const _TyAccount& account, CStrategyService* pStrategyService, CTradeService* pSnapshotProvider) : m_id(strategyId), m_pStrategyService(pStrategyService), m_account(account), m_pSnapshotProvider(pSnapshotProvider)
+CStrategyContext::CStrategyContext(_TyStrategyId strategyId, const _TyAccount& account, CStrategyService* pStrategyService, CTradeService* pSnapshotProvider, const CSecurity& security, bool scoped) : m_id(strategyId), m_pStrategyService(pStrategyService), m_account(account), m_security(security), m_scoped(scoped), m_pSnapshotProvider(pSnapshotProvider)
 {
 }
 
@@ -79,7 +82,7 @@ std::optional<trade::CExecutionRule> CStrategyContext::GetRules(const CSecurity&
 }
 std::string CStrategyContext::LoadCheckpoint() const
 {
-	return m_pStrategyService->m_execution.LoadCheckpoint(m_id);
+	return m_pStrategyService->m_execution.LoadCheckpoint(m_id, m_scoped ? m_security.String() : std::string{});
 }
 std::uint64_t CStrategyContext::AllocateSignal()
 {
@@ -100,12 +103,12 @@ bool CStrategyContext::SaveCheckpoint(const std::string& data, bool protect)
 	{
 		return false;
 	}
-	return m_pStrategyService->m_execution.SaveCheckpoint(m_id, m_account, runtime->m_config.m_subscriptions.front().m_security, data, protect);
+	return m_pStrategyService->m_execution.SaveCheckpoint(m_id, m_account, m_security, data, protect, m_scoped);
 }
 bool CStrategyContext::ClaimExit()
 {
 	std::shared_ptr<CStrategyRuntime> runtime = m_pStrategyService->FindRuntime(m_id);
-	return (nullptr != runtime) && m_pStrategyService->m_execution.ClaimExit(m_account, runtime->m_config.m_subscriptions.front().m_security, m_id);
+	return (nullptr != runtime) && m_pStrategyService->m_execution.ClaimExit(m_account, m_security, m_id);
 }
 bool CStrategyContext::ReleaseExit(bool unlock)
 {
@@ -114,7 +117,7 @@ bool CStrategyContext::ReleaseExit(bool unlock)
 	{
 		return false;
 	}
-	const CSecurity& security = runtime->m_config.m_subscriptions.front().m_security;
+	const CSecurity& security = m_security;
 	return m_pStrategyService->m_execution.ReleaseExit(m_account, security, m_id) && (!unlock || m_pStrategyService->m_execution.UnlockBuys(m_account, security, m_id));
 }
 bool CStrategyContext::CancelConflicts(bool reset)
@@ -131,7 +134,7 @@ bool CStrategyContext::CancelConflicts(bool reset)
 	bool success = true;
 	for (const auto& order : m_pSnapshotProvider->GetOrders(m_account))
 	{
-		if ((order.m_strSecurity == runtime->m_config.m_subscriptions.front().m_security.String()) && trade::IsActive(order.m_status) && !order.m_bCancelPending && !m_cancelled.contains(order.m_orderId))
+		if ((order.m_strSecurity == m_security.String()) && trade::IsActive(order.m_status) && !order.m_bCancelPending && !m_cancelled.contains(order.m_orderId))
 		{
 			if (m_pStrategyService->CancelOrder(order.m_id, order.m_orderId))
 			{
@@ -147,7 +150,7 @@ bool CStrategyContext::CancelConflicts(bool reset)
 }
 bool CStrategyContext::RequestHistory(std::int64_t begin)
 {
-	return m_pStrategyService->RequestHistory(m_id, begin);
+	return m_pStrategyService->RequestHistory(m_id, m_security, begin);
 }
 std::int64_t CStrategyContext::AvailableFunds(const CStrategyAccountView& view) const
 {
@@ -161,6 +164,32 @@ void CStrategyContext::PublishBusiness(const std::string& phase, const std::stri
 		return;
 	}
 	std::lock_guard<std::mutex> lock(runtime->m_mtx_metrics);
-	runtime->m_businessState = phase;
-	runtime->m_detailsJson = details;
+	if (!m_scoped)
+	{
+		runtime->m_businessState = phase;
+		runtime->m_detailsJson = details;
+		return;
+	}
+	runtime->m_securityDetails.insert_or_assign(m_security.String(), std::pair{ phase, details });
+	rapidjson::StringBuffer buffer;
+	rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
+	writer.StartObject();
+	writer.Key("securities");
+	writer.StartObject();
+	for (const auto& [security, status] : runtime->m_securityDetails)
+	{
+		writer.Key(security.c_str());
+		writer.StartObject();
+		writer.Key("phase");
+		writer.String(status.first.c_str());
+		writer.Key("details");
+		rapidjson::Document document;
+		document.Parse(status.second.c_str());
+		document.Accept(writer);
+		writer.EndObject();
+	}
+	writer.EndObject();
+	writer.EndObject();
+	runtime->m_businessState = std::to_string(runtime->m_legs.size());
+	runtime->m_detailsJson.assign(buffer.GetString(), buffer.GetSize());
 }

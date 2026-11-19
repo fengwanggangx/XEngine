@@ -1,3 +1,4 @@
+#include <map>
 #include "CConfiguredStrategy.h"
 #include "../IStrategyContext.h"
 #include "../../indicator/CIndicator.h"
@@ -72,41 +73,59 @@ bool CConfiguredStrategy::ValidateParameters(const CStrategyConfig& config, std:
 		error = "必须指定一个股票标的";
 		return false;
 	}
-	const CSecurity& security = config.m_subscriptions.front().m_security;
-	if (((Exchange::sse != security.m_market) && (Exchange::szse != security.m_market) && (Exchange::bse != security.m_market)) || (6 != security.m_strCode.size()) || !std::all_of(security.m_strCode.begin(), security.m_strCode.end(), [](char value)
-	{
-		return ('0' <= value) && ('9' >= value);
-	}))
-	{
-		error = "仅支持沪深北股票";
-		return false;
-	}
-	bool quote = false, bar = false;
+	std::map<std::string, std::vector<CQuoteInfo>> groups;
 	for (const auto& subscription : config.m_subscriptions)
 	{
-		if (security != subscription.m_security)
-		{
-			error = "一个策略实例只能绑定一个标的";
-			return false;
-		}
-		if (Channel::quote == subscription.m_channel)
-		{
-			quote = true;
-		}
-		else if ((strategy::Kind::DualMaCross == settings.m_kind) && (subscription.m_channel == ("1m" == settings.m_barPeriod ? Channel::bar_1m : Channel::bar_1d)))
-		{
-			bar = true;
-		}
-		else
-		{
-			error = "策略行情通道与类型或周期不一致";
-			return false;
-		}
+		groups[subscription.m_security.String()].push_back(subscription);
 	}
-	if (!quote || ((strategy::Kind::DualMaCross == settings.m_kind) && !bar))
+	for (const auto& entry : groups)
 	{
-		error = "缺少报价或对应 K 线订阅";
-		return false;
+		const CSecurity& security = entry.second.front().m_security;
+		if (((Exchange::sse != security.m_market) && (Exchange::szse != security.m_market) && (Exchange::bse != security.m_market)) || (6 != security.m_strCode.size()) || !std::all_of(security.m_strCode.begin(), security.m_strCode.end(), [](char value)
+		{
+			return ('0' <= value) && ('9' >= value);
+		}))
+		{
+			error = "仅支持沪深北股票";
+			return false;
+		}
+		bool quote = false, bar = false;
+		for (const auto& subscription : entry.second)
+		{
+			if (security != subscription.m_security)
+			{
+				error = "一个策略实例只能绑定一个标的";
+				return false;
+			}
+			if (Channel::quote == subscription.m_channel)
+			{
+				if (quote)
+				{
+					error = "行情通道不能重复";
+					return false;
+				}
+				quote = true;
+			}
+			else if ((strategy::Kind::DualMaCross == settings.m_kind) && (subscription.m_channel == ("1m" == settings.m_barPeriod ? Channel::bar_1m : Channel::bar_1d)))
+			{
+				if (bar)
+				{
+					error = "行情通道不能重复";
+					return false;
+				}
+				bar = true;
+			}
+			else
+			{
+				error = "策略行情通道与类型或周期不一致";
+				return false;
+			}
+		}
+		if (!quote || ((strategy::Kind::DualMaCross == settings.m_kind) && !bar))
+		{
+			error = "缺少报价或对应 K 线订阅";
+			return false;
+		}
 	}
 	return true;
 }

@@ -14,6 +14,7 @@
 #include <event2/bufferevent.h>
 #include <iostream>
 #include <stdexcept>
+#include <string_view>
 
 class CServiceRoutingTests
 {
@@ -164,7 +165,125 @@ class CServiceRoutingTests
 		Check(market.m_pendingQueries.empty() && !market.m_subscriptions.IsSubscribed(FmtHQSubID(HQOrigin::Client, 7070), quote), "client disconnect clears market requests and subscriptions");
 	}
 
+	class CRecordingStrategy final : public IStrategy
+	{
+	public:
+		bool Initialize(IStrategyContext&, const CStrategyConfig&) override
+		{
+			return true;
+		}
+
+		void OnStart() override
+		{
+			++m_starts;
+		}
+
+		void OnStop() override
+		{
+			++m_stops;
+		}
+
+		void OnPause() override
+		{
+			++m_pauses;
+		}
+
+		void OnQuote(const _TyQuoteData&) override
+		{
+			++m_quotes;
+		}
+
+		void OnHistory(const std::vector<_TyBarData>&) override
+		{
+			++m_histories;
+		}
+
+		void OnOrder(const COrderEvent&) override
+		{
+			++m_orders;
+		}
+
+		void OnTrade(const CTradeEvent&) override
+		{
+			++m_trades;
+		}
+
+		void OnTimer(const CTimerEvent& event) override
+		{
+			if (event.m_zeroPosition)
+			{
+				++m_resets;
+			}
+		}
+
+		int m_starts{ 0 };
+		int m_stops{ 0 };
+		int m_pauses{ 0 };
+		int m_quotes{ 0 };
+		int m_histories{ 0 };
+		int m_orders{ 0 };
+		int m_trades{ 0 };
+		int m_resets{ 0 };
+	};
+
+	static void TestMultiSecurityDispatch(CStrategyService& service)
+	{
+		CStrategyRuntime runtime;
+		CSecurity first("600519", Exchange::sse);
+		CSecurity second("000001", Exchange::szse);
+		std::unique_ptr<CRecordingStrategy> firstStrategy = std::make_unique<CRecordingStrategy>();
+		std::unique_ptr<CRecordingStrategy> secondStrategy = std::make_unique<CRecordingStrategy>();
+		CRecordingStrategy& a = *firstStrategy;
+		CRecordingStrategy& b = *secondStrategy;
+		runtime.m_legs.push_back({ first, nullptr, std::move(firstStrategy) });
+		runtime.m_legs.push_back({ second, nullptr, std::move(secondStrategy) });
+		CStrategyEvent event;
+		event.m_type = StrategyEventType::Start;
+		Check(service.DispatchEvent(runtime, event), "start both securities");
+		event.m_type = StrategyEventType::Quote;
+		event.m_data = _TyQuoteData{};
+		event.m_security = first.String();
+		Check(service.DispatchEvent(runtime, event), "dispatch quote");
+		event.m_security = second.String();
+		event.m_type = StrategyEventType::History;
+		event.m_data = std::vector<_TyBarData>{};
+		Check(service.DispatchEvent(runtime, event), "dispatch history");
+		event.m_security.clear();
+		event.m_type = StrategyEventType::Trade;
+		CTradeEvent trade;
+		trade.m_security = second;
+		event.m_data = trade;
+		Check(service.DispatchEvent(runtime, event), "dispatch trade before order report");
+		event.m_type = StrategyEventType::Order;
+		COrderEvent order;
+		order.m_security = second;
+		event.m_data = order;
+		Check(service.DispatchEvent(runtime, event), "dispatch order");
+		event.m_type = StrategyEventType::Timer;
+		CTimerEvent timer;
+		timer.m_zeroPosition = true;
+		event.m_security = first.String();
+		event.m_data = timer;
+		Check(service.DispatchEvent(runtime, event), "dispatch zero position");
+		event.m_security.clear();
+		event.m_type = StrategyEventType::Pause;
+		Check(service.DispatchEvent(runtime, event), "pause both securities");
+		event.m_type = StrategyEventType::Stop;
+		Check(service.DispatchEvent(runtime, event), "stop both securities");
+		Check((1 == a.m_starts) && (1 == b.m_starts) && (1 == a.m_pauses) && (1 == b.m_pauses) && (1 == a.m_stops) && (1 == b.m_stops), "shared lifecycle");
+		Check((1 == a.m_quotes) && (0 == b.m_quotes) && (0 == a.m_histories) && (1 == b.m_histories), "isolated market data");
+		Check((0 == a.m_orders) && (1 == b.m_orders) && (0 == a.m_trades) && (1 == b.m_trades), "isolated broker reports");
+		Check((1 == a.m_resets) && (0 == b.m_resets), "isolated zero position");
+	}
+
 public:
+	static void RunMultiSecurity()
+	{
+		CIndicator indicator;
+		CStrategyService strategies(nullptr, nullptr, nullptr, indicator);
+		TestMultiSecurityDispatch(strategies);
+	}
+
 	static void Run(bufferevent* event)
 	{
 		CSession broker(CLoginInfo{});
@@ -286,8 +405,22 @@ public:
 	}
 };
 
-int main()
+int main(int argc, char** argv)
 {
+	if ((2 == argc) && (std::string_view("multi-security") == argv[1]))
+	{
+		try
+		{
+			CServiceRoutingTests::RunMultiSecurity();
+			return 0;
+		}
+		catch (const std::exception& error)
+		{
+			std::cerr << error.what() << '\n';
+			return 1;
+		}
+	}
+
 	std::unique_ptr<event_base, decltype(&event_base_free)> base(event_base_new(), event_base_free);
 	if (nullptr == base)
 	{

@@ -56,6 +56,7 @@ target_link_libraries(service_routing_tests PRIVATE xengine_services)
 file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/service-routing-runtime/ini")
 file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/service-routing-runtime/ini/system.ini" "[Broker]\n")
 add_test(NAME service_routing_tests COMMAND service_routing_tests)
+add_test(NAME multi_security_routing_tests COMMAND service_routing_tests multi-security)
 set_tests_properties(service_routing_tests PROPERTIES WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/service-routing-runtime" TIMEOUT 30)
 
 # Offline transport double; all subscription logic is the production implementation.

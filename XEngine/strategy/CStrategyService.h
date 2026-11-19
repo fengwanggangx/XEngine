@@ -55,16 +55,23 @@ struct CStrategyEvent
 	_TyStrategyEventData m_data;
 	std::shared_ptr<std::promise<bool>> m_completion;
 	std::string m_action;
+	std::string m_security;
 
 	bool IsMarketEvent() const;
+};
+
+struct CStrategyLeg
+{
+	CSecurity m_security;
+	std::unique_ptr<CStrategyContext> m_context;
+	std::unique_ptr<IStrategy> m_strategy;
 };
 
 struct CStrategyRuntime
 {
 	std::uint64_t m_instanceId{ 0 };
 	CStrategyConfig m_config;
-	std::unique_ptr<IStrategy> m_strategy;
-	std::unique_ptr<CStrategyContext> m_context;
+	std::vector<CStrategyLeg> m_legs;
 	std::atomic<StrategyState> m_state{ StrategyState::Created };
 	std::atomic_bool m_bAcceptMarketEvents{ false };
 	std::atomic_bool m_bRemoving{ false };
@@ -86,6 +93,7 @@ struct CStrategyRuntime
 	std::string m_strLastError;
 	std::string m_businessState;
 	std::string m_detailsJson;
+	std::map<std::string, std::pair<std::string, std::string>> m_securityDetails;
 };
 
 struct CSignalKey
@@ -159,7 +167,7 @@ private:
 private:
 	bool LoadStrategy();
 	bool ActionStrategy(const CRequest& req);
-	bool RequestHistory(_TyStrategyId id, std::int64_t begin);
+	bool RequestHistory(_TyStrategyId id, const CSecurity& security, std::int64_t begin);
 	bool AddStrategy(const CRequest& req);
 	bool ModifyStrategy(const CRequest& req);
 	bool DeleteStrategy(const CRequest& req);
