@@ -273,12 +273,12 @@ namespace
 	{
 		std::uint64_t maximum = static_cast<std::uint64_t>((std::numeric_limits<std::int64_t>::max)());
 		bool directionValid = ((OrderSide::Buy == intent.m_side) && (PositionEffect::Open == intent.m_positionEffect)) || ((OrderSide::Sell == intent.m_side) && ((PositionEffect::Close == intent.m_positionEffect) || (PositionEffect::CloseToday == intent.m_positionEffect)));
-		return intent.IsValid() && IsAccountValid(intent.m_account) && directionValid && (OrderType::Limit == intent.m_orderType) && (0 <= intent.m_nPriceScale) && (8 >= intent.m_nPriceScale) && (maximum >= intent.m_id) && (maximum >= intent.m_signalId) && (maximum >= intent.m_clientOrderId);
+		return intent.IsValid() && IsAccountValid(intent.m_account) && directionValid && (OrderType::Limit == intent.m_orderType) && (0 <= intent.m_nPriceScale) && (8 >= intent.m_nPriceScale) && (maximum >= intent.m_id) && (maximum >= intent.m_signal_id) && (maximum >= intent.m_clientOrderId);
 	}
 
 	bool SameOrder(const COrderIntent& intent, const trade::COrder& order)
 	{
-		return (intent.m_account == order.m_account) && (intent.m_id == order.m_id) && (intent.m_signalId == order.m_signalId) && (intent.m_security.String() == order.m_strSecurity) && ((OrderSide::Buy == intent.m_side ? trade::Side::Buy : trade::Side::Sell) == order.m_side) && (intent.m_price == order.m_nPrice) && (intent.m_nPriceScale == order.m_nPriceScale) && (intent.m_quantity == order.m_nQuantity);
+		return (intent.m_account == order.m_account) && (intent.m_id == order.m_id) && (intent.m_signal_id == order.m_signal_id) && (intent.m_security.String() == order.m_strSecurity) && ((OrderSide::Buy == intent.m_side ? trade::Side::Buy : trade::Side::Sell) == order.m_side) && (intent.m_price == order.m_nPrice) && (intent.m_nPriceScale == order.m_nPriceScale) && (intent.m_quantity == order.m_nQuantity);
 	}
 } // namespace
 
@@ -341,7 +341,7 @@ void CStrategyExecutionManager::Load()
 			throw std::runtime_error("Invalid account in strategy journal");
 		}
 		intent.m_id = ReadInteger(statement.get(), 2);
-		intent.m_signalId = ReadInteger(statement.get(), 3);
+		intent.m_signal_id = ReadInteger(statement.get(), 3);
 		intent.m_security = CSecurity(ReadText(statement.get(), 4), static_cast<Exchange>(ReadInteger(statement.get(), 5)));
 		intent.m_side = static_cast<OrderSide>(ReadInteger(statement.get(), 6));
 		intent.m_price = ReadInteger(statement.get(), 7);
@@ -523,7 +523,7 @@ COrderSubmitResult CStrategyExecutionManager::Prepare(COrderIntent intent, const
 		_TyStatement duplicate = Statement(m_database.get(), "SELECT client_id FROM table_strategy_execution WHERE account=? AND strategy_id=? AND signal_id=?");
 		Bind(duplicate.get(), 1, EncodeAccount(intent.m_account));
 		Bind(duplicate.get(), 2, static_cast<std::int64_t>(intent.m_id));
-		Bind(duplicate.get(), 3, static_cast<std::int64_t>(intent.m_signalId));
+		Bind(duplicate.get(), 3, static_cast<std::int64_t>(intent.m_signal_id));
 		if (StatementResult::Row == Step(duplicate.get()))
 		{
 			Execute(m_database.get(), "ROLLBACK");
@@ -533,7 +533,7 @@ COrderSubmitResult CStrategyExecutionManager::Prepare(COrderIntent intent, const
 		_TyStatement statement = Statement(m_database.get(), "INSERT INTO table_strategy_execution(account,strategy_id,signal_id,security,exchange_id,side,price,price_scale,quantity,effect,state,reserved_money,order_id,evidence,covered,message) VALUES(?,?,?,?,?,?,?,?,?,?,0,?,0,0,0,'Prepared before send')");
 		Bind(statement.get(), 1, EncodeAccount(intent.m_account));
 		Bind(statement.get(), 2, static_cast<std::int64_t>(intent.m_id));
-		Bind(statement.get(), 3, static_cast<std::int64_t>(intent.m_signalId));
+		Bind(statement.get(), 3, static_cast<std::int64_t>(intent.m_signal_id));
 		Bind(statement.get(), 4, intent.m_security.m_strCode);
 		Bind(statement.get(), 5, static_cast<std::int64_t>(intent.m_security.m_market));
 		Bind(statement.get(), 6, static_cast<std::int64_t>(intent.m_side));

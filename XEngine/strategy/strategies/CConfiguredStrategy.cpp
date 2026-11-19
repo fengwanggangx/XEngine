@@ -444,7 +444,7 @@ void CConfiguredStrategy::Submit(bool buy, const CStrategyAccountView& view, con
 	Persist(m_task);
 	COrderIntent intent;
 	intent.m_id = m_config.m_id;
-	intent.m_signalId = m_submittingSignal;
+	intent.m_signal_id = m_submittingSignal;
 	intent.m_security = m_security;
 	intent.m_side = buy ? OrderSide::Buy : OrderSide::Sell;
 	intent.m_positionEffect = buy ? PositionEffect::Open : PositionEffect::Close;

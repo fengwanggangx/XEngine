@@ -10,7 +10,7 @@ namespace trade::protocol
 		wire.set_order_id(row.m_orderId);
 		wire.set_request_id(row.m_requestId);
 		wire.set_strategy_id(row.m_id);
-		wire.set_signal_id(row.m_signalId);
+		wire.set_signal_id(row.m_signal_id);
 		wire.set_security(row.m_strSecurity);
 		wire.set_side(static_cast<int>(row.m_side));
 		wire.set_state(static_cast<int>(row.m_status));
@@ -177,7 +177,7 @@ namespace trade::protocol
 		order.m_sequence = event.m_sequence;
 		order.m_account = event.m_account;
 		order.m_id = row.m_id;
-		order.m_signalId = row.m_signalId;
+		order.m_signal_id = row.m_signal_id;
 		order.m_clientOrderId = row.m_clientId;
 		order.m_orderId = row.m_orderId;
 		order.m_security = Security(row.m_strSecurity);
@@ -222,7 +222,7 @@ namespace trade::protocol
 		trade.m_sequence = event.m_sequence;
 		trade.m_account = event.m_account;
 		trade.m_id = event.m_order.m_id;
-		trade.m_signalId = event.m_order.m_signalId;
+		trade.m_signal_id = event.m_order.m_signal_id;
 		trade.m_clientOrderId = event.m_order.m_clientId;
 		trade.m_orderId = event.m_order.m_orderId;
 		trade.m_strTradeId = std::to_string(event.m_trade.m_tradeId);
@@ -315,7 +315,7 @@ namespace trade::protocol
 			row.m_orderId = wire.order_id();
 			row.m_requestId = wire.request_id();
 			row.m_id = wire.strategy_id();
-			row.m_signalId = wire.signal_id();
+			row.m_signal_id = wire.signal_id();
 			row.m_strSecurity = wire.security();
 			row.m_nPrice = wire.price();
 			row.m_nPriceScale = wire.price_scale();
@@ -464,7 +464,7 @@ namespace trade::protocol
 			wire.SetExtraData("price_scale", std::to_string(params.m_order.m_nPriceScale));
 			wire.SetExtraData("quantity", std::to_string(params.m_order.m_nQuantity));
 			wire.SetExtraData("strategy_id", std::to_string(params.m_order.m_id));
-			wire.SetExtraData("signal_id", std::to_string(params.m_order.m_signalId));
+			wire.SetExtraData("signal_id", std::to_string(params.m_order.m_signal_id));
 			break;
 		}
 		case Operation::Cancel:

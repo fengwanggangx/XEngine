@@ -47,7 +47,7 @@ struct COrderIntent
 	int m_nPriceScale{ 2 };
 	_TyAccount m_account{};
 	_TyStrategyId m_id{ 0 };
-	_TySignalId m_signalId{ 0 };
+	_TySignalId m_signal_id{ 0 };
 	CSecurity m_security;
 	OrderSide m_side{ OrderSide::Unknown };
 	OrderType m_orderType{ OrderType::Limit };
@@ -77,7 +77,7 @@ struct COrderEvent
 	std::uint64_t m_sequence{ 0 };
 	_TyAccount m_account{};
 	_TyStrategyId m_id{ 0 };
-	_TySignalId m_signalId{ 0 };
+	_TySignalId m_signal_id{ 0 };
 	_TyClientOrderId m_clientOrderId{ 0 };
 	_TyOrderId m_orderId{ 0 };
 	CSecurity m_security;
@@ -94,7 +94,7 @@ struct CTradeEvent
 	std::uint64_t m_sequence{ 0 };
 	_TyAccount m_account{};
 	_TyStrategyId m_id{ 0 };
-	_TySignalId m_signalId{ 0 };
+	_TySignalId m_signal_id{ 0 };
 	_TyClientOrderId m_clientOrderId{ 0 };
 	_TyOrderId m_orderId{ 0 };
 	std::string m_strTradeId;

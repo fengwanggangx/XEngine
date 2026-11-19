@@ -247,13 +247,13 @@ CStrategyEvent::CStrategyEvent()
 
 bool CSignalKey::operator==(const CSignalKey& arg) const
 {
-	return (m_id == arg.m_id) && (m_signalId == arg.m_signalId);
+	return (m_id == arg.m_id) && (m_signal_id == arg.m_signal_id);
 }
 
 std::size_t CSignalKeyHash::operator()(const CSignalKey& key) const
 {
 	std::size_t strategyHash = std::hash<_TyStrategyId>{}(key.m_id);
-	std::size_t signalHash = std::hash<_TySignalId>{}(key.m_signalId);
+	std::size_t signalHash = std::hash<_TySignalId>{}(key.m_signal_id);
 	return strategyHash ^ (signalHash + 0x9e3779b9U + (strategyHash << 6) + (strategyHash >> 2));
 }
 
@@ -362,7 +362,7 @@ void CStrategyService::OnReply(const CRequest& origin, const trade::CCounterRepl
 	event.m_status = OrderStatus::Rejected;
 	event.m_strReason = reply.m_result.m_strMessage;
 	std::uint64_t quantity = 0;
-	if (!tradingroute::ReadNumber(origin, "signal_id", event.m_signalId) || !tradingroute::ReadNumber(origin, "client_order_id", event.m_clientOrderId) || !tradingroute::ReadNumber(origin, "quantity", quantity) || static_cast<std::uint64_t>((std::numeric_limits<std::int64_t>::max)()) < quantity)
+	if (!tradingroute::ReadNumber(origin, "signal_id", event.m_signal_id) || !tradingroute::ReadNumber(origin, "client_order_id", event.m_clientOrderId) || !tradingroute::ReadNumber(origin, "quantity", quantity) || static_cast<std::uint64_t>((std::numeric_limits<std::int64_t>::max)()) < quantity)
 	{
 		std::cerr << "Invalid rejected strategy order metadata\n";
 		return;
@@ -382,9 +382,9 @@ void CStrategyService::OnReply(const CRequest& origin, const trade::CCounterRepl
 			return;
 		}
 		std::lock_guard<std::mutex> signalLock(m_mtx_signals);
-		if (0 != event.m_signalId)
+		if (0 != event.m_signal_id)
 		{
-			m_signals[{ strategyId, event.m_signalId }] = SignalState::Rejected;
+			m_signals[{ strategyId, event.m_signal_id }] = SignalState::Rejected;
 		}
 	}
 	CStrategyEvent strategyEvent;
@@ -966,7 +966,7 @@ bool CStrategyService::CreateStrategy(const CStrategyConfig& cfg)
 		}
 		{
 			std::lock_guard<std::mutex> lock(m_mtx_signals);
-			m_signals[{ cfg.m_id, item.m_signalId }] = SignalState::Accepted;
+			m_signals[{ cfg.m_id, item.m_signal_id }] = SignalState::Accepted;
 		}
 		if (trade::IsActive(item.m_status))
 		{
@@ -1279,10 +1279,10 @@ void CStrategyService::OnOrderEvent(const COrderEvent& ev)
 	{
 		return;
 	}
-	if (0 != ev.m_signalId)
+	if (0 != ev.m_signal_id)
 	{
 		std::lock_guard<std::mutex> lock(m_mtx_signals);
-		m_signals[{ id, ev.m_signalId }] = OrderStatus::Rejected == ev.m_status ? SignalState::Rejected : SignalState::Accepted;
+		m_signals[{ id, ev.m_signal_id }] = OrderStatus::Rejected == ev.m_status ? SignalState::Rejected : SignalState::Accepted;
 	}
 	{
 		std::lock_guard<std::mutex> lock(runtime->m_mtx_orders);
@@ -1699,7 +1699,7 @@ COrderSubmitResult CStrategyService::SubmitTradingOrder(const COrderIntent& inte
 	params.m_order.m_clientId = intent.m_clientOrderId;
 	request.m_requestId = params.m_order.m_clientId;
 	params.m_order.m_id = intent.m_id;
-	params.m_order.m_signalId = intent.m_signalId;
+	params.m_order.m_signal_id = intent.m_signal_id;
 	params.m_order.m_strSecurity = intent.m_security.String();
 	params.m_order.m_side = OrderSide::Buy == intent.m_side ? trade::Side::Buy : trade::Side::Sell;
 	params.m_order.m_nPrice = intent.m_price;

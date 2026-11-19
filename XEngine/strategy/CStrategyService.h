@@ -103,7 +103,7 @@ struct CStrategyRuntime
 struct CSignalKey
 {
 	_TyStrategyId m_id{ 0 };
-	_TySignalId m_signalId{ 0 };
+	_TySignalId m_signal_id{ 0 };
 
 	bool operator==(const CSignalKey& arg) const;
 };
