@@ -927,12 +927,13 @@ bool CStrategyService::CreateStrategy(const CStrategyConfig& cfg)
 	}
 	try
 	{
+		bool bMulStocks = subscriptions.size() > 1;
 		for (auto& [k, v] : subscriptions)
 		{
 			CStrategyStockInstance& instance = runtime->m_securities.emplace_back();
 			instance.m_security = v.front().m_security;
 			instance.m_pStrategy.reset(CreateStrategy(cfg.m_strType));
-			instance.m_pContext = std::make_unique<CStrategyContext>(cfg.m_id, cfg.m_account, this, m_pTradeService, instance.m_security, 1 < subscriptions.size());
+			instance.m_pContext = std::make_unique<CStrategyContext>(cfg.m_id, cfg.m_account, this, m_pTradeService, instance.m_security, bMulStocks);
 			CStrategyConfig config = cfg;
 			config.m_subscriptions = std::move(v);
 			if ((nullptr == instance.m_pStrategy) || !instance.m_pStrategy->Initialize(*instance.m_pContext, config))
@@ -956,26 +957,27 @@ bool CStrategyService::CreateStrategy(const CStrategyConfig& cfg)
 		}
 	}
 
-	for (const auto& order : m_pTradeService->GetOrders(cfg.m_account))
+	const auto& orders = m_pTradeService->GetOrders(cfg.m_account);
+	for (const auto& item : orders)
 	{
-		if (cfg.m_id != order.m_id)
+		if (cfg.m_id != item.m_id)
 		{
 			continue;
 		}
 		{
 			std::lock_guard<std::mutex> lock(m_mtx_signals);
-			m_signals[{ cfg.m_id, order.m_signalId }] = SignalState::Accepted;
+			m_signals[{ cfg.m_id, item.m_signalId }] = SignalState::Accepted;
 		}
-		if (trade::IsActive(order.m_status))
+		if (trade::IsActive(item.m_status))
 		{
 			{
 				std::lock_guard<std::mutex> lock(runtime->m_mtx_orders);
-				runtime->m_activeOrderIds.emplace(order.m_orderId);
+				runtime->m_activeOrderIds.emplace(item.m_orderId);
 			}
 			{
 				std::unique_lock<std::shared_mutex> lock(m_mtx_orders);
-				m_orderRoutes[{ order.m_account, order.m_orderId }] = cfg.m_id;
-				m_clientOrderRoutes[{ order.m_account, order.m_clientId }] = cfg.m_id;
+				m_orderRoutes[{ item.m_account, item.m_orderId }] = cfg.m_id;
+				m_clientOrderRoutes[{ item.m_account, item.m_clientId }] = cfg.m_id;
 			}
 		}
 	}
@@ -1794,9 +1796,9 @@ bool CStrategyService::CancelOrder(_TyStrategyId id, _TyOrderId orderId)
 		}
 	}
 	std::vector<trade::COrder> orders = m_pTradeService->GetOrders(runtime->m_config.m_account);
-	if (!std::any_of(orders.begin(), orders.end(), [id, orderId](const trade::COrder& order)
+	if (!std::any_of(orders.begin(), orders.end(), [id, orderId](const trade::COrder& item)
 	{
-		return orderId == order.m_orderId && id == order.m_id && trade::IsActive(order.m_status);
+		return orderId == item.m_orderId && id == item.m_id && trade::IsActive(item.m_status);
 	}))
 	{
 		return false;
