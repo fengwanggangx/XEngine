@@ -5,13 +5,13 @@
 
 struct CHostInfo
 {
-	std::string m_strName;
-	std::string m_strHost;
-	unsigned int m_nPort{ 0 };
+	std::string m_name;
+	std::string m_host;
+	unsigned int m_port{ 0 };
 
 	bool Valid() const
 	{
-		return !m_strName.empty() && !m_strHost.empty() && (0 < m_nPort) && (65535 >= m_nPort);
+		return !m_name.empty() && !m_host.empty() && (0 < m_port) && (65535 >= m_port);
 	}
 };
 

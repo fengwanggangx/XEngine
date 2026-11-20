@@ -15,7 +15,7 @@ namespace net
 {
 	CTcpServer::~CTcpServer() = default;
 
-	CTcpServer::CTcpServer(int nPort) : m_nPort(nPort), m_dispatcher(std::make_unique<_TyDistributor>())
+	CTcpServer::CTcpServer(int nPort) : m_port(nPort), m_dispatcher(std::make_unique<_TyDistributor>())
 	{
 	}
 
@@ -99,7 +99,7 @@ namespace net
 			return -1;
 		}
 		struct sockaddr_in svr;
-		if (!FmtAddress(svr, m_nPort))
+		if (!FmtAddress(svr, m_port))
 		{
 			return -1;
 		}

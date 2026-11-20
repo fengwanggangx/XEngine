@@ -58,7 +58,7 @@ std::vector<CQuoteInfo> CSubscriptionMgr::Subscribe(const std::string& id, const
 		return added;
 	}
 	added.reserve(subscriptions.size());
-	std::lock_guard<std::shared_mutex> lock(m_mtx_info);
+	std::lock_guard<std::shared_mutex> lock(m_info_mutex);
 	_TySubscriptions& infos = m_id_infos[id];
 	for (const auto& info : subscriptions)
 	{
@@ -81,7 +81,7 @@ std::vector<CQuoteInfo> CSubscriptionMgr::Unsubscribe(const std::string& id, con
 {
 	std::vector<CQuoteInfo> removed;
 	removed.reserve(subscriptions.size());
-	std::lock_guard<std::shared_mutex> lock(m_mtx_info);
+	std::lock_guard<std::shared_mutex> lock(m_info_mutex);
 	auto subscriberIter = m_id_infos.find(id);
 	if (m_id_infos.end() == subscriberIter)
 	{
@@ -117,7 +117,7 @@ std::vector<CQuoteInfo> CSubscriptionMgr::Unsubscribe(const std::string& id, con
 std::vector<CQuoteInfo> CSubscriptionMgr::RemoveSubscriber(const std::string& id)
 {
 	std::vector<CQuoteInfo> removed;
-	std::lock_guard<std::shared_mutex> lock(m_mtx_info);
+	std::lock_guard<std::shared_mutex> lock(m_info_mutex);
 	auto subscriberIter = m_id_infos.find(id);
 	if (m_id_infos.end() == subscriberIter)
 	{
@@ -144,7 +144,7 @@ std::vector<CQuoteInfo> CSubscriptionMgr::RemoveSubscriber(const std::string& id
 
 void CSubscriptionMgr::RemoveSubscription(const std::string& strKey)
 {
-	std::lock_guard<std::shared_mutex> lock(m_mtx_info);
+	std::lock_guard<std::shared_mutex> lock(m_info_mutex);
 	auto idsIter = m_info_ids.find(strKey);
 	if (m_info_ids.end() == idsIter)
 	{
@@ -169,7 +169,7 @@ void CSubscriptionMgr::RemoveSubscription(const std::string& strKey)
 std::vector<std::string> CSubscriptionMgr::GetSubscriberIds(const std::string& strKey) const
 {
 	std::vector<std::string> ids;
-	std::shared_lock<std::shared_mutex> lock(m_mtx_info);
+	std::shared_lock<std::shared_mutex> lock(m_info_mutex);
 	auto idsIter = m_info_ids.find(strKey);
 	if (m_info_ids.end() != idsIter)
 	{
@@ -181,7 +181,7 @@ std::vector<std::string> CSubscriptionMgr::GetSubscriberIds(const std::string& s
 std::vector<CQuoteInfo> CSubscriptionMgr::GetSubscriptions() const
 {
 	std::vector<CQuoteInfo> subscriptions;
-	std::shared_lock<std::shared_mutex> lock(m_mtx_info);
+	std::shared_lock<std::shared_mutex> lock(m_info_mutex);
 	subscriptions.reserve(m_info_ids.size());
 	for (const auto& item : m_info_ids)
 	{
@@ -205,7 +205,7 @@ std::vector<CQuoteInfo> CSubscriptionMgr::GetSubscriptions() const
 
 std::size_t CSubscriptionMgr::GetSubscriptionCount(const std::string& id) const
 {
-	std::shared_lock<std::shared_mutex> lock(m_mtx_info);
+	std::shared_lock<std::shared_mutex> lock(m_info_mutex);
 	auto subscriberIter = m_id_infos.find(id);
 	return m_id_infos.end() == subscriberIter ? 0 : subscriberIter->second.size();
 }
@@ -217,14 +217,14 @@ std::size_t CSubscriptionMgr::GetSubscriptionCount(const CQuoteInfo& info) const
 	{
 		return 0;
 	}
-	std::shared_lock<std::shared_mutex> lock(m_mtx_info);
+	std::shared_lock<std::shared_mutex> lock(m_info_mutex);
 	auto idsIter = m_info_ids.find(strKey);
 	return m_info_ids.end() == idsIter ? 0 : idsIter->second.size();
 }
 
 bool CSubscriptionMgr::IsSubscribed(const std::string& id, const CQuoteInfo& info) const
 {
-	std::shared_lock<std::shared_mutex> lock(m_mtx_info);
+	std::shared_lock<std::shared_mutex> lock(m_info_mutex);
 	auto subscriberIter = m_id_infos.find(id);
 	return (m_id_infos.end() != subscriberIter) && subscriberIter->second.contains(info.String());
 }

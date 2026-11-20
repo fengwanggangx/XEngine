@@ -63,7 +63,7 @@ private:
 	void SendResponse(const CRequest& req, int nErrorCode, const std::string& strMessage) const;
 
 private:
-	mutable std::mutex m_mtx_state;
+	mutable std::mutex m_state_mutex;
 	std::unordered_map<net::_TyConnectionId, std::string> m_auth_clients;
 	std::unordered_map<std::string, std::chrono::steady_clock::time_point> m_client_tokens;
 
@@ -71,13 +71,13 @@ private:
 
 private:
 	// Borrowed from CBootLoader; callback producers stop before service destruction.
-	net::CTcpServer* m_p_tcp_server{ nullptr };
-	CSession* m_p_hq_session{ nullptr };
-	CSession* m_p_broker_session{ nullptr };
-	CHQService* m_p_hq_service{ nullptr };
-	CStrategyService* m_p_strategy_service{ nullptr };
-	CTradeService* m_p_trade_service{ nullptr };
-	CAccountService* m_p_account_service{ nullptr };
+	net::CTcpServer* m_tcp_server{ nullptr };
+	CSession* m_hq_session{ nullptr };
+	CSession* m_broker_session{ nullptr };
+	CHQService* m_hq_service{ nullptr };
+	CStrategyService* m_strategy_service{ nullptr };
+	CTradeService* m_trade_service{ nullptr };
+	CAccountService* m_account_service{ nullptr };
 };
 
 #endif

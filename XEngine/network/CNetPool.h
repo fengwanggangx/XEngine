@@ -51,7 +51,7 @@ namespace net
 		bool Send(struct bufferevent* pEvent, const char* data, size_t nLength);
 
 	private:
-		mutable std::shared_mutex m_mtx_pool;
+		mutable std::shared_mutex m_pool_mutex;
 		std::unordered_map<_TyConnectionId, std::unique_ptr<CNetInfo>> m_pool;
 	};
 } // namespace net

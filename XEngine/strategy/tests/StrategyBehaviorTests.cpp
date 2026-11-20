@@ -35,30 +35,30 @@ namespace
 		CContext()
 		{
 			Check(m_execution.Open(OpenTestDatabase()), "open execution journal");
-			m_data.m_bReady = true;
+			m_data.m_ready = true;
 			m_data.m_version = 10;
 			m_data.m_orders_version = 10;
 			m_data.m_positions_version = 10;
 			m_data.m_funds_version = 10;
 			m_data.m_account.m_account = Account();
-			m_data.m_account.m_bConnected = true;
-			m_data.m_account.m_nBalance = 10000000;
-			m_data.m_account.m_nAvailable = 10000000;
-			m_data.m_account.m_b_explicit_available = true;
+			m_data.m_account.m_connected = true;
+			m_data.m_account.m_balance = 10000000;
+			m_data.m_account.m_available = 10000000;
+			m_data.m_account.m_explicit_available = true;
 			trade::CPosition position;
 			position.m_account = Account();
-			position.m_strSecurity = Security().String();
-			position.m_nTotal = 300;
-			position.m_nAvailable = 100;
-			position.m_nCost = 300000;
+			position.m_security = Security().String();
+			position.m_total = 300;
+			position.m_available = 100;
+			position.m_cost = 300000;
 			m_data.m_positions.emplace_back(position);
 			m_rules.m_reliable_query = true;
 			m_rules.m_idempotent_client_id = true;
 			m_rules.m_calendar = { 20261118, 900000, 1500000, 1600000, 2000000 };
-			m_rules.m_rule.m_strVersion = "test-rules";
-			m_rules.m_rule.m_strSecurity = Security().String();
-			m_rules.m_rule.m_nLower = 1;
-			m_rules.m_rule.m_nUpper = 100000;
+			m_rules.m_rule.m_version_text = "test-rules";
+			m_rules.m_rule.m_security = Security().String();
+			m_rules.m_rule.m_lower = 1;
+			m_rules.m_rule.m_upper = 100000;
 		}
 
 		COrderSubmitResult SubmitOrder(const COrderIntent& intent) override
@@ -66,7 +66,7 @@ namespace
 			COrderIntent routed = intent;
 			routed.m_account = Account();
 			COrderSubmitResult result = m_execution.Prepare(routed, GetTradingSnapshot(Security()), intent.m_maximum_debit);
-			if (result.m_bAccepted)
+			if (result.m_accepted)
 			{
 				routed.m_client_order_id = result.m_client_order_id;
 				m_orders.emplace_back(routed);
@@ -191,16 +191,16 @@ namespace
 			order.m_order_id = order.m_client_id;
 			order.m_id = 42;
 			order.m_signal_id = intent.m_signal_id;
-			order.m_strSecurity = Security().String();
+			order.m_security = Security().String();
 			order.m_side = OrderSide::Buy == intent.m_side ? trade::Side::Buy : trade::Side::Sell;
-			order.m_nPrice = intent.m_price;
-			order.m_n_price_scale = intent.m_n_price_scale;
-			order.m_nQuantity = intent.m_quantity;
-			order.m_nFilled = intent.m_quantity;
+			order.m_price = intent.m_price;
+			order.m_price_scale = intent.m_price_scale;
+			order.m_quantity = intent.m_quantity;
+			order.m_filled = intent.m_quantity;
 			order.m_status = trade::Status::Filled;
 			m_data.m_orders.emplace_back(order);
-			m_data.m_positions.front().m_nTotal = remaining;
-			m_data.m_positions.front().m_nAvailable = available;
+			m_data.m_positions.front().m_total = remaining;
+			m_data.m_positions.front().m_available = available;
 			m_data.m_version += 10;
 			m_data.m_orders_version = m_data.m_funds_version = m_data.m_positions_version = m_data.m_version;
 			Check(m_execution.Reconcile(Account(), GetTradingSnapshot(Security())), "reconcile completed order");
@@ -222,8 +222,8 @@ namespace
 		CStrategyConfig config;
 		config.m_id = 42;
 		config.m_account = Account();
-		config.m_str_name = type;
-		config.m_str_type = type;
+		config.m_name = type;
+		config.m_type = type;
 		config.m_params = std::move(parameters);
 		config.m_subscriptions.emplace_back("600000", Exchange::sse, Channel::quote);
 		if ("dual_ma_cross" == type)
@@ -298,7 +298,7 @@ namespace
 		recovered.OnStart();
 		context.Quote(recovered, 940);
 		Check(1 == context.m_orders.size(), "restored task does not repeat filled portion");
-		context.m_data.m_positions.front().m_nAvailable = 200;
+		context.m_data.m_positions.front().m_available = 200;
 		context.m_data.m_version += 1;
 		context.Quote(recovered, 930);
 		Check(2 == context.m_orders.size() && 200 == context.m_orders.back().m_quantity, "continue original task when shares become available");

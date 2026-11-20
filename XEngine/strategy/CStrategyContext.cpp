@@ -10,13 +10,13 @@
 #include <rapidjson/stringbuffer.h>
 #include <rapidjson/writer.h>
 
-CStrategyContext::CStrategyContext(_TyStrategyId strategyId, const _TyAccount& account, CStrategyService* pStrategyService, CTradeService* pSnapshotProvider, const CSecurity& security, bool scoped) : m_id(strategyId), m_p_strategy_service(pStrategyService), m_account(account), m_security(security), m_scoped(scoped), m_p_snapshot_provider(pSnapshotProvider)
+CStrategyContext::CStrategyContext(_TyStrategyId strategyId, const _TyAccount& account, CStrategyService* pStrategyService, CTradeService* pSnapshotProvider, const CSecurity& security, bool scoped) : m_id(strategyId), m_strategy_service(pStrategyService), m_account(account), m_security(security), m_scoped(scoped), m_snapshot_provider(pSnapshotProvider)
 {
 }
 
 COrderSubmitResult CStrategyContext::SubmitOrder(const COrderIntent& intent)
 {
-	if (!m_b_enabled.load() || (nullptr == m_p_strategy_service))
+	if (!m_enabled.load() || (nullptr == m_strategy_service))
 	{
 		return { false, false, 0, 0, "Strategy context is disabled" };
 	}
@@ -29,32 +29,32 @@ COrderSubmitResult CStrategyContext::SubmitOrder(const COrderIntent& intent)
 	{
 		return { false, false, 0, 0, "Order intent belongs to another strategy" };
 	}
-	return m_p_strategy_service->SubmitOrder(m_id, normalizedIntent);
+	return m_strategy_service->SubmitOrder(m_id, normalizedIntent);
 }
 
 bool CStrategyContext::CancelOrder(_TyOrderId orderId)
 {
-	return m_b_enabled.load() && (nullptr != m_p_strategy_service) && m_p_strategy_service->CancelOrder(m_id, orderId);
+	return m_enabled.load() && (nullptr != m_strategy_service) && m_strategy_service->CancelOrder(m_id, orderId);
 }
 
 CPositionSnapshot CStrategyContext::GetPosition(const CSecurity& security) const
 {
-	if (nullptr == m_p_snapshot_provider)
+	if (nullptr == m_snapshot_provider)
 	{
 		CPositionSnapshot snapshot;
 		snapshot.m_security = security;
 		return snapshot;
 	}
-	return m_p_snapshot_provider->GetPosition(m_account, security);
+	return m_snapshot_provider->GetPosition(m_account, security);
 }
 
 CAccountSnapshot CStrategyContext::GetAccount() const
 {
-	if (nullptr == m_p_snapshot_provider)
+	if (nullptr == m_snapshot_provider)
 	{
 		return {};
 	}
-	return m_p_snapshot_provider->GetAccount(m_account);
+	return m_snapshot_provider->GetAccount(m_account);
 }
 
 void CStrategyContext::WriteLog(LogLevel level, const std::string& strMessage)
@@ -65,69 +65,69 @@ void CStrategyContext::WriteLog(LogLevel level, const std::string& strMessage)
 
 bool CStrategyContext::IsMarketAvailable() const
 {
-	return (nullptr != m_p_strategy_service) && m_p_strategy_service->IsMarketAvailable();
+	return (nullptr != m_strategy_service) && m_strategy_service->IsMarketAvailable();
 }
 
 void CStrategyContext::Disable()
 {
-	m_b_enabled.store(false);
+	m_enabled.store(false);
 }
 
 CStrategyAccountView CStrategyContext::GetTradingSnapshot(const CSecurity& security) const
 {
-	return nullptr == m_p_snapshot_provider ? CStrategyAccountView{} : m_p_snapshot_provider->GetStrategyAccountView(m_account, security);
+	return nullptr == m_snapshot_provider ? CStrategyAccountView{} : m_snapshot_provider->GetStrategyAccountView(m_account, security);
 }
 
 std::optional<trade::CExecutionRule> CStrategyContext::GetRules(const CSecurity& security)
 {
-	return nullptr == m_p_snapshot_provider ? std::nullopt : m_p_snapshot_provider->GetExecutionRules(m_account, security);
+	return nullptr == m_snapshot_provider ? std::nullopt : m_snapshot_provider->GetExecutionRules(m_account, security);
 }
 
 std::string CStrategyContext::LoadCheckpoint() const
 {
-	return m_p_strategy_service->m_execution.LoadCheckpoint(m_id, m_scoped ? m_security.String() : std::string{});
+	return m_strategy_service->m_execution.LoadCheckpoint(m_id, m_scoped ? m_security.String() : std::string{});
 }
 
 std::uint64_t CStrategyContext::AllocateSignal()
 {
-	return m_p_strategy_service->m_execution.AllocateSignal();
+	return m_strategy_service->m_execution.AllocateSignal();
 }
 
 std::optional<CExecutionRecord> CStrategyContext::FindExecution(std::uint64_t id) const
 {
-	return m_p_strategy_service->m_execution.FindExecution(id);
+	return m_strategy_service->m_execution.FindExecution(id);
 }
 
 std::optional<CExecutionRecord> CStrategyContext::FindSignal(std::uint64_t id) const
 {
-	return m_p_strategy_service->m_execution.FindSignal(m_id, id);
+	return m_strategy_service->m_execution.FindSignal(m_id, id);
 }
 
 bool CStrategyContext::SaveCheckpoint(const std::string& data, bool protect)
 {
-	std::shared_ptr<CStrategyRuntime> runtime = m_p_strategy_service->FindRuntime(m_id);
+	std::shared_ptr<CStrategyRuntime> runtime = m_strategy_service->FindRuntime(m_id);
 	if (nullptr == runtime)
 	{
 		return false;
 	}
-	return m_p_strategy_service->m_execution.SaveCheckpoint(m_id, m_account, m_security, data, protect, m_scoped);
+	return m_strategy_service->m_execution.SaveCheckpoint(m_id, m_account, m_security, data, protect, m_scoped);
 }
 
 bool CStrategyContext::ClaimExit()
 {
-	std::shared_ptr<CStrategyRuntime> runtime = m_p_strategy_service->FindRuntime(m_id);
-	return (nullptr != runtime) && m_p_strategy_service->m_execution.ClaimExit(m_account, m_security, m_id);
+	std::shared_ptr<CStrategyRuntime> runtime = m_strategy_service->FindRuntime(m_id);
+	return (nullptr != runtime) && m_strategy_service->m_execution.ClaimExit(m_account, m_security, m_id);
 }
 
 bool CStrategyContext::ReleaseExit(bool unlock)
 {
-	std::shared_ptr<CStrategyRuntime> runtime = m_p_strategy_service->FindRuntime(m_id);
+	std::shared_ptr<CStrategyRuntime> runtime = m_strategy_service->FindRuntime(m_id);
 	if (nullptr == runtime)
 	{
 		return false;
 	}
 	const CSecurity& security = m_security;
-	return m_p_strategy_service->m_execution.ReleaseExit(m_account, security, m_id) && (!unlock || m_p_strategy_service->m_execution.UnlockBuys(m_account, security, m_id));
+	return m_strategy_service->m_execution.ReleaseExit(m_account, security, m_id) && (!unlock || m_strategy_service->m_execution.UnlockBuys(m_account, security, m_id));
 }
 
 bool CStrategyContext::CancelConflicts(bool reset)
@@ -136,18 +136,18 @@ bool CStrategyContext::CancelConflicts(bool reset)
 	{
 		m_cancelled.clear();
 	}
-	std::shared_ptr<CStrategyRuntime> runtime = m_p_strategy_service->FindRuntime(m_id);
+	std::shared_ptr<CStrategyRuntime> runtime = m_strategy_service->FindRuntime(m_id);
 	if (nullptr == runtime)
 	{
 		return false;
 	}
 	bool success = true;
 	std::string security = m_security.String();
-	for (const auto& order : m_p_snapshot_provider->GetOrders(m_account))
+	for (const auto& order : m_snapshot_provider->GetOrders(m_account))
 	{
-		if ((security == order.m_strSecurity) && trade::IsActive(order.m_status) && !order.m_b_cancel_pending && !container::with(m_cancelled, order.m_order_id))
+		if ((security == order.m_security) && trade::IsActive(order.m_status) && !order.m_cancel_pending && !container::with(m_cancelled, order.m_order_id))
 		{
-			if (m_p_strategy_service->CancelOrder(order.m_id, order.m_order_id))
+			if (m_strategy_service->CancelOrder(order.m_id, order.m_order_id))
 			{
 				m_cancelled.emplace(order.m_order_id);
 			}
@@ -162,22 +162,22 @@ bool CStrategyContext::CancelConflicts(bool reset)
 
 bool CStrategyContext::RequestHistory(std::int64_t begin)
 {
-	return m_p_strategy_service->RequestHistory(m_id, m_security, begin);
+	return m_strategy_service->RequestHistory(m_id, m_security, begin);
 }
 
 std::int64_t CStrategyContext::AvailableFunds(const CStrategyAccountView& view) const
 {
-	return m_p_strategy_service->m_execution.AvailableFunds(m_account, view);
+	return m_strategy_service->m_execution.AvailableFunds(m_account, view);
 }
 
 void CStrategyContext::PublishBusiness(const std::string& phase, const std::string& details)
 {
-	std::shared_ptr<CStrategyRuntime> runtime = m_p_strategy_service->FindRuntime(m_id);
+	std::shared_ptr<CStrategyRuntime> runtime = m_strategy_service->FindRuntime(m_id);
 	if (nullptr == runtime)
 	{
 		return;
 	}
-	std::lock_guard<std::mutex> lock(runtime->m_mtx_metrics);
+	std::lock_guard<std::mutex> lock(runtime->m_metrics_mutex);
 	if (!m_scoped)
 	{
 		runtime->m_business_state = phase;

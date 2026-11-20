@@ -184,11 +184,11 @@ std::string FmtSecurityString(const std::string& strCode, Exchange mk)
 	return strCode + "." + strMarket;
 }
 
-CSecurity::CSecurity(const CSecurity& arg) : m_strCode(arg.m_strCode), m_strName(arg.m_strName), m_market(arg.m_market), m_status(arg.m_status)
+CSecurity::CSecurity(const CSecurity& arg) : m_code(arg.m_code), m_name(arg.m_name), m_market(arg.m_market), m_status(arg.m_status)
 {
 }
 
-CSecurity::CSecurity(const std::string& strCode, Exchange mk, MarketState status) : m_strCode(strCode), m_market(mk), m_status(status)
+CSecurity::CSecurity(const std::string& strCode, Exchange mk, MarketState status) : m_code(strCode), m_market(mk), m_status(status)
 {
 }
 
@@ -196,8 +196,8 @@ CSecurity& CSecurity::operator=(const CSecurity& arg)
 {
 	if (this != &arg)
 	{
-		m_strCode = arg.m_strCode;
-		m_strName = arg.m_strName;
+		m_code = arg.m_code;
+		m_name = arg.m_name;
 		m_market = arg.m_market;
 		m_status = arg.m_status;
 	}
@@ -206,17 +206,17 @@ CSecurity& CSecurity::operator=(const CSecurity& arg)
 
 bool CSecurity::IsValid() const
 {
-	return !m_strCode.empty() && (Exchange::unknown != m_market);
+	return !m_code.empty() && (Exchange::unknown != m_market);
 }
 
 std::string CSecurity::String() const
 {
-	return FmtSecurityString(m_strCode, m_market);
+	return FmtSecurityString(m_code, m_market);
 }
 
 bool CSecurity::operator==(const CSecurity& arg) const
 {
-	return (m_market == arg.m_market) && (m_strCode == arg.m_strCode);
+	return (m_market == arg.m_market) && (m_code == arg.m_code);
 }
 
 bool CQuoteInfo::IsValid() const

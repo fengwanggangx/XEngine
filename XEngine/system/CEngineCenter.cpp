@@ -63,27 +63,27 @@ bool IsPasswordValid(const std::string& strPassword)
 	return (MinPasswordLength <= strPassword.size()) && (MaxPasswordLength >= strPassword.size());
 }
 
-CEngineCenter::CEngineCenter(net::CTcpServer* pTcpServer, CSession* pHQSession, CSession* pBrokerSession, CHQService* pHQService, CStrategyService* pStrategyService, CTradeService* pTradeService, CAccountService* pAccountService) : m_p_tcp_server(pTcpServer), m_p_hq_session(pHQSession), m_p_broker_session(pBrokerSession), m_p_hq_service(pHQService), m_p_strategy_service(pStrategyService), m_p_trade_service(pTradeService), m_p_account_service(pAccountService)
+CEngineCenter::CEngineCenter(net::CTcpServer* pTcpServer, CSession* pHQSession, CSession* pBrokerSession, CHQService* pHQService, CStrategyService* pStrategyService, CTradeService* pTradeService, CAccountService* pAccountService) : m_tcp_server(pTcpServer), m_hq_session(pHQSession), m_broker_session(pBrokerSession), m_hq_service(pHQService), m_strategy_service(pStrategyService), m_trade_service(pTradeService), m_account_service(pAccountService)
 {
 }
 
 bool CEngineCenter::Initialize()
 {
-	if ((nullptr == m_p_tcp_server) || (nullptr == m_p_hq_session) || (nullptr == m_p_broker_session) || (nullptr == m_p_hq_service) || (nullptr == m_p_strategy_service) || (nullptr == m_p_trade_service) || (nullptr == m_p_account_service))
+	if ((nullptr == m_tcp_server) || (nullptr == m_hq_session) || (nullptr == m_broker_session) || (nullptr == m_hq_service) || (nullptr == m_strategy_service) || (nullptr == m_trade_service) || (nullptr == m_account_service))
 	{
 		return false;
 	}
 
-	m_p_tcp_server->RegisterHandler(std::bind_front(&CEngineCenter::OnClientNetEvent, this));
+	m_tcp_server->RegisterHandler(std::bind_front(&CEngineCenter::OnClientNetEvent, this));
 
-	m_p_hq_session->RegisterHandler(std::bind_front(&CEngineCenter::OnHQMarketReply, this));
-	m_p_hq_session->RegisterStateHandler(std::bind_front(&CEngineCenter::OnHQMarketStateChanged, this));
+	m_hq_session->RegisterHandler(std::bind_front(&CEngineCenter::OnHQMarketReply, this));
+	m_hq_session->RegisterStateHandler(std::bind_front(&CEngineCenter::OnHQMarketStateChanged, this));
 
-	m_p_broker_session->RegisterHandler(std::bind_front(&CEngineCenter::OnBrokerReply, this));
-	m_p_broker_session->RegisterStateHandler(std::bind_front(&CEngineCenter::OnBrokerStateChanged, this));
+	m_broker_session->RegisterHandler(std::bind_front(&CEngineCenter::OnBrokerReply, this));
+	m_broker_session->RegisterStateHandler(std::bind_front(&CEngineCenter::OnBrokerStateChanged, this));
 
-	m_p_account_service->SetPushHandler(std::bind_front(&CEngineCenter::BroadcastTrade, this));
-	m_p_trade_service->SetPushHandler(std::bind_front(&CEngineCenter::BroadcastTrade, this));
+	m_account_service->SetPushHandler(std::bind_front(&CEngineCenter::BroadcastTrade, this));
+	m_trade_service->SetPushHandler(std::bind_front(&CEngineCenter::BroadcastTrade, this));
 	return true;
 }
 
@@ -111,7 +111,7 @@ bool CEngineCenter::BroadcastTrade(const CRequest& req)
 	}
 	std::vector<net::_TyConnectionId> clients;
 	{
-		std::lock_guard<std::mutex> lock(m_mtx_state);
+		std::lock_guard<std::mutex> lock(m_state_mutex);
 		clients.reserve(m_auth_clients.size());
 		for (const auto& client : m_auth_clients)
 		{
@@ -179,7 +179,7 @@ bool CEngineCenter::Login(const CRequest& req, std::string& strToken)
 	response.SetExtraData("user", db::to_string(table.m_rows.front().at(1)));
 	strToken = utility::MakeSaltHex();
 	{
-		std::lock_guard<std::mutex> lock(m_mtx_state);
+		std::lock_guard<std::mutex> lock(m_state_mutex);
 		m_auth_clients.insert_or_assign(req.GetConnectionId(), strUser);
 		m_token_users.insert_or_assign(strToken, strUser);
 		m_client_tokens.insert_or_assign(strToken, std::chrono::steady_clock::now() + TokenLifetime);
@@ -236,7 +236,7 @@ bool CEngineCenter::HandleReAuth(const CRequest& req)
 	std::string strToken = req.GetExtraData("token");
 	bool bAccepted = false;
 	{
-		std::lock_guard<std::mutex> lock(m_mtx_state);
+		std::lock_guard<std::mutex> lock(m_state_mutex);
 		const auto mIter = m_client_tokens.find(strToken);
 		bAccepted = (m_client_tokens.end() != mIter) && (std::chrono::steady_clock::now() < mIter->second);
 		if ((m_client_tokens.end() != mIter) && !bAccepted)
@@ -260,7 +260,7 @@ bool CEngineCenter::HandleReAuth(const CRequest& req)
 
 std::pair<bool, std::string> CEngineCenter::IsAuthenticated(net::_TyConnectionId id) const
 {
-	std::lock_guard<std::mutex> lock(m_mtx_state);
+	std::lock_guard<std::mutex> lock(m_state_mutex);
 	const auto mIter = m_auth_clients.find(id);
 	if (m_auth_clients.end() == mIter)
 	{
@@ -336,7 +336,7 @@ void CEngineCenter::OnRequest(const CRequest& req)
 
 	case _TyRequest::MARKET_SUBSCRIBE:
 	case _TyRequest::MARKET_UNSUBSCRIBE:
-		m_p_hq_service->OnRequest(req);
+		m_hq_service->OnRequest(req);
 		return;
 
 	case _TyRequest::MARKET_QUOTE_QUERY:
@@ -344,7 +344,7 @@ void CEngineCenter::OnRequest(const CRequest& req)
 	case _TyRequest::MARKET_SECURITIES_QUERY:
 	case _TyRequest::MARKET_SECTORS_QUERY:
 	case _TyRequest::MARKET_SECTOR_CONSTITUENTS_QUERY:
-		m_p_hq_service->OnRequest(req);
+		m_hq_service->OnRequest(req);
 		return;
 
 	case _TyRequest::TRADE_ACCOUNT_LOGIN:
@@ -490,12 +490,12 @@ bool CEngineCenter::HandleHeartbeat(net::_TyConnectionId id, const CRequest& req
 
 bool CEngineCenter::HandleStrategyRequest(net::_TyConnectionId id, const CRequest& req)
 {
-	if ((!req.IsStrategy()) || (nullptr == m_p_strategy_service))
+	if ((!req.IsStrategy()) || (nullptr == m_strategy_service))
 	{
 		net::SendError(id, req, InvalidRequest, "invalid strategy request");
 		return false;
 	}
-	return m_p_strategy_service->OnRequest(req);
+	return m_strategy_service->OnRequest(req);
 }
 
 int CEngineCenter::OnClientNetEvent(const net::CNetEvent& ev)
@@ -513,7 +513,7 @@ int CEngineCenter::OnClientNetEvent(const net::CNetEvent& ev)
 
 bool CEngineCenter::HandleTradeAccountRequest(net::_TyConnectionId id, const CRequest& req, const std::string& strUser)
 {
-	if (nullptr == m_p_account_service)
+	if (nullptr == m_account_service)
 	{
 		net::SendError(id, req, UpstreamUnavailable, "Account service is unavailable");
 		return false;
@@ -549,9 +549,9 @@ bool CEngineCenter::HandleTradeAccountRequest(net::_TyConnectionId id, const CRe
 			record->set_site(db::to_string(row.at(2)));
 			record->set_broker_name(db::to_string(row.at(3)));
 			record->set_name(db::to_string(row.at(4)));
-			CAccountInfo info = m_p_account_service->GetAccountInfo(FmtAccount(*record));
+			CAccountInfo info = m_account_service->GetAccountInfo(FmtAccount(*record));
 			record->set_state(static_cast<request::TradeAccountState>(info.m_state));
-			record->set_last_error(info.m_str_last_error);
+			record->set_last_error(info.m_last_error);
 		}
 		CRequest response;
 		response.SetId(req.GetId());
@@ -597,7 +597,7 @@ bool CEngineCenter::HandleTradeAccountRequest(net::_TyConnectionId id, const CRe
 	}
 	if (_TyRequest::TRADE_ACCOUNT_REMOVE == type)
 	{
-		if (m_p_account_service->IsConnected(account) || m_p_account_service->IsInUse(account))
+		if (m_account_service->IsConnected(account) || m_account_service->IsInUse(account))
 		{
 			SendResponse(req, InvalidRequest, "请先断开账户并停止关联策略");
 			return false;
@@ -615,14 +615,14 @@ bool CEngineCenter::HandleTradeAccountRequest(net::_TyConnectionId id, const CRe
 		CRequest login = req;
 		login.SetExtraData("site", db::to_string(table.m_rows.front().at(0)));
 		login.SetExtraData("password", db::to_string(table.m_rows.front().at(1)));
-		return m_p_account_service->OnRequest(login, strUser);
+		return m_account_service->OnRequest(login, strUser);
 	}
-	return m_p_account_service->OnRequest(req, strUser);
+	return m_account_service->OnRequest(req, strUser);
 }
 
 bool CEngineCenter::HandleTradeRequest(net::_TyConnectionId id, const CRequest& req)
 {
-	if (!IsAuthenticated(id).first || (nullptr == m_p_trade_service))
+	if (!IsAuthenticated(id).first || (nullptr == m_trade_service))
 	{
 		net::SendError(id, req, AuthenticationRequired, "authentication required");
 		return false;
@@ -636,7 +636,7 @@ bool CEngineCenter::HandleTradeRequest(net::_TyConnectionId id, const CRequest& 
 			return false;
 		}
 	}
-	return m_p_trade_service->OnRequest(req);
+	return m_trade_service->OnRequest(req);
 }
 
 bool CEngineCenter::IsOwnedAccount(const std::string& strUser, const _TyAccount& account) const
@@ -652,33 +652,33 @@ bool CEngineCenter::IsOwnedAccount(const std::string& strUser, const _TyAccount&
 
 CEngineCenter::~CEngineCenter()
 {
-	if (nullptr != m_p_account_service)
+	if (nullptr != m_account_service)
 	{
-		m_p_account_service->SetPushHandler({});
+		m_account_service->SetPushHandler({});
 	}
-	if (nullptr != m_p_trade_service)
+	if (nullptr != m_trade_service)
 	{
-		m_p_trade_service->SetPushHandler({});
+		m_trade_service->SetPushHandler({});
 	}
 }
 
 int CEngineCenter::HandleClientDisconnected(net::_TyConnectionId id)
 {
 	{
-		std::lock_guard<std::mutex> lock(m_mtx_state);
+		std::lock_guard<std::mutex> lock(m_state_mutex);
 		m_auth_clients.erase(id);
 	}
-	if (nullptr != m_p_hq_service)
+	if (nullptr != m_hq_service)
 	{
-		m_p_hq_service->HandleClientDisconnected(id);
+		m_hq_service->HandleClientDisconnected(id);
 	}
 	return 1;
 }
 
 bool CEngineCenter::OnHQMarketReply(const CRequest& req)
 {
-	bool bHQHandled = m_p_hq_service->OnReply(req);
-	bool bStrategyHandled = m_p_strategy_service->OnReply(req);
+	bool bHQHandled = m_hq_service->OnReply(req);
+	bool bStrategyHandled = m_strategy_service->OnReply(req);
 	return bHQHandled || bStrategyHandled;
 }
 
@@ -689,9 +689,9 @@ bool CEngineCenter::OnBrokerReply(const CRequest& req)
 		bool bAccountHandled = false;
 		if (_TyRequest::TRADE_ACCOUNT_STATE_PUSH == req.GetType())
 		{
-			bAccountHandled = m_p_account_service->OnReply(req);
+			bAccountHandled = m_account_service->OnReply(req);
 		}
-		bool bTradeHandled = m_p_trade_service->OnReply(req);
+		bool bTradeHandled = m_trade_service->OnReply(req);
 		return bAccountHandled || bTradeHandled;
 	}
 	switch (req.GetType())
@@ -699,20 +699,20 @@ bool CEngineCenter::OnBrokerReply(const CRequest& req)
 	case _TyRequest::TRADE_ACCOUNT_LOGIN:
 	case _TyRequest::TRADE_ACCOUNT_DISCONNECT:
 	case _TyRequest::TRADE_ACCOUNT_LIST_QUERY:
-		return m_p_account_service->OnReply(req);
+		return m_account_service->OnReply(req);
 	default:
-		return m_p_trade_service->OnReply(req);
+		return m_trade_service->OnReply(req);
 	}
 }
 
 void CEngineCenter::OnHQMarketStateChanged(SessionState state, const std::string& strReason)
 {
-	m_p_hq_service->OnSessionState(state, strReason);
-	m_p_strategy_service->OnHQMarketState(state, strReason);
+	m_hq_service->OnSessionState(state, strReason);
+	m_strategy_service->OnHQMarketState(state, strReason);
 }
 
 void CEngineCenter::OnBrokerStateChanged(SessionState state, const std::string& strReason)
 {
-	m_p_account_service->OnBrokerState(state, strReason);
-	m_p_trade_service->OnBrokerState(state, strReason);
+	m_account_service->OnBrokerState(state, strReason);
+	m_trade_service->OnBrokerState(state, strReason);
 }

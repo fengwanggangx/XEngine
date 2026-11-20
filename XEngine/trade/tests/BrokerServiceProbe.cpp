@@ -18,16 +18,16 @@ int main(int nArgs, char** pArgs)
 	}
 	net::EnvInitialize();
 	CLoginInfo info;
-	info.m_strToken = pArgs[2];
-	info.m_host.m_strName = "Broker";
-	info.m_host.m_strHost = "127.0.0.1";
-	info.m_host.m_nPort = static_cast<unsigned int>(std::stoul(pArgs[1]));
+	info.m_token = pArgs[2];
+	info.m_host.m_name = "Broker";
+	info.m_host.m_host = "127.0.0.1";
+	info.m_host.m_port = static_cast<unsigned int>(std::stoul(pArgs[1]));
 	_TyAccount account = { 1, pArgs[3] };
 	std::atomic_int nEvents{ 0 };
 	std::atomic_bool bTradeCorrelated{ false };
 	std::promise<trade::CCounterReply> completion;
 	std::future<trade::CCounterReply> future = completion.get_future();
-	info.m_bOrdered = true;
+	info.m_ordered = true;
 	CSession broker(info);
 	CAccountService accounts(&broker);
 	CTradeService client(&accounts, &broker);
@@ -37,11 +37,11 @@ int main(int nArgs, char** pArgs)
 
 	struct CBrokerGuard
 	{
-		CSession* m_pBroker;
+		CSession* m_broker;
 
 		~CBrokerGuard()
 		{
-			m_pBroker->Stop();
+			m_broker->Stop();
 		}
 	};
 
@@ -62,11 +62,11 @@ int main(int nArgs, char** pArgs)
 	{
 		return 2;
 	}
-	for (int nIndex = 0; nIndex < 100 && !client.Snapshot(account).m_bReady; ++nIndex)
+	for (int nIndex = 0; nIndex < 100 && !client.Snapshot(account).m_ready; ++nIndex)
 	{
 		std::this_thread::sleep_for(std::chrono::milliseconds(100));
 	}
-	if (!client.Snapshot(account).m_bReady)
+	if (!client.Snapshot(account).m_ready)
 	{
 		return 3;
 	}
@@ -78,10 +78,10 @@ int main(int nArgs, char** pArgs)
 	std::get<trade::CSubmitParam>(request.m_param).m_order.m_account = account;
 	std::get<trade::CSubmitParam>(request.m_param).m_order.m_id = 77;
 	std::get<trade::CSubmitParam>(request.m_param).m_order.m_signal_id = 78;
-	std::get<trade::CSubmitParam>(request.m_param).m_order.m_strSecurity = "600000.SSE";
-	std::get<trade::CSubmitParam>(request.m_param).m_order.m_nPrice = 1000;
-	std::get<trade::CSubmitParam>(request.m_param).m_order.m_n_price_scale = 2;
-	std::get<trade::CSubmitParam>(request.m_param).m_order.m_nQuantity = 100;
+	std::get<trade::CSubmitParam>(request.m_param).m_order.m_security = "600000.SSE";
+	std::get<trade::CSubmitParam>(request.m_param).m_order.m_price = 1000;
+	std::get<trade::CSubmitParam>(request.m_param).m_order.m_price_scale = 2;
+	std::get<trade::CSubmitParam>(request.m_param).m_order.m_quantity = 100;
 	client.SetStrategyReplyHandler([&completion](const CRequest&, const trade::CCounterReply& reply)
 	{
 		completion.set_value(reply);
@@ -102,7 +102,7 @@ int main(int nArgs, char** pArgs)
 		client.Stop();
 		accounts.Stop();
 		broker.Stop();
-		if (trade::Error::UnknownResult != reply.m_result.m_error || client.Snapshot(account).m_bReady)
+		if (trade::Error::UnknownResult != reply.m_result.m_error || client.Snapshot(account).m_ready)
 		{
 			return 9;
 		}
@@ -122,7 +122,7 @@ int main(int nArgs, char** pArgs)
 	client.Stop();
 	accounts.Stop();
 	broker.Stop();
-	if (client.Snapshot(account).m_bReady)
+	if (client.Snapshot(account).m_ready)
 	{
 		return 8;
 	}

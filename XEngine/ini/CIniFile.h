@@ -50,10 +50,10 @@ namespace ini
 		bool Save() const;
 
 	private:
-		mutable std::shared_mutex m_mtx_parser;
-		std::unique_ptr<CSimpleIniA> m_pParser;
-		std::string m_str_file_name;
-		std::atomic_bool m_bUpdated{ false };
+		mutable std::shared_mutex m_parser_mutex;
+		std::unique_ptr<CSimpleIniA> m_parser;
+		std::string m_file_name;
+		std::atomic_bool m_updated{ false };
 	};
 } // namespace ini
 

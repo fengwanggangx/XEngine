@@ -295,12 +295,12 @@ namespace
 	{
 		std::uint64_t maximum = static_cast<std::uint64_t>((std::numeric_limits<std::int64_t>::max)());
 		bool directionValid = ((OrderSide::Buy == intent.m_side) && (PositionEffect::Open == intent.m_position_effect)) || ((OrderSide::Sell == intent.m_side) && ((PositionEffect::Close == intent.m_position_effect) || (PositionEffect::CloseToday == intent.m_position_effect)));
-		return intent.IsValid() && IsAccountValid(intent.m_account) && directionValid && (OrderType::Limit == intent.m_order_type) && (0 <= intent.m_n_price_scale) && (8 >= intent.m_n_price_scale) && (maximum >= intent.m_id) && (maximum >= intent.m_signal_id) && (maximum >= intent.m_client_order_id);
+		return intent.IsValid() && IsAccountValid(intent.m_account) && directionValid && (OrderType::Limit == intent.m_order_type) && (0 <= intent.m_price_scale) && (8 >= intent.m_price_scale) && (maximum >= intent.m_id) && (maximum >= intent.m_signal_id) && (maximum >= intent.m_client_order_id);
 	}
 
 	bool SameOrder(const COrderIntent& intent, const trade::COrder& order)
 	{
-		return (intent.m_account == order.m_account) && (intent.m_id == order.m_id) && (intent.m_signal_id == order.m_signal_id) && (intent.m_security.String() == order.m_strSecurity) && ((OrderSide::Buy == intent.m_side ? trade::Side::Buy : trade::Side::Sell) == order.m_side) && (intent.m_price == order.m_nPrice) && (intent.m_n_price_scale == order.m_n_price_scale) && (intent.m_quantity == order.m_nQuantity);
+		return (intent.m_account == order.m_account) && (intent.m_id == order.m_id) && (intent.m_signal_id == order.m_signal_id) && (intent.m_security.String() == order.m_security) && ((OrderSide::Buy == intent.m_side ? trade::Side::Buy : trade::Side::Sell) == order.m_side) && (intent.m_price == order.m_price) && (intent.m_price_scale == order.m_price_scale) && (intent.m_quantity == order.m_quantity);
 	}
 } // namespace
 
@@ -309,10 +309,10 @@ CStrategyExecutionManager::~CStrategyExecutionManager() = default;
 
 bool CStrategyExecutionManager::Open(db::_TyDBPtr pDB)
 {
-	std::lock_guard<std::mutex> lock(m_mtx_state);
+	std::lock_guard<std::mutex> lock(m_state_mutex);
 	if (nullptr != m_database)
 	{
-		m_str_last_error = "Execution store is already open";
+		m_last_error = "Execution store is already open";
 		return false;
 	}
 	try
@@ -334,13 +334,13 @@ bool CStrategyExecutionManager::Open(db::_TyDBPtr pDB)
 		Load();
 		m_database->Execute("UPDATE table_strategy_execution SET state=2,covered=0,evidence=0,message='Restarted; reconcile existing order before retry' WHERE state NOT IN (5,6)");
 		m_database->Execute("COMMIT");
-		m_b_healthy = true;
-		m_str_last_error.clear();
+		m_healthy = true;
+		m_last_error.clear();
 		return true;
 	}
 	catch (const std::exception& error)
 	{
-		m_str_last_error = error.what();
+		m_last_error = error.what();
 		m_database.reset();
 		m_records.clear();
 		m_locks.clear();
@@ -367,7 +367,7 @@ void CStrategyExecutionManager::Load()
 		intent.m_security = CSecurity(ReadText(statement.get(), 4), static_cast<Exchange>(ReadInteger(statement.get(), 5)));
 		intent.m_side = static_cast<OrderSide>(ReadInteger(statement.get(), 6));
 		intent.m_price = ReadInteger(statement.get(), 7);
-		intent.m_n_price_scale = static_cast<int>(ReadInteger(statement.get(), 8));
+		intent.m_price_scale = static_cast<int>(ReadInteger(statement.get(), 8));
 		intent.m_quantity = ReadInteger(statement.get(), 9);
 		intent.m_position_effect = static_cast<PositionEffect>(ReadInteger(statement.get(), 10));
 		std::int64_t state = ReadInteger(statement.get(), 11);
@@ -380,7 +380,7 @@ void CStrategyExecutionManager::Load()
 		record.m_reserved_money = ReadInteger(statement.get(), 12);
 		record.m_order_id = ReadInteger(statement.get(), 13);
 		record.m_evidence_version = 0;
-		record.m_b_broker_covered = false;
+		record.m_broker_covered = false;
 		record.m_message = "Restarted; reconcile existing order before retry";
 		if (0 > record.m_reserved_money)
 		{
@@ -442,7 +442,7 @@ void CStrategyExecutionManager::Save(const CExecutionRecord& record)
 	Bind(statement.get(), 1, static_cast<std::int64_t>(record.m_state));
 	Bind(statement.get(), 2, static_cast<std::int64_t>(record.m_order_id));
 	Bind(statement.get(), 3, static_cast<std::int64_t>(record.m_evidence_version));
-	Bind(statement.get(), 4, static_cast<std::int64_t>(record.m_b_broker_covered));
+	Bind(statement.get(), 4, static_cast<std::int64_t>(record.m_broker_covered));
 	Bind(statement.get(), 5, record.m_message);
 	Bind(statement.get(), 6, record.m_filled_quantity);
 	Bind(statement.get(), 7, static_cast<std::int64_t>(record.m_broker_status));
@@ -462,22 +462,22 @@ bool CStrategyExecutionManager::IsUnresolved(ExecutionState state)
 
 COrderSubmitResult CStrategyExecutionManager::Prepare(COrderIntent intent, const CStrategyAccountView& view, std::int64_t maximumDebit)
 {
-	std::lock_guard<std::mutex> lock(m_mtx_state);
-	if (!m_b_healthy)
+	std::lock_guard<std::mutex> lock(m_state_mutex);
+	if (!m_healthy)
 	{
-		return { false, false, 0, 0, "Execution journal is unavailable: " + m_str_last_error };
+		return { false, false, 0, 0, "Execution journal is unavailable: " + m_last_error };
 	}
 	if (!ValidIntent(intent) || (0 != intent.m_client_order_id))
 	{
 		return { false, false, 0, 0, "Invalid execution intent" };
 	}
-	if (!view.m_account.m_bReady || (view.m_identity != intent.m_account) || (view.m_position.m_security != intent.m_security) || (view.m_account.m_version != view.m_position.m_version) || ((m_snapshot_epochs[intent.m_account] == view.m_connection_epoch) && (view.m_account.m_version < m_snapshot_versions[intent.m_account])))
+	if (!view.m_account.m_ready || (view.m_identity != intent.m_account) || (view.m_position.m_security != intent.m_security) || (view.m_account.m_version != view.m_position.m_version) || ((m_snapshot_epochs[intent.m_account] == view.m_connection_epoch) && (view.m_account.m_version < m_snapshot_versions[intent.m_account])))
 	{
 		return { false, true, 0, 0, "A consistent account snapshot is required" };
 	}
 	if (!ReconcileWithoutLock(intent.m_account, view))
 	{
-		return { false, false, 0, 0, "Cannot reconcile execution journal: " + m_str_last_error };
+		return { false, false, 0, 0, "Cannot reconcile execution journal: " + m_last_error };
 	}
 	if ((OrderSide::Buy == intent.m_side) && IsBuyLockedWithoutLock(intent.m_account, intent.m_security))
 	{
@@ -499,7 +499,7 @@ COrderSubmitResult CStrategyExecutionManager::Prepare(COrderIntent intent, const
 		{
 			return { false, true, 0, 0, "Security has an unresolved execution" };
 		}
-		if ((OrderSide::Buy == record.m_intent.m_side) && !record.m_b_broker_covered)
+		if ((OrderSide::Buy == record.m_intent.m_side) && !record.m_broker_covered)
 		{
 			if (record.m_reserved_money > (std::numeric_limits<std::int64_t>::max)() - reserved)
 			{
@@ -510,7 +510,7 @@ COrderSubmitResult CStrategyExecutionManager::Prepare(COrderIntent intent, const
 	}
 	for (const auto& order : view.m_orders)
 	{
-		if ((order.m_account == intent.m_account) && (order.m_strSecurity == intent.m_security.String()) && Active(order.m_status))
+		if ((order.m_account == intent.m_account) && (order.m_security == intent.m_security.String()) && Active(order.m_status))
 		{
 			return { false, true, 0, 0, "Security has an active broker order" };
 		}
@@ -520,7 +520,7 @@ COrderSubmitResult CStrategyExecutionManager::Prepare(COrderIntent intent, const
 		// maximumDebit is the caller's validated principal plus fee upper bound.
 		// Round principal upward to cents without using floating point.
 		std::int64_t scale = 1;
-		for (int index = 0; intent.m_n_price_scale > index; ++index)
+		for (int index = 0; intent.m_price_scale > index; ++index)
 		{
 			scale *= 10;
 		}
@@ -535,7 +535,7 @@ COrderSubmitResult CStrategyExecutionManager::Prepare(COrderIntent intent, const
 			return { false, true, 0, 0, "Insufficient unreserved funds or invalid debit budget" };
 		}
 	}
-	else if (!view.m_position.m_bReady || !view.m_position.m_b_frozen_known || (intent.m_quantity > view.m_position.m_available_quantity) || (0 != maximumDebit))
+	else if (!view.m_position.m_ready || !view.m_position.m_frozen_known || (intent.m_quantity > view.m_position.m_available_quantity) || (0 != maximumDebit))
 	{
 		return { false, true, 0, 0, "Insufficient available position or invalid sell budget" };
 	}
@@ -556,11 +556,11 @@ COrderSubmitResult CStrategyExecutionManager::Prepare(COrderIntent intent, const
 		Bind(statement.get(), 1, EncodeAccount(intent.m_account));
 		Bind(statement.get(), 2, static_cast<std::int64_t>(intent.m_id));
 		Bind(statement.get(), 3, static_cast<std::int64_t>(intent.m_signal_id));
-		Bind(statement.get(), 4, intent.m_security.m_strCode);
+		Bind(statement.get(), 4, intent.m_security.m_code);
 		Bind(statement.get(), 5, static_cast<std::int64_t>(intent.m_security.m_market));
 		Bind(statement.get(), 6, static_cast<std::int64_t>(intent.m_side));
 		Bind(statement.get(), 7, intent.m_price);
-		Bind(statement.get(), 8, static_cast<std::int64_t>(intent.m_n_price_scale));
+		Bind(statement.get(), 8, static_cast<std::int64_t>(intent.m_price_scale));
 		Bind(statement.get(), 9, intent.m_quantity);
 		Bind(statement.get(), 10, static_cast<std::int64_t>(intent.m_position_effect));
 		Bind(statement.get(), 11, maximumDebit);
@@ -578,17 +578,17 @@ COrderSubmitResult CStrategyExecutionManager::Prepare(COrderIntent intent, const
 	catch (const std::exception& error)
 	{
 		m_database->Rollback();
-		m_b_healthy = false;
-		m_str_last_error = error.what();
-		return { false, false, 0, 0, "Execution journal failed: " + m_str_last_error };
+		m_healthy = false;
+		m_last_error = error.what();
+		return { false, false, 0, 0, "Execution journal failed: " + m_last_error };
 	}
 }
 
 bool CStrategyExecutionManager::MarkSubmission(std::uint64_t clientId, bool queued, bool definitelyNotSent)
 {
-	std::lock_guard<std::mutex> lock(m_mtx_state);
+	std::lock_guard<std::mutex> lock(m_state_mutex);
 	const auto mIter = m_records.find(clientId);
-	if (!m_b_healthy || (queued && definitelyNotSent))
+	if (!m_healthy || (queued && definitelyNotSent))
 	{
 		return false;
 	}
@@ -607,8 +607,8 @@ bool CStrategyExecutionManager::MarkSubmission(std::uint64_t clientId, bool queu
 		}
 		catch (const std::exception& error)
 		{
-			m_b_healthy = false;
-			m_str_last_error = error.what();
+			m_healthy = false;
+			m_last_error = error.what();
 			return false;
 		}
 	}
@@ -632,21 +632,21 @@ bool CStrategyExecutionManager::MarkSubmission(std::uint64_t clientId, bool queu
 	}
 	catch (const std::exception& error)
 	{
-		m_b_healthy = false;
-		m_str_last_error = error.what();
+		m_healthy = false;
+		m_last_error = error.what();
 		return false;
 	}
 }
 
 bool CStrategyExecutionManager::Reconcile(const _TyAccount& account, const CStrategyAccountView& view)
 {
-	std::lock_guard<std::mutex> lock(m_mtx_state);
+	std::lock_guard<std::mutex> lock(m_state_mutex);
 	return ReconcileWithoutLock(account, view);
 }
 
 bool CStrategyExecutionManager::ReconcileWithoutLock(const _TyAccount& account, const CStrategyAccountView& view)
 {
-	if (!m_b_healthy || !view.m_account.m_bReady || (account != view.m_identity) || (view.m_connection_epoch < m_snapshot_epochs[account]) || ((m_snapshot_epochs[account] == view.m_connection_epoch) && (view.m_account.m_version < m_snapshot_versions[account])))
+	if (!m_healthy || !view.m_account.m_ready || (account != view.m_identity) || (view.m_connection_epoch < m_snapshot_epochs[account]) || ((m_snapshot_epochs[account] == view.m_connection_epoch) && (view.m_account.m_version < m_snapshot_versions[account])))
 	{
 		return false;
 	}
@@ -661,7 +661,7 @@ bool CStrategyExecutionManager::ReconcileWithoutLock(const _TyAccount& account, 
 				{
 					CExecutionRecord changed = record;
 					changed.m_state = ExecutionState::Unknown;
-					changed.m_b_broker_covered = false;
+					changed.m_broker_covered = false;
 					changed.m_evidence_version = 0;
 					Save(changed);
 					record = std::move(changed);
@@ -688,11 +688,11 @@ bool CStrategyExecutionManager::ReconcileWithoutLock(const _TyAccount& account, 
 			// Absence is never proof that a write did not reach the broker.
 			if (orders.end() == mIter)
 			{
-				if (record.m_b_broker_covered)
+				if (record.m_broker_covered)
 				{
 					CExecutionRecord changed = record;
 					changed.m_state = ExecutionState::Unknown;
-					changed.m_b_broker_covered = false;
+					changed.m_broker_covered = false;
 					changed.m_message = "Previously observed broker order is missing; reservation retained";
 					Save(changed);
 					record = std::move(changed);
@@ -710,7 +710,7 @@ bool CStrategyExecutionManager::ReconcileWithoutLock(const _TyAccount& account, 
 			}
 			CExecutionRecord changed = record;
 			changed.m_order_id = pOrder->m_order_id;
-			changed.m_filled_quantity = pOrder->m_nFilled;
+			changed.m_filled_quantity = pOrder->m_filled;
 			changed.m_broker_status = pOrder->m_status;
 			changed.m_evidence_version = view.m_orders_version;
 			bool terminal = !Active(pOrder->m_status);
@@ -720,10 +720,10 @@ bool CStrategyExecutionManager::ReconcileWithoutLock(const _TyAccount& account, 
 				continue;
 			}
 			std::uint64_t resourceVersion = OrderSide::Buy == record.m_intent.m_side ? view.m_funds_version : view.m_positions_version;
-			changed.m_b_broker_covered = (0 != view.m_orders_version) && (resourceVersion >= view.m_orders_version);
-			changed.m_state = terminal ? (changed.m_b_broker_covered ? ExecutionState::Closed : ExecutionState::TerminalAwaitingSync) : ExecutionState::BrokerActive;
-			changed.m_message = terminal ? (changed.m_b_broker_covered ? "Terminal order reconciled" : "Terminal order; waiting for resource watermark") : "Broker order reconciled";
-			if ((changed.m_state != record.m_state) || (changed.m_evidence_version != record.m_evidence_version) || (changed.m_b_broker_covered != record.m_b_broker_covered) || (changed.m_order_id != record.m_order_id) || (changed.m_filled_quantity != record.m_filled_quantity) || (changed.m_broker_status != record.m_broker_status))
+			changed.m_broker_covered = (0 != view.m_orders_version) && (resourceVersion >= view.m_orders_version);
+			changed.m_state = terminal ? (changed.m_broker_covered ? ExecutionState::Closed : ExecutionState::TerminalAwaitingSync) : ExecutionState::BrokerActive;
+			changed.m_message = terminal ? (changed.m_broker_covered ? "Terminal order reconciled" : "Terminal order; waiting for resource watermark") : "Broker order reconciled";
+			if ((changed.m_state != record.m_state) || (changed.m_evidence_version != record.m_evidence_version) || (changed.m_broker_covered != record.m_broker_covered) || (changed.m_order_id != record.m_order_id) || (changed.m_filled_quantity != record.m_filled_quantity) || (changed.m_broker_status != record.m_broker_status))
 			{
 				Save(changed);
 				record = std::move(changed);
@@ -737,21 +737,21 @@ bool CStrategyExecutionManager::ReconcileWithoutLock(const _TyAccount& account, 
 	}
 	catch (const std::exception& error)
 	{
-		m_b_healthy = false;
-		m_str_last_error = error.what();
+		m_healthy = false;
+		m_last_error = error.what();
 		return false;
 	}
 }
 
 std::string CStrategyExecutionManager::GetLastError() const
 {
-	std::lock_guard<std::mutex> lock(m_mtx_state);
-	return m_str_last_error;
+	std::lock_guard<std::mutex> lock(m_state_mutex);
+	return m_last_error;
 }
 
 std::vector<CExecutionRecord> CStrategyExecutionManager::GetRecords() const
 {
-	std::lock_guard<std::mutex> lock(m_mtx_state);
+	std::lock_guard<std::mutex> lock(m_state_mutex);
 	std::vector<CExecutionRecord> records;
 	records.reserve(m_records.size());
 	for (const auto& [id, record] : m_records)
@@ -763,8 +763,8 @@ std::vector<CExecutionRecord> CStrategyExecutionManager::GetRecords() const
 
 bool CStrategyExecutionManager::HasUnresolved(_TyStrategyId strategyId) const
 {
-	std::lock_guard<std::mutex> lock(m_mtx_state);
-	if (!m_b_healthy)
+	std::lock_guard<std::mutex> lock(m_state_mutex);
+	if (!m_healthy)
 	{
 		return true;
 	}
@@ -788,14 +788,14 @@ bool CStrategyExecutionManager::IsBuyLockedWithoutLock(const _TyAccount& account
 
 bool CStrategyExecutionManager::IsBuyLocked(const _TyAccount& account, const CSecurity& security) const
 {
-	std::lock_guard<std::mutex> lock(m_mtx_state);
-	return !m_b_healthy || IsBuyLockedWithoutLock(account, security);
+	std::lock_guard<std::mutex> lock(m_state_mutex);
+	return !m_healthy || IsBuyLockedWithoutLock(account, security);
 }
 
 bool CStrategyExecutionManager::LockBuys(const _TyAccount& account, const CSecurity& security, _TyStrategyId ownerId, const std::string& reason)
 {
-	std::lock_guard<std::mutex> lock(m_mtx_state);
-	if (!m_b_healthy || !IsAccountValid(account) || !security.IsValid() || (0 == ownerId) || (ownerId > static_cast<std::uint64_t>((std::numeric_limits<std::int64_t>::max)())) || reason.empty())
+	std::lock_guard<std::mutex> lock(m_state_mutex);
+	if (!m_healthy || !IsAccountValid(account) || !security.IsValid() || (0 == ownerId) || (ownerId > static_cast<std::uint64_t>((std::numeric_limits<std::int64_t>::max)())) || reason.empty())
 	{
 		return false;
 	}
@@ -813,16 +813,16 @@ bool CStrategyExecutionManager::LockBuys(const _TyAccount& account, const CSecur
 	}
 	catch (const std::exception& error)
 	{
-		m_b_healthy = false;
-		m_str_last_error = error.what();
+		m_healthy = false;
+		m_last_error = error.what();
 		return false;
 	}
 }
 
 bool CStrategyExecutionManager::UnlockBuys(const _TyAccount& account, const CSecurity& security, _TyStrategyId ownerId)
 {
-	std::lock_guard<std::mutex> lock(m_mtx_state);
-	if (!m_b_healthy)
+	std::lock_guard<std::mutex> lock(m_state_mutex);
+	if (!m_healthy)
 	{
 		return false;
 	}
@@ -849,16 +849,16 @@ bool CStrategyExecutionManager::UnlockBuys(const _TyAccount& account, const CSec
 	}
 	catch (const std::exception& error)
 	{
-		m_b_healthy = false;
-		m_str_last_error = error.what();
+		m_healthy = false;
+		m_last_error = error.what();
 		return false;
 	}
 }
 
 std::uint64_t CStrategyExecutionManager::AllocateSignal()
 {
-	std::lock_guard<std::mutex> lock(m_mtx_state);
-	if (!m_b_healthy)
+	std::lock_guard<std::mutex> lock(m_state_mutex);
+	if (!m_healthy)
 	{
 		return 0;
 	}
@@ -869,16 +869,16 @@ std::uint64_t CStrategyExecutionManager::AllocateSignal()
 	}
 	catch (const std::exception& error)
 	{
-		m_b_healthy = false;
-		m_str_last_error = error.what();
+		m_healthy = false;
+		m_last_error = error.what();
 		return 0;
 	}
 }
 
 std::optional<CExecutionRecord> CStrategyExecutionManager::FindExecution(std::uint64_t clientId) const
 {
-	std::lock_guard<std::mutex> lock(m_mtx_state);
-	if (!m_b_healthy)
+	std::lock_guard<std::mutex> lock(m_state_mutex);
+	if (!m_healthy)
 	{
 		return std::nullopt;
 	}
@@ -905,8 +905,8 @@ std::optional<CExecutionRecord> CStrategyExecutionManager::FindExecution(std::ui
 
 std::string CStrategyExecutionManager::LoadCheckpoint(_TyStrategyId id, const std::string& key) const
 {
-	std::lock_guard<std::mutex> lock(m_mtx_state);
-	if (!m_b_healthy)
+	std::lock_guard<std::mutex> lock(m_state_mutex);
+	if (!m_healthy)
 	{
 		throw std::runtime_error("Execution journal is unavailable");
 	}
@@ -930,8 +930,8 @@ std::string CStrategyExecutionManager::LoadCheckpoint(_TyStrategyId id, const st
 
 bool CStrategyExecutionManager::SaveCheckpoint(_TyStrategyId id, const _TyAccount& account, const CSecurity& security, const std::string& data, bool protect, bool scoped)
 {
-	std::lock_guard<std::mutex> lock(m_mtx_state);
-	if (!m_b_healthy || (0 == id) || !IsAccountValid(account) || !security.IsValid())
+	std::lock_guard<std::mutex> lock(m_state_mutex);
+	if (!m_healthy || (0 == id) || !IsAccountValid(account) || !security.IsValid())
 	{
 		return false;
 	}
@@ -964,16 +964,16 @@ bool CStrategyExecutionManager::SaveCheckpoint(_TyStrategyId id, const _TyAccoun
 	catch (const std::exception& error)
 	{
 		m_database->Rollback();
-		m_b_healthy = false;
-		m_str_last_error = error.what();
+		m_healthy = false;
+		m_last_error = error.what();
 		return false;
 	}
 }
 
 bool CStrategyExecutionManager::ClaimExit(const _TyAccount& account, const CSecurity& security, _TyStrategyId id)
 {
-	std::lock_guard<std::mutex> lock(m_mtx_state);
-	if (!m_b_healthy || !container::with(m_locks, _TyLockKey{ account, security.String(), id }))
+	std::lock_guard<std::mutex> lock(m_state_mutex);
+	if (!m_healthy || !container::with(m_locks, _TyLockKey{ account, security.String(), id }))
 	{
 		return false;
 	}
@@ -994,16 +994,16 @@ bool CStrategyExecutionManager::ClaimExit(const _TyAccount& account, const CSecu
 	}
 	catch (const std::exception& error)
 	{
-		m_b_healthy = false;
-		m_str_last_error = error.what();
+		m_healthy = false;
+		m_last_error = error.what();
 		return false;
 	}
 }
 
 bool CStrategyExecutionManager::ReleaseExit(const _TyAccount& account, const CSecurity& security, _TyStrategyId id)
 {
-	std::lock_guard<std::mutex> lock(m_mtx_state);
-	if (!m_b_healthy)
+	std::lock_guard<std::mutex> lock(m_state_mutex);
+	if (!m_healthy)
 	{
 		return false;
 	}
@@ -1030,23 +1030,23 @@ bool CStrategyExecutionManager::ReleaseExit(const _TyAccount& account, const CSe
 	}
 	catch (const std::exception& error)
 	{
-		m_b_healthy = false;
-		m_str_last_error = error.what();
+		m_healthy = false;
+		m_last_error = error.what();
 		return false;
 	}
 }
 
 std::int64_t CStrategyExecutionManager::AvailableFunds(const _TyAccount& account, const CStrategyAccountView& view) const
 {
-	std::lock_guard<std::mutex> lock(m_mtx_state);
-	if (!m_b_healthy || (account != view.m_identity) || !view.m_account.m_bReady)
+	std::lock_guard<std::mutex> lock(m_state_mutex);
+	if (!m_healthy || (account != view.m_identity) || !view.m_account.m_ready)
 	{
 		return 0;
 	}
 	std::int64_t available = view.m_account.m_available;
 	for (const auto& [id, record] : m_records)
 	{
-		if ((account == record.m_intent.m_account) && (OrderSide::Buy == record.m_intent.m_side) && !record.m_b_broker_covered)
+		if ((account == record.m_intent.m_account) && (OrderSide::Buy == record.m_intent.m_side) && !record.m_broker_covered)
 		{
 			if (available < record.m_reserved_money)
 			{
@@ -1062,8 +1062,8 @@ std::optional<CExecutionRecord> CStrategyExecutionManager::FindSignal(_TyStrateg
 {
 	std::uint64_t client = 0;
 	{
-		std::lock_guard<std::mutex> lock(m_mtx_state);
-		if (!m_b_healthy)
+		std::lock_guard<std::mutex> lock(m_state_mutex);
+		if (!m_healthy)
 		{
 			return std::nullopt;
 		}
@@ -1086,9 +1086,9 @@ std::optional<CExecutionRecord> CStrategyExecutionManager::FindSignal(_TyStrateg
 
 bool CStrategyExecutionManager::RejectBeforeAcceptance(std::uint64_t clientId, const std::string& reason)
 {
-	std::lock_guard<std::mutex> lock(m_mtx_state);
+	std::lock_guard<std::mutex> lock(m_state_mutex);
 	const auto mIter = m_records.find(clientId);
-	if (!m_b_healthy || (m_records.end() == mIter) || (0 != mIter->second.m_order_id))
+	if (!m_healthy || (m_records.end() == mIter) || (0 != mIter->second.m_order_id))
 	{
 		return false;
 	}
@@ -1104,8 +1104,8 @@ bool CStrategyExecutionManager::RejectBeforeAcceptance(std::uint64_t clientId, c
 	}
 	catch (const std::exception& error)
 	{
-		m_b_healthy = false;
-		m_str_last_error = error.what();
+		m_healthy = false;
+		m_last_error = error.what();
 		return false;
 	}
 }

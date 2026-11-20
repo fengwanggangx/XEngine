@@ -10,7 +10,7 @@
 #include "../common/container.h"
 #include "../trade/TradeProtocol.h"
 
-CTradeService::CTradeService(CAccountService* pAccountService, CSession* pSession) : m_p_account_service(pAccountService), m_p_session(pSession)
+CTradeService::CTradeService(CAccountService* pAccountService, CSession* pSession) : m_account_service(pAccountService), m_session(pSession)
 {
 }
 
@@ -21,21 +21,21 @@ CTradeService::~CTradeService()
 
 bool CTradeService::Initialize()
 {
-	if (nullptr == m_p_account_service || nullptr == m_p_session)
+	if (nullptr == m_account_service || nullptr == m_session)
 	{
-		m_str_last_error = "Account service is unavailable";
+		m_last_error = "Account service is unavailable";
 		return false;
 	}
-	m_str_last_error.clear();
-	m_p_account_service->SetAccountStateHandler(std::bind_front(&CTradeService::OnAccountState, this));
-	m_b_running.store(true);
+	m_last_error.clear();
+	m_account_service->SetAccountStateHandler(std::bind_front(&CTradeService::OnAccountState, this));
+	m_running.store(true);
 	m_refresh = std::jthread([this](std::stop_token stop)
 	{
 		while (!stop.stop_requested())
 		{
 			RefreshPending();
 			RefreshTrades();
-			std::unique_lock<std::mutex> lock(m_mtx_wait);
+			std::unique_lock<std::mutex> lock(m_wait_mutex);
 			m_wake.wait_for(lock, std::chrono::seconds(1), [&stop]()
 			{
 				return stop.stop_requested();
@@ -47,7 +47,7 @@ bool CTradeService::Initialize()
 
 void CTradeService::Stop()
 {
-	if (!m_b_running.exchange(false))
+	if (!m_running.exchange(false))
 	{
 		return;
 	}
@@ -57,25 +57,25 @@ void CTradeService::Stop()
 	{
 		m_refresh.join();
 	}
-	m_p_account_service->SetAccountStateHandler({});
+	m_account_service->SetAccountStateHandler({});
 	OnBrokerState(SessionState::Stopping);
 }
 
 const std::string& CTradeService::GetLastError() const
 {
-	return m_str_last_error;
+	return m_last_error;
 }
 
 void CTradeService::SetStrategyReplyHandler(_TyStrategyReplyHandler&& handler)
 {
-	std::lock_guard<std::mutex> lock(m_mtx_handlers);
+	std::lock_guard<std::mutex> lock(m_handlers_mutex);
 	m_strategy_reply_handler = std::move(handler);
 }
 
 trade::CResult CTradeService::SendStrategyRequest(CRequest&& request)
 {
 	_TyAccount account;
-	if (!m_b_running.load() || !FmtAccount(request, account) || !IsReady(account))
+	if (!m_running.load() || !FmtAccount(request, account) || !IsReady(account))
 	{
 		return { trade::Error::Unavailable, "Account not synchronized" };
 	}
@@ -91,7 +91,7 @@ trade::CResult CTradeService::SendStrategyRequest(CRequest&& request)
 	}
 	request.SetExtraData("request_source", "Strategy");
 	{
-		std::lock_guard<std::mutex> lock(m_mtx_state);
+		std::lock_guard<std::mutex> lock(m_state_mutex);
 		request.SetExtraData("broker_connect_id", std::to_string(m_generation));
 	}
 	return SendRequest(std::move(request)) ? trade::CResult{} : trade::CResult{ trade::Error::Unavailable, "XBroker is unavailable" };
@@ -99,7 +99,7 @@ trade::CResult CTradeService::SendStrategyRequest(CRequest&& request)
 
 bool CTradeService::OnRequest(const CRequest& req)
 {
-	if (!m_b_running.load())
+	if (!m_running.load())
 	{
 		net::SendError(req.GetConnectionId(), req, static_cast<int>(trade::Error::Unavailable), "Trade service is unavailable");
 		return false;
@@ -128,7 +128,7 @@ bool CTradeService::OnRequest(const CRequest& req)
 
 bool CTradeService::HasActiveOrders(const _TyAccount& account) const
 {
-	if (!m_p_account_service->IsConnected(account))
+	if (!m_account_service->IsConnected(account))
 	{
 		return false;
 	}
@@ -159,20 +159,20 @@ CStrategyAccountView CTradeService::GetStrategyAccountView(const _TyAccount& acc
 
 std::vector<trade::COrder> CTradeService::GetOrders(const _TyAccount& account) const
 {
-	return m_p_account_service->HasAccount(account) ? Snapshot(account).m_orders : std::vector<trade::COrder>{};
+	return m_account_service->HasAccount(account) ? Snapshot(account).m_orders : std::vector<trade::COrder>{};
 }
 
 void CTradeService::QueryAccount(const _TyAccount& account)
 {
-	if (!m_p_account_service->IsConnected(account))
+	if (!m_account_service->IsConnected(account))
 	{
 		return;
 	}
 	std::uint64_t nGeneration = 0;
-	std::uint64_t nCycle = m_n_next_sync_id.fetch_add(1);
+	std::uint64_t nCycle = m_next_sync_id.fetch_add(1);
 	{
-		std::lock_guard<std::mutex> lock(m_mtx_state);
-		if (m_snapshots[account].m_bReady || container::with(m_syncing, account))
+		std::lock_guard<std::mutex> lock(m_state_mutex);
+		if (m_snapshots[account].m_ready || container::with(m_syncing, account))
 		{
 			return;
 		}
@@ -185,7 +185,7 @@ void CTradeService::QueryAccount(const _TyAccount& account)
 void CTradeService::QueryNext(const _TyAccount& account, std::uint64_t nGeneration, std::uint64_t nCycle, trade::Operation operation)
 {
 	{
-		std::lock_guard<std::mutex> lock(m_mtx_state);
+		std::lock_guard<std::mutex> lock(m_state_mutex);
 		const auto pending = m_syncing.find(account);
 		if (nGeneration != m_generation || m_syncing.end() == pending || nCycle != pending->second.m_cycle)
 		{
@@ -233,15 +233,15 @@ void CTradeService::CompleteQuery(const trade::CCounterReply& reply, std::uint64
 	trade::Operation next = trade::Operation::Funds;
 	bool bNext = false;
 	{
-		std::lock_guard<std::mutex> lock(m_mtx_state);
+		std::lock_guard<std::mutex> lock(m_state_mutex);
 		const auto pending = m_syncing.find(account);
 		if (nGeneration != m_generation || m_syncing.end() == pending || nCycle != pending->second.m_cycle)
 		{
 			return;
 		}
-		if (!m_b_running.load() || !m_p_account_service->IsConnected(account) || !reply.m_result.Ok() || pending->second.m_b_overflow)
+		if (!m_running.load() || !m_account_service->IsConnected(account) || !reply.m_result.Ok() || pending->second.m_overflow)
 		{
-			m_snapshots[account].m_bReady = false;
+			m_snapshots[account].m_ready = false;
 			m_syncing.erase(pending);
 			return;
 		}
@@ -259,7 +259,7 @@ void CTradeService::CompleteQuery(const trade::CCounterReply& reply, std::uint64
 			pending->second.m_versions[4] = reply.m_version;
 		}
 		data.m_version = std::max(data.m_version, reply.m_version);
-		data.m_nTime = std::max(data.m_nTime, reply.m_nTime);
+		data.m_time = std::max(data.m_time, reply.m_time);
 		switch (reply.m_operation)
 		{
 		case trade::Operation::Funds:
@@ -296,7 +296,7 @@ void CTradeService::CompleteQuery(const trade::CCounterReply& reply, std::uint64
 				previousTrades.emplace(row.m_trade_id);
 			}
 			cached = std::move(pending->second.m_data);
-			cached.m_bReady = m_p_account_service->IsConnected(account) && cached.m_account.m_bConnected && cached.m_account.m_b_funds_valid;
+			cached.m_ready = m_account_service->IsConnected(account) && cached.m_account.m_connected && cached.m_account.m_funds_valid;
 			// Reconcile complete state before the final session-ready notification.
 			for (const auto& order : cached.m_orders)
 			{
@@ -381,7 +381,7 @@ void CTradeService::CompleteQuery(const trade::CCounterReply& reply, std::uint64
 
 trade::CAccountData CTradeService::Snapshot(const _TyAccount& account) const
 {
-	std::lock_guard<std::mutex> lock(m_mtx_state);
+	std::lock_guard<std::mutex> lock(m_state_mutex);
 	const auto mIter = m_snapshots.find(account);
 	if (!IsAccountValid(account) || m_snapshots.end() == mIter)
 	{
@@ -392,13 +392,13 @@ trade::CAccountData CTradeService::Snapshot(const _TyAccount& account) const
 	trade::CAccountData data = mIter->second;
 	const auto epochIter = m_account_epochs.find(account);
 	data.m_connection_epoch = m_account_epochs.end() == epochIter ? 0 : epochIter->second;
-	data.m_bReady = data.m_bReady && m_b_running.load() && m_p_account_service->IsConnected(account);
+	data.m_ready = data.m_ready && m_running.load() && m_account_service->IsConnected(account);
 	return data;
 }
 
 void CTradeService::ApplyEvent(trade::CAccountData& data, trade::CCounterEvent& ev)
 {
-	if (ev.m_b_account_valid && (0 != ev.m_sequence))
+	if (ev.m_account_valid && (0 != ev.m_sequence))
 	{
 		data.m_funds_version = std::max(data.m_funds_version, ev.m_sequence);
 	}
@@ -411,21 +411,21 @@ void CTradeService::ApplyEvent(trade::CAccountData& data, trade::CCounterEvent& 
 		data.m_orders_version = std::max(data.m_orders_version, ev.m_sequence);
 	}
 
-	if (trade::EventTy::Funds != ev.m_kind && !ev.m_b_account_valid)
+	if (trade::EventTy::Funds != ev.m_kind && !ev.m_account_valid)
 	{
-		bool bConnected = ev.m_funds.m_bConnected;
-		int state = ev.m_funds.m_nState;
+		bool bConnected = ev.m_funds.m_connected;
+		int state = ev.m_funds.m_state;
 		ev.m_funds = data.m_account;
 		if (trade::EventTy::Session == ev.m_kind)
 		{
-			ev.m_funds.m_bConnected = bConnected;
-			ev.m_funds.m_nState = state;
+			ev.m_funds.m_connected = bConnected;
+			ev.m_funds.m_state = state;
 			if (!bConnected)
 			{
-				ev.m_funds.m_b_funds_valid = false;
+				ev.m_funds.m_funds_valid = false;
 			}
 		}
-		ev.m_b_account_valid = true;
+		ev.m_account_valid = true;
 	}
 	if (trade::EventTy::Deal == ev.m_kind)
 	{
@@ -448,28 +448,28 @@ void CTradeService::ApplyEvent(trade::CAccountData& data, trade::CCounterEvent& 
 
 void CTradeService::OnBrokerEvent(trade::CCounterEvent ev)
 {
-	if (!m_b_running.load())
+	if (!m_running.load())
 	{
 		return;
 	}
 	if (trade::EventTy::Session == ev.m_kind)
 	{
-		std::lock_guard<std::mutex> lock(m_mtx_state);
+		std::lock_guard<std::mutex> lock(m_state_mutex);
 		m_syncing.erase(ev.m_account);
 		trade::CAccountData& data = m_snapshots[ev.m_account];
-		data.m_bReady = false;
-		data.m_account.m_bConnected = ev.m_funds.m_bConnected;
-		data.m_account.m_b_funds_valid = false;
+		data.m_ready = false;
+		data.m_account.m_connected = ev.m_funds.m_connected;
+		data.m_account.m_funds_valid = false;
 		return;
 	}
 	{
-		std::lock_guard<std::mutex> lock(m_mtx_state);
+		std::lock_guard<std::mutex> lock(m_state_mutex);
 		const auto pending = m_syncing.find(ev.m_account);
 		if (m_syncing.end() != pending)
 		{
 			if (4096 <= pending->second.m_events.size())
 			{
-				pending->second.m_b_overflow = true;
+				pending->second.m_overflow = true;
 			}
 			else
 			{
@@ -478,7 +478,7 @@ void CTradeService::OnBrokerEvent(trade::CCounterEvent ev)
 			return;
 		}
 		const auto mIter = m_snapshots.find(ev.m_account);
-		if (m_snapshots.end() == mIter || !mIter->second.m_bReady || (0 != ev.m_sequence && ev.m_sequence <= mIter->second.m_version))
+		if (m_snapshots.end() == mIter || !mIter->second.m_ready || (0 != ev.m_sequence && ev.m_sequence <= mIter->second.m_version))
 		{
 			return;
 		}
@@ -489,24 +489,24 @@ void CTradeService::OnBrokerEvent(trade::CCounterEvent ev)
 
 bool CTradeService::IsReady(const _TyAccount& account) const
 {
-	return m_b_running.load() && GetAccount(account).m_bReady;
+	return m_running.load() && GetAccount(account).m_ready;
 }
 
 void CTradeService::SetEventHandler(_TyEventHandler&& handler)
 {
-	std::lock_guard<std::mutex> lock(m_mtx_handlers);
+	std::lock_guard<std::mutex> lock(m_handlers_mutex);
 	m_event_handler = std::move(handler);
 }
 
 void CTradeService::SetPushHandler(_TyRequestNotify&& handler)
 {
-	std::lock_guard<std::mutex> lock(m_mtx_handlers);
+	std::lock_guard<std::mutex> lock(m_handlers_mutex);
 	m_push_handler = std::move(handler);
 }
 
 void CTradeService::SetAccountReadyHandler(_TyAccountReadyHandler&& handler)
 {
-	std::lock_guard<std::mutex> lock(m_mtx_handlers);
+	std::lock_guard<std::mutex> lock(m_handlers_mutex);
 	m_account_ready_handler = std::move(handler);
 }
 
@@ -516,7 +516,7 @@ void CTradeService::PublishEvent(const trade::CCounterEvent& ev)
 	_TyRequestNotify pushHandler;
 	_TyAccountReadyHandler readyHandler;
 	{
-		std::lock_guard<std::mutex> lock(m_mtx_handlers);
+		std::lock_guard<std::mutex> lock(m_handlers_mutex);
 		if (0 != ev.m_sequence && ev.m_sequence <= m_last_event_sequence[ev.m_account])
 		{
 			return;
@@ -553,20 +553,20 @@ void CTradeService::OnBrokerState(SessionState state, const std::string&)
 		return;
 	}
 	{
-		std::lock_guard<std::mutex> lock(m_mtx_state);
+		std::lock_guard<std::mutex> lock(m_state_mutex);
 		++m_generation;
 		m_rules.clear();
 		m_syncing.clear();
 		for (auto& entry : m_snapshots)
 		{
 			m_account_epochs[entry.first] = ++m_next_account_epoch;
-			entry.second.m_bReady = false;
-			entry.second.m_account.m_bConnected = false;
-			entry.second.m_account.m_b_funds_valid = false;
+			entry.second.m_ready = false;
+			entry.second.m_account.m_connected = false;
+			entry.second.m_account.m_funds_valid = false;
 		}
 	}
 	{
-		std::lock_guard<std::mutex> lock(m_mtx_handlers);
+		std::lock_guard<std::mutex> lock(m_handlers_mutex);
 		m_last_event_sequence.clear();
 	}
 	FailPending();
@@ -574,17 +574,17 @@ void CTradeService::OnBrokerState(SessionState state, const std::string&)
 
 void CTradeService::RefreshTrades()
 {
-	std::vector<_TyAccount> accounts = m_p_account_service->GetAccounts();
+	std::vector<_TyAccount> accounts = m_account_service->GetAccounts();
 	std::set<_TyAccount> connected;
 	for (const auto& account : accounts)
 	{
-		if (m_p_account_service->IsConnected(account))
+		if (m_account_service->IsConnected(account))
 		{
 			connected.emplace(account);
 		}
 	}
 	{
-		std::lock_guard<std::mutex> lock(m_mtx_state);
+		std::lock_guard<std::mutex> lock(m_state_mutex);
 		std::erase_if(m_snapshots, [&accounts](const auto& entry)
 		{
 			return !container::with(accounts, entry.first);
@@ -597,12 +597,12 @@ void CTradeService::RefreshTrades()
 		{
 			if (!container::with(connected, entry.first))
 			{
-				entry.second.m_bReady = false;
-				entry.second.m_account.m_b_funds_valid = false;
+				entry.second.m_ready = false;
+				entry.second.m_account.m_funds_valid = false;
 			}
 		}
 	}
-	if (!m_p_session->IsAuthenticated())
+	if (!m_session->IsAuthenticated())
 	{
 		return;
 	}
@@ -615,7 +615,7 @@ void CTradeService::RefreshTrades()
 void CTradeService::OnAccountState(const _TyAccount& account)
 {
 	{
-		std::lock_guard<std::mutex> lock(m_mtx_state);
+		std::lock_guard<std::mutex> lock(m_state_mutex);
 		m_account_epochs[account] = ++m_next_account_epoch;
 		std::erase_if(m_rules, [&account](const auto& item)
 		{
@@ -625,21 +625,21 @@ void CTradeService::OnAccountState(const _TyAccount& account)
 		const auto mIter = m_snapshots.find(account);
 		if (m_snapshots.end() != mIter)
 		{
-			mIter->second.m_bReady = false;
-			mIter->second.m_account.m_b_funds_valid = false;
-			if (!m_p_account_service->HasAccount(account))
+			mIter->second.m_ready = false;
+			mIter->second.m_account.m_funds_valid = false;
+			if (!m_account_service->HasAccount(account))
 			{
 				m_snapshots.erase(mIter);
 			}
 		}
 	}
-	std::lock_guard<std::mutex> lock(m_mtx_handlers);
+	std::lock_guard<std::mutex> lock(m_handlers_mutex);
 	m_last_event_sequence.erase(account);
 }
 
 bool CTradeService::SendRequest(CRequest&& request)
 {
-	if ((!m_b_running.load()) || !m_p_session->IsAuthenticated())
+	if ((!m_running.load()) || !m_session->IsAuthenticated())
 	{
 		return false;
 	}
@@ -648,8 +648,8 @@ bool CTradeService::SendRequest(CRequest&& request)
 	request.SetExtraData("source_request_id", std::to_string(request.GetId()));
 	request.SetId(nId);
 	{
-		std::lock_guard<std::mutex> lock(m_mtx_requests);
-		if (!m_p_session->IsAuthenticated() || !m_b_running.load())
+		std::lock_guard<std::mutex> lock(m_requests_mutex);
+		if (!m_session->IsAuthenticated() || !m_running.load())
 		{
 			return false;
 		}
@@ -659,7 +659,7 @@ bool CTradeService::SendRequest(CRequest&& request)
 		}
 		m_pending.emplace(nId, CPending{ std::move(origin), std::chrono::steady_clock::now() + std::chrono::seconds(_TyRequest::TRADE_ACCOUNT_LOGIN == request.GetType() ? 60 : 15) });
 	}
-	if (!m_p_session->SendRequest(request))
+	if (!m_session->SendRequest(request))
 	{
 		// A write failure may follow a partial write. Complete as uncertain, never retry.
 		CRequest response;
@@ -673,7 +673,7 @@ bool CTradeService::SendRequest(CRequest&& request)
 
 bool CTradeService::OnReply(const CRequest& req)
 {
-	if (!m_b_running.load())
+	if (!m_running.load())
 	{
 		return false;
 	}
@@ -689,7 +689,7 @@ bool CTradeService::OnReply(const CRequest& req)
 	}
 	CPending pending;
 	{
-		std::lock_guard<std::mutex> lock(m_mtx_requests);
+		std::lock_guard<std::mutex> lock(m_requests_mutex);
 		const auto mIter = m_pending.find(req.GetId());
 		if (m_pending.end() == mIter || req.GetType() != mIter->second.m_origin.GetType())
 		{
@@ -712,7 +712,7 @@ bool CTradeService::DispatchReply(const CRequest& origin, const CRequest& respon
 		{
 			return false;
 		}
-		std::lock_guard<std::mutex> lock(m_mtx_state);
+		std::lock_guard<std::mutex> lock(m_state_mutex);
 		const auto mIter = m_rules.find({ account, origin.GetExtraData("security") });
 		if ((generation != m_generation) || (m_rules.end() == mIter) || (origin.GetId() != mIter->second.m_request_id))
 		{
@@ -785,7 +785,7 @@ bool CTradeService::DispatchReply(const CRequest& origin, const CRequest& respon
 	reply.m_request_id = origin.GetId();
 	reply.m_operation = operation;
 	{
-		std::lock_guard<std::mutex> lock(m_mtx_state);
+		std::lock_guard<std::mutex> lock(m_state_mutex);
 		if (generation != m_generation)
 		{
 			reply.m_result = { trade::Error::UnknownResult, "Stale XBroker connection" };
@@ -799,7 +799,7 @@ bool CTradeService::DispatchReply(const CRequest& origin, const CRequest& respon
 	}
 	_TyStrategyReplyHandler handler;
 	{
-		std::lock_guard<std::mutex> lock(m_mtx_handlers);
+		std::lock_guard<std::mutex> lock(m_handlers_mutex);
 		handler = m_strategy_reply_handler;
 	}
 	if (nullptr != handler)
@@ -813,7 +813,7 @@ void CTradeService::FailPending()
 {
 	std::unordered_map<_TyRequestId, CPending> pending;
 	{
-		std::lock_guard<std::mutex> lock(m_mtx_requests);
+		std::lock_guard<std::mutex> lock(m_requests_mutex);
 		pending.swap(m_pending);
 	}
 	for (const auto& item : pending)
@@ -830,7 +830,7 @@ void CTradeService::RefreshPending()
 {
 	std::vector<std::pair<std::uint64_t, _TyRequest>> expired;
 	{
-		std::lock_guard<std::mutex> lock(m_mtx_requests);
+		std::lock_guard<std::mutex> lock(m_requests_mutex);
 		for (const auto& item : m_pending)
 		{
 			if (item.second.m_deadline <= std::chrono::steady_clock::now())
@@ -862,10 +862,10 @@ std::optional<trade::CExecutionRule> CTradeService::GetExecutionRules(const _TyA
 	req.SetExtraData("security", securityKey);
 	req.SetExtraData("request_source", "ExecutionRules");
 	{
-		std::lock_guard<std::mutex> lock(m_mtx_state);
+		std::lock_guard<std::mutex> lock(m_state_mutex);
 		CRuleCache& cache = m_rules[{ account, securityKey }];
 		std::int64_t now = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
-		if (cache.m_value.has_value() && (now < cache.m_value->m_calendar.m_nClose))
+		if (cache.m_value.has_value() && (now < cache.m_value->m_calendar.m_close_time_ms))
 		{
 			return cache.m_value;
 		}
@@ -879,7 +879,7 @@ std::optional<trade::CExecutionRule> CTradeService::GetExecutionRules(const _TyA
 	}
 	if (!SendRequest(std::move(req)))
 	{
-		std::lock_guard<std::mutex> lock(m_mtx_state);
+		std::lock_guard<std::mutex> lock(m_state_mutex);
 		CRuleCache& cache = m_rules[{ account, securityKey }];
 		cache.m_request_id = 0;
 		cache.m_retry = std::chrono::steady_clock::now() + std::chrono::seconds(5);
@@ -890,9 +890,9 @@ std::optional<trade::CExecutionRule> CTradeService::GetExecutionRules(const _TyA
 void CTradeService::ReconcileAccount(const _TyAccount& account)
 {
 	{
-		std::lock_guard<std::mutex> lock(m_mtx_state);
+		std::lock_guard<std::mutex> lock(m_state_mutex);
 		m_syncing.erase(account);
-		m_snapshots[account].m_bReady = false;
+		m_snapshots[account].m_ready = false;
 	}
 	QueryAccount(account);
 }

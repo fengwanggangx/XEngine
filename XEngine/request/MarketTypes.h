@@ -71,8 +71,8 @@ enum class MarketState
 
 struct CSecurity
 {
-	std::string m_strCode;
-	std::string m_strName;
+	std::string m_code;
+	std::string m_name;
 	Exchange m_market{ Exchange::unknown };
 	MarketState m_status{ MarketState::normal };
 

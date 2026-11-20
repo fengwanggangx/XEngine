@@ -38,7 +38,7 @@ private:
 	using _TySubscriptions = std::unordered_map<std::string, CQuoteInfo>;
 	using _TySubscriberIds = std::unordered_set<std::string>;
 
-	mutable std::shared_mutex m_mtx_info;
+	mutable std::shared_mutex m_info_mutex;
 	std::unordered_map<std::string, _TySubscriberIds> m_info_ids;
 	std::unordered_map<std::string, _TySubscriptions> m_id_infos;
 };

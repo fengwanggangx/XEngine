@@ -40,12 +40,12 @@ public:
 
 private:
 	_TyStrategyId m_id{ 0 };
-	CStrategyService* m_p_strategy_service{ nullptr };
+	CStrategyService* m_strategy_service{ nullptr };
 	_TyAccount m_account{};
 	CSecurity m_security;
 	bool m_scoped;
-	CTradeService* m_p_snapshot_provider{ nullptr };
-	std::atomic_bool m_b_enabled{ true };
+	CTradeService* m_snapshot_provider{ nullptr };
+	std::atomic_bool m_enabled{ true };
 	std::set<std::uint64_t> m_cancelled;
 };
 

@@ -15,24 +15,24 @@ namespace net
 	{
 		_TyConnectionId m_fd{ -1 };
 
-		int m_nPort{ -1 };
-		std::string m_strAddress;
+		int m_port{ -1 };
+		std::string m_address;
 		struct sockaddr_storage m_addr{ 0 };
-		struct bufferevent* m_pEvent{ nullptr };
+		struct bufferevent* m_event{ nullptr };
 
 		CFrameBuffer m_frames;
 
 		void Empty()
 		{
 			m_fd = -1;
-			if (nullptr != m_pEvent)
+			if (nullptr != m_event)
 			{
-				bufferevent_free(m_pEvent);
-				m_pEvent = nullptr;
+				bufferevent_free(m_event);
+				m_event = nullptr;
 			}
 
-			m_nPort = -1;
-			m_strAddress.clear();
+			m_port = -1;
+			m_address.clear();
 			memset(&m_addr, 0, sizeof(m_addr));
 
 			m_frames.Reset();
@@ -59,7 +59,7 @@ namespace net
 			return false;
 		}
 
-		std::unique_lock<std::shared_mutex> lock(m_mtx_pool);
+		std::unique_lock<std::shared_mutex> lock(m_pool_mutex);
 		auto [mIter, bInserted] = m_pool.try_emplace(id, nullptr);
 		CNetInfo* pInfo = mIter->second.get();
 		if (bInserted)
@@ -69,9 +69,9 @@ namespace net
 		}
 		pInfo->Empty();
 		pInfo->m_fd = id;
-		pInfo->m_pEvent = pEvent;
+		pInfo->m_event = pEvent;
 		SockAddrSafeCopy(pInfo->m_addr, *pAddr);
-		ParseSockAddr(pInfo->m_strAddress, pInfo->m_nPort, *pAddr);
+		ParseSockAddr(pInfo->m_address, pInfo->m_port, *pAddr);
 		return true;
 	}
 
@@ -101,7 +101,7 @@ namespace net
 			return nullptr;
 		}
 
-		std::unique_lock<std::shared_mutex> lock(m_mtx_pool);
+		std::unique_lock<std::shared_mutex> lock(m_pool_mutex);
 		auto [mIter, bInserted] = m_pool.try_emplace(id, nullptr);
 		CNetInfo* pInfo = mIter->second.get();
 		if (bInserted)
@@ -111,10 +111,10 @@ namespace net
 		}
 		pInfo->Empty();
 		pInfo->m_fd = id;
-		pInfo->m_pEvent = pEvent;
+		pInfo->m_event = pEvent;
 		memset(&pInfo->m_addr, 0, sizeof(pInfo->m_addr)); // 初始化目标结构体（可选但安全）
 		memcpy(&pInfo->m_addr, pAddr, sizeof(*pAddr));
-		ParseSockAddr(pInfo->m_strAddress, pInfo->m_nPort, *pAddr);
+		ParseSockAddr(pInfo->m_address, pInfo->m_port, *pAddr);
 		return pEvent;
 	}
 
@@ -152,7 +152,7 @@ namespace net
 
 	bool CNetPool::CloseAConnection(CNetInfo& info)
 	{
-		struct bufferevent* pEvent = info.m_pEvent;
+		struct bufferevent* pEvent = info.m_event;
 		if (nullptr == pEvent)
 		{
 			return false;
@@ -165,7 +165,7 @@ namespace net
 		evbuffer_drain(bufferevent_get_output(pEvent), -1);
 
 		bufferevent_free(pEvent);
-		info.m_pEvent = nullptr;
+		info.m_event = nullptr;
 		return true;
 	}
 
@@ -173,7 +173,7 @@ namespace net
 	{
 		std::unique_ptr<CNetInfo> pInfo;
 		{
-			std::unique_lock<std::shared_mutex> lock(m_mtx_pool);
+			std::unique_lock<std::shared_mutex> lock(m_pool_mutex);
 			auto mIter = m_pool.find(id);
 			if (mIter == m_pool.end())
 			{
@@ -197,11 +197,11 @@ namespace net
 		std::unique_ptr<CNetInfo> pInfo;
 		_TyConnectionId id = -1;
 		{
-			std::unique_lock<std::shared_mutex> lock(m_mtx_pool);
+			std::unique_lock<std::shared_mutex> lock(m_pool_mutex);
 			auto mIter = m_pool.begin();
 			for (; mIter != m_pool.end(); ++mIter)
 			{
-				if (mIter->second->m_pEvent == pEvent)
+				if (mIter->second->m_event == pEvent)
 				{
 					break;
 				}
@@ -231,9 +231,9 @@ namespace net
 		std::optional<std::vector<std::string>> frames{ std::nullopt };
 
 		{
-			std::unique_lock<std::shared_mutex> lock(m_mtx_pool);
+			std::unique_lock<std::shared_mutex> lock(m_pool_mutex);
 			const auto mIter = m_pool.find(id);
-			if ((mIter == m_pool.end()) || (mIter->second->m_pEvent != pEvent))
+			if ((mIter == m_pool.end()) || (mIter->second->m_event != pEvent))
 			{
 				return ret;
 			}
@@ -255,13 +255,13 @@ namespace net
 			return false;
 		}
 
-		std::shared_lock<std::shared_mutex> lock(m_mtx_pool);
+		std::shared_lock<std::shared_mutex> lock(m_pool_mutex);
 		const auto mIter = m_pool.find(id);
 		if (mIter == m_pool.end())
 		{
 			return false;
 		}
-		return Send(mIter->second->m_pEvent, data, nLength);
+		return Send(mIter->second->m_event, data, nLength);
 	}
 
 	bool CNetPool::Send(struct bufferevent* pEvent, const char* data, size_t nLength)
@@ -292,13 +292,13 @@ namespace net
 			return false;
 		}
 
-		std::shared_lock<std::shared_mutex> lock(m_mtx_pool);
+		std::shared_lock<std::shared_mutex> lock(m_pool_mutex);
 		const auto mIter = m_pool.find(id);
 		if (mIter == m_pool.end())
 		{
 			return false;
 		}
-		return Send(mIter->second->m_pEvent, ret->data(), ret->size());
+		return Send(mIter->second->m_event, ret->data(), ret->size());
 	}
 
 	// 读超时，客户端一定时间没有收到来自服务端的请求则认为断开
@@ -308,19 +308,19 @@ namespace net
 		{
 			return false;
 		}
-		std::shared_lock<std::shared_mutex> lock(m_mtx_pool);
+		std::shared_lock<std::shared_mutex> lock(m_pool_mutex);
 		auto mIter = m_pool.find(id);
-		if ((m_pool.end() == mIter) || (nullptr == mIter->second->m_pEvent))
+		if ((m_pool.end() == mIter) || (nullptr == mIter->second->m_event))
 		{
 			return false;
 		}
 		timeval readTimeout{ nSeconds, 0 };
-		return 0 == bufferevent_set_timeouts(mIter->second->m_pEvent, &readTimeout, nullptr);
+		return 0 == bufferevent_set_timeouts(mIter->second->m_event, &readTimeout, nullptr);
 	}
 
 	std::size_t CNetPool::Count() const
 	{
-		std::shared_lock<std::shared_mutex> lock(m_mtx_pool);
+		std::shared_lock<std::shared_mutex> lock(m_pool_mutex);
 		return m_pool.size();
 	}
 

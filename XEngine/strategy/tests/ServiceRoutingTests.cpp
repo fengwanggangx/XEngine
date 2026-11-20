@@ -83,7 +83,7 @@ class CServiceRoutingTests
 		std::string key = market.GetQueryKey(query);
 		CPendingQuery pending;
 		pending.m_router_id = 9001;
-		pending.m_strKey = key;
+		pending.m_key = key;
 		pending.m_type = query.GetType();
 		pending.m_deadline = std::chrono::steady_clock::now() + std::chrono::seconds(10);
 		pending.m_clients.push_back({ 7070, 200 });
@@ -128,11 +128,11 @@ class CServiceRoutingTests
 		Check(!market.m_subscriptions.IsSubscribed(FmtHQSubID(HQOrigin::Client, 7070), quote) && LastResponse(event).GetErrorInfo().has_value(), "subscription timeout rolls back subscription");
 
 		market.m_subscriptions.Subscribe(FmtHQSubID(HQOrigin::Client, 7070), { quote });
-		strategies.m_b_market_available.store(true);
+		strategies.m_market_available.store(true);
 		// Hold the synthetic runtime scheduled so no worker is needed to observe delivery.
 		std::shared_ptr<CStrategyRuntime> runtime = std::make_shared<CStrategyRuntime>();
-		runtime->m_b_accept_market_events.store(true);
-		runtime->m_b_scheduled = true;
+		runtime->m_accept_market_events.store(true);
+		runtime->m_scheduled = true;
 		runtime->m_config.m_event_queue_limit = 16;
 		strategies.m_runtimes.emplace(7, runtime);
 		strategies.m_market_routes[quote.String()].insert(7);
@@ -339,10 +339,10 @@ public:
 		entry = FmtAccountInfo(account);
 		entry.m_state = TradeAccountState::Connected;
 		trade::CAccountData& cached = trader.m_snapshots[account];
-		cached.m_bReady = true;
+		cached.m_ready = true;
 		cached.m_account.m_account = account;
-		cached.m_account.m_bConnected = true;
-		cached.m_account.m_b_funds_valid = true;
+		cached.m_account.m_connected = true;
+		cached.m_account.m_funds_valid = true;
 		accounts.m_accounts[account].m_info = std::move(entry);
 		Check(accounts.AcquireAccount(account), "ready account permits strategy use");
 		Check(accounts.AcquireAccount(account), "multiple consumers can use one account");
@@ -371,7 +371,7 @@ public:
 			accounts.ReleaseAccount(account);
 		}
 		Check(accounts.AcquireAccount(account), "catalogue refresh starts with an occupied account");
-		accounts.m_accounts.at(account).m_b_disconnecting = true;
+		accounts.m_accounts.at(account).m_disconnecting = true;
 		request::TradeAccountList catalogue;
 		request::TradeAccountRecord* record = catalogue.add_accounts();
 		record->set_broker_id(account.first);
@@ -380,13 +380,13 @@ public:
 		CRequest catalogueResponse;
 		catalogueResponse.SetData(catalogue);
 		accounts.OnAccountListReply(catalogueResponse, accounts.m_broker_connect_id);
-		Check(1 == accounts.m_accounts.at(account).m_use_count && accounts.m_accounts.at(account).m_b_disconnecting, "catalogue refresh preserves local runtime guards");
+		Check(1 == accounts.m_accounts.at(account).m_use_count && accounts.m_accounts.at(account).m_disconnecting, "catalogue refresh preserves local runtime guards");
 		Check(!accounts.AcquireAccount(account), "disconnecting account rejects new use");
 		catalogue.clear_accounts();
 		catalogueResponse.SetData(catalogue);
 		accounts.OnAccountListReply(catalogueResponse, accounts.m_broker_connect_id);
 		Check(!accounts.HasAccount(account) && accounts.GetAccounts().empty(), "removed runtime is hidden from the account directory");
-		Check(1 == accounts.m_accounts.at(account).m_use_count && accounts.m_accounts.at(account).m_b_disconnecting, "missing account retains outstanding use and disconnect guards");
+		Check(1 == accounts.m_accounts.at(account).m_use_count && accounts.m_accounts.at(account).m_disconnecting, "missing account retains outstanding use and disconnect guards");
 		accounts.ReleaseAccount(account);
 		Check(accounts.m_accounts.contains(account), "disconnect guard retains runtime after final release");
 		accounts.FinishDisconnect(account);

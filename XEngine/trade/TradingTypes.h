@@ -44,7 +44,7 @@ enum class OrderStatus
 struct COrderIntent
 {
 	std::uint64_t m_client_order_id{ 0 };
-	int m_n_price_scale{ 2 };
+	int m_price_scale{ 2 };
 	_TyAccount m_account{};
 	_TyStrategyId m_id{ 0 };
 	_TySignalId m_signal_id{ 0 };
@@ -54,7 +54,7 @@ struct COrderIntent
 	PositionEffect m_position_effect{ PositionEffect::Unknown };
 	std::int64_t m_price{ 0 };
 	std::int64_t m_quantity{ 0 };
-	std::string m_strReason;
+	std::string m_reason;
 	std::int64_t m_maximum_debit{ 0 };
 	std::int64_t m_quote_time_ms{ 0 };
 	std::string m_basis_version;
@@ -65,11 +65,11 @@ struct COrderIntent
 struct COrderSubmitResult
 {
 	// Queue admission only; final acceptance/rejection is an order event.
-	bool m_bAccepted{ false };
-	bool m_bRetryable{ false };
+	bool m_accepted{ false };
+	bool m_retryable{ false };
 	_TyClientOrderId m_client_order_id{ 0 };
 	_TyOrderId m_order_id{ 0 };
-	std::string m_strReason;
+	std::string m_reason;
 };
 
 struct COrderEvent
@@ -85,19 +85,19 @@ struct COrderEvent
 	std::int64_t m_quantity{ 0 };
 	std::int64_t m_filled_quantity{ 0 };
 	std::int64_t m_event_time_ms{ 0 };
-	std::string m_strReason;
+	std::string m_reason;
 };
 
 struct CTradeEvent
 {
-	int m_n_price_scale{ 2 };
+	int m_price_scale{ 2 };
 	std::uint64_t m_sequence{ 0 };
 	_TyAccount m_account{};
 	_TyStrategyId m_id{ 0 };
 	_TySignalId m_signal_id{ 0 };
 	_TyClientOrderId m_client_order_id{ 0 };
 	_TyOrderId m_order_id{ 0 };
-	std::string m_str_trade_id;
+	std::string m_trade_id;
 	CSecurity m_security;
 	OrderSide m_side{ OrderSide::Unknown };
 	std::int64_t m_price{ 0 };
@@ -107,9 +107,9 @@ struct CTradeEvent
 
 struct CPositionSnapshot
 {
-	bool m_bReady{ false };
+	bool m_ready{ false };
 	std::uint64_t m_version{ 0 };
-	std::int64_t m_nTime{ 0 };
+	std::int64_t m_time{ 0 };
 	CSecurity m_security;
 	std::int64_t m_total_quantity{ 0 };
 	std::int64_t m_available_quantity{ 0 };
@@ -118,18 +118,18 @@ struct CPositionSnapshot
 	// Cost is a total amount in cents; divide only at the final comparison.
 	std::int64_t m_total_cost{ 0 };
 	int m_money_scale{ 2 };
-	bool m_b_cost_known{ false };
-	bool m_b_frozen_known{ false };
+	bool m_cost_known{ false };
+	bool m_frozen_known{ false };
 };
 
 struct CAccountSnapshot
 {
-	bool m_bReady{ false };
+	bool m_ready{ false };
 	std::uint64_t m_version{ 0 };
-	std::int64_t m_nTime{ 0 };
+	std::int64_t m_time{ 0 };
 	std::int64_t m_balance{ 0 };
 	std::int64_t m_available{ 0 };
 	std::int64_t m_frozen{ 0 };
 	std::int64_t m_market_value{ 0 };
-	bool m_b_frozen_known{ false };
+	bool m_frozen_known{ false };
 };

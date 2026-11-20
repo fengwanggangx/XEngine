@@ -52,15 +52,15 @@ namespace net
 			void operator()(bufferevent* pEvent) const;
 		};
 
-		std::unique_ptr<bufferevent, CBufferEventDeleter> m_pEvent;
-		std::atomic_bool m_bConnected{ false };
+		std::unique_ptr<bufferevent, CBufferEventDeleter> m_event;
+		std::atomic_bool m_connected{ false };
 		std::unique_ptr<_TyDistributor> m_dispatcher;
 		std::unique_ptr<_TyOrderedDistributor> m_ordered_dispatcher;
 		void Dispatch(std::vector<CNetEvent>&& events);
 
 	private:
-		std::string m_strAddr;
-		int m_nPort{ -1 };
+		std::string m_addr;
+		int m_port{ -1 };
 
 		net::_TyConnectionId m_router_id{ 0 };
 	};

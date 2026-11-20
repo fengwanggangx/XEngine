@@ -24,8 +24,8 @@ namespace net
 		void Release();
 
 	private:
-		struct event_base* m_pNet{ nullptr };
-		std::atomic_bool m_bRunning{ false };
+		struct event_base* m_net{ nullptr };
+		std::atomic_bool m_running{ false };
 	};
 } // namespace net
 #endif

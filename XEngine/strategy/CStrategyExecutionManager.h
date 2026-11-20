@@ -31,7 +31,7 @@ struct CExecutionRecord
 	std::int64_t m_reserved_money{ 0 };
 	std::uint64_t m_order_id{ 0 };
 	std::uint64_t m_evidence_version{ 0 };
-	bool m_b_broker_covered{ false };
+	bool m_broker_covered{ false };
 	std::string m_message;
 	std::int64_t m_filled_quantity{ 0 };
 	trade::Status m_broker_status{ trade::Status::Unknown };
@@ -83,10 +83,10 @@ private:
 	bool IsBuyLockedWithoutLock(const _TyAccount& account, const CSecurity& security) const;
 	static bool IsUnresolved(ExecutionState state);
 
-	mutable std::mutex m_mtx_state;
+	mutable std::mutex m_state_mutex;
 	std::unique_ptr<CExecutionDatabase> m_database;
-	bool m_b_healthy{ false };
-	std::string m_str_last_error;
+	bool m_healthy{ false };
+	std::string m_last_error;
 	std::map<std::uint64_t, CExecutionRecord> m_records;
 	std::map<_TyLockKey, std::string> m_locks;
 	std::unordered_map<_TyAccount, std::uint64_t, CAccountHash> m_snapshot_versions;

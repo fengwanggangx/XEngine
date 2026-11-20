@@ -77,8 +77,8 @@
  * 解析为 CHttpRequest 后：
  *
  *    m_method  = HttpMethod::POST
- *    m_strUri  = "/api/users/100?source=pc&debug=1"
- *    m_strPath = "/api/users/100"
+ *    m_uri  = "/api/users/100?source=pc&debug=1"
+ *    m_path = "/api/users/100"
  *
  *    m_queries["source"] = "pc"
  *    m_queries["debug"]  = "1"
@@ -87,7 +87,7 @@
  *    m_headers["content-type"]  = "application/json; charset=utf-8"
  *    m_headers["authorization"] = "Bearer abc123"
  *
- *    m_strBody = "{\"name\":\"Tom\",\"age\":20}"
+ *    m_body = "{\"name\":\"Tom\",\"age\":20}"
  */
 
 struct evhttp;
@@ -123,9 +123,9 @@ namespace net
 
 	private:
 		HttpMethod m_method{ HttpMethod::UNKNOWN };
-		std::string m_strPath;
-		std::string m_strURI;
-		std::string m_strBody;
+		std::string m_path;
+		std::string m_uri;
+		std::string m_body;
 		std::unordered_map<std::string, std::string> m_headers;
 		std::unordered_map<std::string, std::string> m_queries;
 	};
@@ -171,9 +171,9 @@ namespace net
 
 	struct CHttpResponseData
 	{
-		int m_nStatus{ 200 };
+		int m_status{ 200 };
 		std::unordered_map<std::string, std::string> m_headers;
-		std::string m_strBody;
+		std::string m_body;
 	};
 
 	class CHttpServer final : public CNet
@@ -195,11 +195,11 @@ namespace net
 		void RegisterStream(const std::shared_ptr<CHttpStream::State>& state);
 
 	private:
-		int m_nPort{ -1 };
-		struct evhttp* m_pHttp{ nullptr };
-		struct evhttp_bound_socket* m_pListener{ nullptr };
+		int m_port{ -1 };
+		struct evhttp* m_http{ nullptr };
+		struct evhttp_bound_socket* m_listener{ nullptr };
 		std::unordered_map<std::string, _TyHandler> m_handlers;
-		std::mutex m_mtx_streams;
+		std::mutex m_streams_mutex;
 		std::vector<std::weak_ptr<CHttpStream::State>> m_streams;
 	};
 } // namespace net

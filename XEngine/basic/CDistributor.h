@@ -29,8 +29,8 @@ public:
 	{
 		if constexpr (bAsyn)
 		{
-			std::lock_guard<std::mutex> taskLock(m_mtx_tasks);
-			if (m_bStopping)
+			std::lock_guard<std::mutex> taskLock(m_tasks_mutex);
+			if (m_stopping)
 			{
 				return;
 			}
@@ -38,7 +38,7 @@ public:
 			if constexpr (IsContainer<_Ty>)
 			{
 				{
-					std::unique_lock<std::shared_mutex> lock(m_mtx_data);
+					std::unique_lock<std::shared_mutex> lock(m_data_mutex);
 					m_cache.reserve(m_cache.size() + data.size());
 					m_cache.insert(
 						m_cache.end(),
@@ -48,7 +48,7 @@ public:
 			}
 			else
 			{
-				std::unique_lock<std::shared_mutex> lock(m_mtx_data);
+				std::unique_lock<std::shared_mutex> lock(m_data_mutex);
 				m_cache.emplace_back(std::move(data));
 			}
 			m_tasks.emplace_back(ThreadPoolPtr->PushTask(task_priority::em_normal, 0, [this]()
@@ -64,13 +64,13 @@ public:
 
 	void RegisterHandler(_TyHandler&& fun)
 	{
-		std::unique_lock<std::shared_mutex> lock(m_mtx_handler);
+		std::unique_lock<std::shared_mutex> lock(m_handler_mutex);
 		m_handler.emplace_back(std::forward<_TyHandler>(fun));
 	}
 
 	void ClearHandlers()
 	{
-		std::unique_lock<std::shared_mutex> lock(m_mtx_handler);
+		std::unique_lock<std::shared_mutex> lock(m_handler_mutex);
 		m_handler.clear();
 	}
 
@@ -81,8 +81,8 @@ public:
 		{
 			std::vector<std::future<int>> tasks;
 			{
-				std::lock_guard<std::mutex> lock(m_mtx_tasks);
-				m_bStopping = true;
+				std::lock_guard<std::mutex> lock(m_tasks_mutex);
+				m_stopping = true;
 				tasks.swap(m_tasks);
 			}
 			for (auto& task : tasks)
@@ -106,7 +106,7 @@ private:
 	{
 		_TyDataContainer data;
 		{
-			std::unique_lock<std::shared_mutex> lock(m_mtx_data);
+			std::unique_lock<std::shared_mutex> lock(m_data_mutex);
 			data.swap(m_cache);
 		}
 
@@ -118,7 +118,7 @@ private:
 		int ret = 1;
 		if constexpr (IsContainer<_Ty>)
 		{
-			std::shared_lock<std::shared_mutex> lock(m_mtx_handler);
+			std::shared_lock<std::shared_mutex> lock(m_handler_mutex);
 			int nOK = ((1 << m_handler.size()) - 1);
 
 			std::size_t sz = data.size();
@@ -154,15 +154,15 @@ private:
 	}
 
 private:
-	std::shared_mutex m_mtx_data;
+	std::shared_mutex m_data_mutex;
 	_TyDataContainer m_cache;
 
-	std::shared_mutex m_mtx_handler;
+	std::shared_mutex m_handler_mutex;
 	std::vector<_TyHandler> m_handler;
 
-	std::mutex m_mtx_tasks;
+	std::mutex m_tasks_mutex;
 	std::vector<std::future<int>> m_tasks;
-	bool m_bStopping{ false };
+	bool m_stopping{ false };
 };
 
 #endif

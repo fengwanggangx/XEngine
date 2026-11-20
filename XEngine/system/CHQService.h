@@ -23,7 +23,7 @@ struct CPendingQueryClient
 struct CPendingQuery
 {
 	_TyRequestId m_router_id{ 0 };
-	std::string m_strKey;
+	std::string m_key;
 	_TyRequest m_type{ _TyRequest::UNKNOWN };
 	std::chrono::steady_clock::time_point m_deadline;
 	std::vector<CPendingQueryClient> m_clients;
@@ -36,7 +36,7 @@ struct CPendingSubscriptionBatch
 	std::chrono::steady_clock::time_point m_deadline;
 	std::vector<CQuoteInfo> m_requested;
 	std::vector<CQuoteInfo> m_changed;
-	std::string m_strError;
+	std::string m_error_message;
 };
 
 struct CUpstreamSubscription
@@ -44,9 +44,9 @@ struct CUpstreamSubscription
 	CQuoteInfo m_quote;
 	_TyRequestId m_request_id{ 0 };
 	_TyRequest m_type{ _TyRequest::UNKNOWN };
-	bool m_bConfirmed{ false };
+	bool m_confirmed{ false };
 	std::chrono::steady_clock::time_point m_deadline;
-	bool m_bUncertain{ false };
+	bool m_uncertain{ false };
 };
 
 class CHQService final
@@ -70,7 +70,7 @@ public:
 	void OnSessionState(SessionState state, const std::string& strMessage);
 
 private:
-	// Subscription helpers require m_mtx_subscriptions; sends are buffered and serialized
+	// Subscription helpers require m_subscriptions_mutex; sends are buffered and serialized
 	// with demand changes so a late unsubscribe cannot overtake a new subscriber.
 	bool HasDemand(const CQuoteInfo& quote) const;
 	void CompleteSubscriptions();
@@ -92,14 +92,14 @@ private:
 	void SendSubscriptionResponse(net::_TyConnectionId id, _TyRequestId requestId, bool bAccepted, const std::string& strReason, _TyRequest type = _TyRequest::MARKET_SUBSCRIBE, const std::vector<CQuoteInfo>& subscriptions = {}) const;
 
 private:
-	std::mutex m_mtx_state;
+	std::mutex m_state_mutex;
 	CSubscriptionMgr m_subscriptions;
-	std::mutex m_mtx_subscriptions;
-	bool m_b_market_ready{ false };
+	std::mutex m_subscriptions_mutex;
+	bool m_market_ready{ false };
 	std::unordered_map<std::string, CUpstreamSubscription> m_upstream_subscriptions;
 	std::unordered_map<_TyRequestId, CPendingSubscriptionBatch> m_pending_batch_subscriptions;
 	std::unordered_map<std::string, CPendingQuery> m_pending_queries;
 	std::atomic_uint64_t m_router_id{ std::uint64_t(1) << 63 };
 
-	CSession* m_pSession{ nullptr };
+	CSession* m_session{ nullptr };
 };

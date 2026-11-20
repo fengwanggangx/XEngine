@@ -65,41 +65,41 @@ namespace trade
 		void Write(std::ostream& stream, const CFunds& value)
 		{
 			Write(stream, value.m_account);
-			Write(stream, value.m_nBalance);
-			Write(stream, value.m_nFrozen);
-			Write(stream, value.m_bConnected);
-			Write(stream, value.m_bMigrated);
+			Write(stream, value.m_balance);
+			Write(stream, value.m_frozen);
+			Write(stream, value.m_connected);
+			Write(stream, value.m_migrated);
 		}
 
 		void Read(std::istream& stream, CFunds& value)
 		{
 			Read(stream, value.m_account);
-			Read(stream, value.m_nBalance);
-			Read(stream, value.m_nFrozen);
-			Read(stream, value.m_bConnected);
-			Read(stream, value.m_bMigrated);
+			Read(stream, value.m_balance);
+			Read(stream, value.m_frozen);
+			Read(stream, value.m_connected);
+			Read(stream, value.m_migrated);
 		}
 
 		void Write(std::ostream& stream, const CPosition& value)
 		{
 			Write(stream, value.m_account);
-			Write(stream, value.m_strSecurity);
-			Write(stream, value.m_nTotal);
-			Write(stream, value.m_nAvailable);
-			Write(stream, value.m_nFrozen);
-			Write(stream, value.m_nToday);
-			Write(stream, value.m_nCost);
+			Write(stream, value.m_security);
+			Write(stream, value.m_total);
+			Write(stream, value.m_available);
+			Write(stream, value.m_frozen);
+			Write(stream, value.m_today);
+			Write(stream, value.m_cost);
 		}
 
 		void Read(std::istream& stream, CPosition& value)
 		{
 			Read(stream, value.m_account);
-			Read(stream, value.m_strSecurity);
-			Read(stream, value.m_nTotal);
-			Read(stream, value.m_nAvailable);
-			Read(stream, value.m_nFrozen);
-			Read(stream, value.m_nToday);
-			Read(stream, value.m_nCost);
+			Read(stream, value.m_security);
+			Read(stream, value.m_total);
+			Read(stream, value.m_available);
+			Read(stream, value.m_frozen);
+			Read(stream, value.m_today);
+			Read(stream, value.m_cost);
 		}
 
 		void Write(std::ostream& stream, const COrder& value)
@@ -110,19 +110,19 @@ namespace trade
 			Write(stream, value.m_request_id);
 			Write(stream, value.m_id);
 			Write(stream, value.m_signal_id);
-			Write(stream, value.m_strSecurity);
+			Write(stream, value.m_security);
 			Write(stream, value.m_side);
 			Write(stream, value.m_status);
-			Write(stream, value.m_nPrice);
-			Write(stream, value.m_nQuantity);
-			Write(stream, value.m_nFilled);
-			Write(stream, value.m_nFrozen);
-			Write(stream, value.m_nTurnover);
-			Write(stream, value.m_nFee);
-			Write(stream, value.m_nTime);
-			Write(stream, value.m_n_price_scale);
-			Write(stream, value.m_nDay);
-			Write(stream, value.m_str_rule_version);
+			Write(stream, value.m_price);
+			Write(stream, value.m_quantity);
+			Write(stream, value.m_filled);
+			Write(stream, value.m_frozen);
+			Write(stream, value.m_turnover);
+			Write(stream, value.m_fee);
+			Write(stream, value.m_time);
+			Write(stream, value.m_price_scale);
+			Write(stream, value.m_day);
+			Write(stream, value.m_rule_version);
 		}
 
 		void Read(std::istream& stream, COrder& value)
@@ -133,19 +133,19 @@ namespace trade
 			Read(stream, value.m_request_id);
 			Read(stream, value.m_id);
 			Read(stream, value.m_signal_id);
-			Read(stream, value.m_strSecurity);
+			Read(stream, value.m_security);
 			Read(stream, value.m_side);
 			Read(stream, value.m_status);
-			Read(stream, value.m_nPrice);
-			Read(stream, value.m_nQuantity);
-			Read(stream, value.m_nFilled);
-			Read(stream, value.m_nFrozen);
-			Read(stream, value.m_nTurnover);
-			Read(stream, value.m_nFee);
-			Read(stream, value.m_nTime);
-			Read(stream, value.m_n_price_scale);
-			Read(stream, value.m_nDay);
-			Read(stream, value.m_str_rule_version);
+			Read(stream, value.m_price);
+			Read(stream, value.m_quantity);
+			Read(stream, value.m_filled);
+			Read(stream, value.m_frozen);
+			Read(stream, value.m_turnover);
+			Read(stream, value.m_fee);
+			Read(stream, value.m_time);
+			Read(stream, value.m_price_scale);
+			Read(stream, value.m_day);
+			Read(stream, value.m_rule_version);
 		}
 
 		void Write(std::ostream& stream, const CTrade& value)
@@ -153,13 +153,13 @@ namespace trade
 			Write(stream, value.m_trade_id);
 			Write(stream, value.m_order_id);
 			Write(stream, value.m_account);
-			Write(stream, value.m_strSecurity);
+			Write(stream, value.m_security);
 			Write(stream, value.m_side);
-			Write(stream, value.m_nPrice);
-			Write(stream, value.m_nQuantity);
-			Write(stream, value.m_nFee);
-			Write(stream, value.m_nTime);
-			Write(stream, value.m_n_price_scale);
+			Write(stream, value.m_price);
+			Write(stream, value.m_quantity);
+			Write(stream, value.m_fee);
+			Write(stream, value.m_time);
+			Write(stream, value.m_price_scale);
 		}
 
 		void Read(std::istream& stream, CTrade& value)
@@ -167,73 +167,73 @@ namespace trade
 			Read(stream, value.m_trade_id);
 			Read(stream, value.m_order_id);
 			Read(stream, value.m_account);
-			Read(stream, value.m_strSecurity);
+			Read(stream, value.m_security);
 			Read(stream, value.m_side);
-			Read(stream, value.m_nPrice);
-			Read(stream, value.m_nQuantity);
-			Read(stream, value.m_nFee);
-			Read(stream, value.m_nTime);
-			Read(stream, value.m_n_price_scale);
+			Read(stream, value.m_price);
+			Read(stream, value.m_quantity);
+			Read(stream, value.m_fee);
+			Read(stream, value.m_time);
+			Read(stream, value.m_price_scale);
 		}
 
 		void Write(std::ostream& stream, const CRule& value)
 		{
-			Write(stream, value.m_strVersion);
-			Write(stream, value.m_strSecurity);
-			Write(stream, value.m_strBoard);
-			Write(stream, value.m_nDay);
-			Write(stream, value.m_n_price_scale);
-			Write(stream, value.m_nTick);
-			Write(stream, value.m_n_buy_minimum);
-			Write(stream, value.m_n_buy_step);
-			Write(stream, value.m_n_sell_minimum);
-			Write(stream, value.m_n_sell_step);
-			Write(stream, value.m_nLower);
-			Write(stream, value.m_nUpper);
-			Write(stream, value.m_n_commission_ppm);
-			Write(stream, value.m_n_minimum_fee);
-			Write(stream, value.m_n_sell_tax_ppm);
-			Write(stream, value.m_n_transfer_ppm);
-			Write(stream, value.m_b_corporate_action);
+			Write(stream, value.m_version_text);
+			Write(stream, value.m_security);
+			Write(stream, value.m_board);
+			Write(stream, value.m_day);
+			Write(stream, value.m_price_scale);
+			Write(stream, value.m_tick);
+			Write(stream, value.m_buy_minimum);
+			Write(stream, value.m_buy_step);
+			Write(stream, value.m_sell_minimum);
+			Write(stream, value.m_sell_step);
+			Write(stream, value.m_lower);
+			Write(stream, value.m_upper);
+			Write(stream, value.m_commission_ppm);
+			Write(stream, value.m_minimum_fee);
+			Write(stream, value.m_sell_tax_ppm);
+			Write(stream, value.m_transfer_ppm);
+			Write(stream, value.m_corporate_action);
 		}
 
 		void Read(std::istream& stream, CRule& value)
 		{
-			Read(stream, value.m_strVersion);
-			Read(stream, value.m_strSecurity);
-			Read(stream, value.m_strBoard);
-			Read(stream, value.m_nDay);
-			Read(stream, value.m_n_price_scale);
-			Read(stream, value.m_nTick);
-			Read(stream, value.m_n_buy_minimum);
-			Read(stream, value.m_n_buy_step);
-			Read(stream, value.m_n_sell_minimum);
-			Read(stream, value.m_n_sell_step);
-			Read(stream, value.m_nLower);
-			Read(stream, value.m_nUpper);
-			Read(stream, value.m_n_commission_ppm);
-			Read(stream, value.m_n_minimum_fee);
-			Read(stream, value.m_n_sell_tax_ppm);
-			Read(stream, value.m_n_transfer_ppm);
-			Read(stream, value.m_b_corporate_action);
+			Read(stream, value.m_version_text);
+			Read(stream, value.m_security);
+			Read(stream, value.m_board);
+			Read(stream, value.m_day);
+			Read(stream, value.m_price_scale);
+			Read(stream, value.m_tick);
+			Read(stream, value.m_buy_minimum);
+			Read(stream, value.m_buy_step);
+			Read(stream, value.m_sell_minimum);
+			Read(stream, value.m_sell_step);
+			Read(stream, value.m_lower);
+			Read(stream, value.m_upper);
+			Read(stream, value.m_commission_ppm);
+			Read(stream, value.m_minimum_fee);
+			Read(stream, value.m_sell_tax_ppm);
+			Read(stream, value.m_transfer_ppm);
+			Read(stream, value.m_corporate_action);
 		}
 
 		void Write(std::ostream& stream, const CCalendar& value)
 		{
-			Write(stream, value.m_nDay);
-			Write(stream, value.m_nOpen);
-			Write(stream, value.m_nBreak);
-			Write(stream, value.m_nResume);
-			Write(stream, value.m_nClose);
+			Write(stream, value.m_day);
+			Write(stream, value.m_open_time_ms);
+			Write(stream, value.m_break_time_ms);
+			Write(stream, value.m_resume_time_ms);
+			Write(stream, value.m_close_time_ms);
 		}
 
 		void Read(std::istream& stream, CCalendar& value)
 		{
-			Read(stream, value.m_nDay);
-			Read(stream, value.m_nOpen);
-			Read(stream, value.m_nBreak);
-			Read(stream, value.m_nResume);
-			Read(stream, value.m_nClose);
+			Read(stream, value.m_day);
+			Read(stream, value.m_open_time_ms);
+			Read(stream, value.m_break_time_ms);
+			Read(stream, value.m_resume_time_ms);
+			Read(stream, value.m_close_time_ms);
 		}
 
 		void Write(std::ostream& stream, const CCounterEvent& value)
@@ -268,8 +268,8 @@ namespace trade
 		Write(stream, state.m_next_order);
 		Write(stream, state.m_next_trade);
 		Write(stream, state.m_sequence);
-		Write(stream, state.m_n_settled_day);
-		Write(stream, state.m_n_closed_day);
+		Write(stream, state.m_settled_day);
+		Write(stream, state.m_closed_day);
 		Write(stream, state.m_accounts.size());
 		for (const auto& item : state.m_accounts)
 		{
@@ -328,8 +328,8 @@ namespace trade
 		Read(stream, next.m_next_order);
 		Read(stream, next.m_next_trade);
 		Read(stream, next.m_sequence);
-		Read(stream, next.m_n_settled_day);
-		Read(stream, next.m_n_closed_day);
+		Read(stream, next.m_settled_day);
+		Read(stream, next.m_closed_day);
 		std::size_t nCount = 0;
 		Read(stream, nCount);
 		if (!stream || (10000000 < nCount))
@@ -354,7 +354,7 @@ namespace trade
 		{
 			CPosition value;
 			Read(stream, value);
-			if (!stream || !next.m_positions.emplace(std::make_pair(value.m_account, value.m_strSecurity), std::move(value)).second)
+			if (!stream || !next.m_positions.emplace(std::make_pair(value.m_account, value.m_security), std::move(value)).second)
 			{
 				return false;
 			}
@@ -396,7 +396,7 @@ namespace trade
 		{
 			CRule value;
 			Read(stream, value);
-			if (!stream || !next.m_rules.emplace(std::make_pair(value.m_nDay, value.m_strSecurity), std::move(value)).second)
+			if (!stream || !next.m_rules.emplace(std::make_pair(value.m_day, value.m_security), std::move(value)).second)
 			{
 				return false;
 			}
@@ -410,7 +410,7 @@ namespace trade
 		{
 			CCalendar value;
 			Read(stream, value);
-			if (!stream || !next.m_calendar.emplace(value.m_nDay, std::move(value)).second)
+			if (!stream || !next.m_calendar.emplace(value.m_day, std::move(value)).second)
 			{
 				return false;
 			}
@@ -481,7 +481,7 @@ namespace trade
 		{
 			return;
 		}
-		if (event.m_b_account_valid)
+		if (event.m_account_valid)
 		{
 			snapshot.m_account = event.m_funds;
 		}
@@ -506,7 +506,7 @@ namespace trade
 		case EventTy::Position:
 			UpdateRow(snapshot.m_positions, event.m_position, [&event](const CPosition& row)
 			{
-				return event.m_account == row.m_account && event.m_position.m_strSecurity == row.m_strSecurity;
+				return event.m_account == row.m_account && event.m_position.m_security == row.m_security;
 			});
 			break;
 		default:
@@ -519,8 +519,8 @@ namespace trade
 		state.m_next_order = changes.m_next_order;
 		state.m_next_trade = changes.m_next_trade;
 		state.m_sequence = changes.m_sequence;
-		state.m_n_settled_day = changes.m_n_settled_day;
-		state.m_n_closed_day = changes.m_n_closed_day;
+		state.m_settled_day = changes.m_settled_day;
+		state.m_closed_day = changes.m_closed_day;
 		for (const auto& item : changes.m_accounts)
 		{
 			state.m_accounts.insert_or_assign(item.first, item.second);

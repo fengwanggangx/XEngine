@@ -18,20 +18,20 @@ namespace db
 
 	int CMySQL::Connect(const db::CConnectParam& param)
 	{
-		std::lock_guard<std::mutex> lock(m_mtx_db);
+		std::lock_guard<std::mutex> lock(m_db_mutex);
 		if (IsValid())
 		{
 			return 0;
 		}
-		if (param.m_strDataBase.empty() || (std::string::npos != param.m_strDataBase.find('\0')))
+		if (param.m_database.empty() || (std::string::npos != param.m_database.find('\0')))
 		{
 			std::cerr << "MySQL database name is invalid\n";
 			return 1;
 		}
-		if (nullptr == m_pDB)
+		if (nullptr == m_db)
 		{
-			m_pDB = mysql_init(nullptr);
-			if (nullptr == m_pDB)
+			m_db = mysql_init(nullptr);
+			if (nullptr == m_db)
 			{
 				return 1;
 			}
@@ -39,26 +39,26 @@ namespace db
 
 		// Reconnection would silently discard transactions and session-owned locks.
 		bool reconnect = false;
-		if (0 != mysql_options(m_pDB, MYSQL_OPT_RECONNECT, &reconnect))
+		if (0 != mysql_options(m_db, MYSQL_OPT_RECONNECT, &reconnect))
 		{
-			mysql_close(m_pDB);
-			m_pDB = nullptr;
+			mysql_close(m_db);
+			m_db = nullptr;
 			return 1;
 		}
-		mysql_options(m_pDB, MYSQL_SET_CHARSET_NAME, param.m_strCharset.c_str());
-		if (nullptr == mysql_real_connect(m_pDB, param.m_strHost.c_str(), param.m_strAccount.c_str(), param.m_strPasswd.c_str(), nullptr, param.m_nPort, nullptr, 0))
+		mysql_options(m_db, MYSQL_SET_CHARSET_NAME, param.m_charset.c_str());
+		if (nullptr == mysql_real_connect(m_db, param.m_host.c_str(), param.m_account.c_str(), param.m_password.c_str(), nullptr, param.m_port, nullptr, 0))
 		{
-			std::cerr << "MySQL connection failed: " << mysql_error(m_pDB) << '\n';
-			mysql_close(m_pDB);
-			m_pDB = nullptr;
+			std::cerr << "MySQL connection failed: " << mysql_error(m_db) << '\n';
+			mysql_close(m_db);
+			m_db = nullptr;
 			return 1;
 		}
-		std::string strSQL = "CREATE DATABASE IF NOT EXISTS `" + param.m_strDataBase + "` CHARACTER SET utf8mb4";
-		if ((0 != mysql_query(m_pDB, strSQL.c_str())) || (0 != mysql_select_db(m_pDB, param.m_strDataBase.c_str())))
+		std::string strSQL = "CREATE DATABASE IF NOT EXISTS `" + param.m_database + "` CHARACTER SET utf8mb4";
+		if ((0 != mysql_query(m_db, strSQL.c_str())) || (0 != mysql_select_db(m_db, param.m_database.c_str())))
 		{
-			std::cerr << "MySQL database initialization failed: " << mysql_error(m_pDB) << '\n';
-			mysql_close(m_pDB);
-			m_pDB = nullptr;
+			std::cerr << "MySQL database initialization failed: " << mysql_error(m_db) << '\n';
+			mysql_close(m_db);
+			m_db = nullptr;
 			return 1;
 		}
 		return 0;
@@ -66,17 +66,17 @@ namespace db
 
 	void CMySQL::DisConnect()
 	{
-		std::lock_guard<std::mutex> lock(m_mtx_db);
-		if (nullptr != m_pDB)
+		std::lock_guard<std::mutex> lock(m_db_mutex);
+		if (nullptr != m_db)
 		{
-			mysql_close(m_pDB);
+			mysql_close(m_db);
 		}
-		m_pDB = nullptr;
+		m_db = nullptr;
 	}
 
 	bool CMySQL::IsValid()
 	{
-		return (nullptr != m_pDB) && (0 == mysql_ping(m_pDB));
+		return (nullptr != m_db) && (0 == mysql_ping(m_db));
 	}
 
 	int CMySQL::Close()
@@ -88,7 +88,7 @@ namespace db
 	const CTable& CMySQL::ExecQuery(const std::string& strSQL)
 	{
 		thread_local CTable s_table;
-		std::lock_guard<std::mutex> lock(m_mtx_db);
+		std::lock_guard<std::mutex> lock(m_db_mutex);
 
 		CTable::_TyColumns& columns = s_table.m_columns;
 		CTable::_TyRows& rows = s_table.m_rows;
@@ -100,13 +100,13 @@ namespace db
 		{
 			return s_table;
 		}
-		int nRet = mysql_query(m_pDB, strSQL.c_str());
+		int nRet = mysql_query(m_db, strSQL.c_str());
 		if (0 != nRet)
 		{
 			return s_table;
 		}
 
-		std::unique_ptr<MYSQL_RES, void (*)(MYSQL_RES*)> result(mysql_store_result(m_pDB), [](MYSQL_RES* p)
+		std::unique_ptr<MYSQL_RES, void (*)(MYSQL_RES*)> result(mysql_store_result(m_db), [](MYSQL_RES* p)
 		{
 			if (nullptr != p)
 			{
@@ -115,7 +115,7 @@ namespace db
 		});
 		if (nullptr == result.get())
 		{
-			//(0 == mysql_field_count(m_pDB))
+			//(0 == mysql_field_count(m_db))
 			return s_table;
 		}
 
@@ -127,8 +127,8 @@ namespace db
 		{
 			columns.emplace_back();
 			CColumn& col = columns.back();
-			col.m_uId = static_cast<unsigned int>(i);
-			col.m_strName = pFields[i].name;
+			col.m_id = static_cast<unsigned int>(i);
+			col.m_name = pFields[i].name;
 			col.m_type = db::GetDataType(em_database::mysql, pFields[i].type);
 		}
 		uint64_t nRows = mysql_num_rows(result.get());
@@ -155,7 +155,7 @@ namespace db
 
 			rows.emplace_back(std::move(rowData));
 		}
-		if (0 != mysql_errno(m_pDB))
+		if (0 != mysql_errno(m_db))
 		{
 			s_table.Clear();
 		}
@@ -164,12 +164,12 @@ namespace db
 
 	int CMySQL::ExecUpdate(const std::string& strSQL)
 	{
-		std::lock_guard<std::mutex> lock(m_mtx_db);
+		std::lock_guard<std::mutex> lock(m_db_mutex);
 		if (!IsValid())
 		{
 			return -1;
 		}
-		int nRet = mysql_query(m_pDB, strSQL.c_str());
+		int nRet = mysql_query(m_db, strSQL.c_str());
 		if (0 != nRet)
 		{
 		}
@@ -178,79 +178,79 @@ namespace db
 
 	int CMySQL::ExecScript(const std::string& strSQL)
 	{
-		std::lock_guard<std::mutex> lock(m_mtx_db);
+		std::lock_guard<std::mutex> lock(m_db_mutex);
 		if (!IsValid())
 		{
 			return -1;
 		}
-		if (0 != mysql_set_server_option(m_pDB, MYSQL_OPTION_MULTI_STATEMENTS_ON))
+		if (0 != mysql_set_server_option(m_db, MYSQL_OPTION_MULTI_STATEMENTS_ON))
 		{
-			return mysql_errno(m_pDB);
+			return mysql_errno(m_db);
 		}
 
-		int nRet = mysql_real_query(m_pDB, strSQL.data(), static_cast<unsigned long>(strSQL.size()));
+		int nRet = mysql_real_query(m_db, strSQL.data(), static_cast<unsigned long>(strSQL.size()));
 		if (0 == nRet)
 		{
 			int nNextResult = 0;
 			do
 			{
-				MYSQL_RES* pResult = mysql_store_result(m_pDB);
+				MYSQL_RES* pResult = mysql_store_result(m_db);
 				if (nullptr != pResult)
 				{
 					mysql_free_result(pResult);
 				}
-				else if ((0 != mysql_field_count(m_pDB)) && (0 == nRet))
+				else if ((0 != mysql_field_count(m_db)) && (0 == nRet))
 				{
-					nRet = mysql_errno(m_pDB);
+					nRet = mysql_errno(m_db);
 				}
 
-				nNextResult = mysql_next_result(m_pDB);
+				nNextResult = mysql_next_result(m_db);
 				if ((0 < nNextResult) && (0 == nRet))
 				{
-					nRet = mysql_errno(m_pDB);
+					nRet = mysql_errno(m_db);
 				}
 			} while (0 == nNextResult);
 		}
 
-		int nDisableRet = mysql_set_server_option(m_pDB, MYSQL_OPTION_MULTI_STATEMENTS_OFF);
+		int nDisableRet = mysql_set_server_option(m_db, MYSQL_OPTION_MULTI_STATEMENTS_OFF);
 		if ((0 == nRet) && (0 != nDisableRet))
 		{
-			nRet = mysql_errno(m_pDB);
+			nRet = mysql_errno(m_db);
 		}
 		return nRet;
 	}
 
 	bool CMySQL::BeginTransaction()
 	{
-		std::lock_guard<std::mutex> lock(m_mtx_db);
+		std::lock_guard<std::mutex> lock(m_db_mutex);
 		if (!IsValid())
 		{
 			return false;
 		}
-		return 0 == mysql_autocommit(m_pDB, 0);
+		return 0 == mysql_autocommit(m_db, 0);
 	}
 
 	bool CMySQL::EndTransaction()
 	{
-		std::lock_guard<std::mutex> lock(m_mtx_db);
+		std::lock_guard<std::mutex> lock(m_db_mutex);
 		if (!IsValid())
 		{
 			return false;
 		}
-		bool bRet = 0 == mysql_commit(m_pDB);
-		mysql_autocommit(m_pDB, 1);
+		bool bRet = 0 == mysql_commit(m_db);
+		mysql_autocommit(m_db, 1);
 		return bRet;
 	}
 
 	bool CMySQL::RollBackTransaction()
 	{
-		std::lock_guard<std::mutex> lock(m_mtx_db);
+		std::lock_guard<std::mutex> lock(m_db_mutex);
 		if (!IsValid())
 		{
 			return false;
 		}
-		bool bRet = 0 == mysql_rollback(m_pDB);
-		mysql_autocommit(m_pDB, 1);
+		bool bRet = 0 == mysql_rollback(m_db);
+		mysql_autocommit(m_db, 1);
 		return bRet;
 	}
 

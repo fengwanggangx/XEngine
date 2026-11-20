@@ -23,7 +23,7 @@ namespace db
 		bool RollBackTransaction() override;
 
 	private:
-		void* m_pDB{ nullptr };
+		void* m_db{ nullptr };
 	};
 } // namespace db
 #endif

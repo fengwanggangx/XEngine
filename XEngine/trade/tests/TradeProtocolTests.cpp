@@ -16,8 +16,8 @@ int main()
 	{
 		_TyAccount account{ 17, "000123" };
 		CAccountInfo info = FmtAccountInfo(account);
-		info.m_str_broker_name = "测试券商";
-		info.m_str_name = "账户别名";
+		info.m_broker_name = "测试券商";
+		info.m_name = "账户别名";
 		Check(account == FmtAccount(trade::protocol::AccountPayload(info)), "display identity preserved");
 		for (trade::Operation operation : { trade::Operation::Funds, trade::Operation::Positions, trade::Operation::Orders, trade::Operation::Trades })
 		{
@@ -58,35 +58,35 @@ int main()
 		event.m_sequence = 100;
 		event.m_kind = trade::EventTy::Order;
 		event.m_funds.m_account = account;
-		event.m_funds.m_bConnected = true;
-		event.m_funds.m_nBalance = 10000;
-		event.m_funds.m_nFrozen = 100;
-		event.m_funds.m_nAvailable = 7777;
-		event.m_funds.m_b_explicit_available = true;
-		event.m_funds.m_b_funds_valid = false;
+		event.m_funds.m_connected = true;
+		event.m_funds.m_balance = 10000;
+		event.m_funds.m_frozen = 100;
+		event.m_funds.m_available = 7777;
+		event.m_funds.m_explicit_available = true;
+		event.m_funds.m_funds_valid = false;
 		event.m_order.m_account = account;
 		event.m_order.m_order_id = 99;
-		event.m_order.m_str_broker_order_id = "18446744073709551614";
+		event.m_order.m_broker_order_id = "18446744073709551614";
 		event.m_order.m_status = trade::Status::Unknown;
-		event.m_order.m_b_fee_known = false;
-		event.m_order.m_b_frozen_known = false;
+		event.m_order.m_fee_known = false;
+		event.m_order.m_frozen_known = false;
 		CRequest pushed = trade::protocol::Push(event, info);
 		trade::CCounterEvent received;
-		Check(trade::protocol::ReadPush(pushed, received) && received.m_b_account_valid, "account metadata in order push");
-		Check(7777 == received.m_funds.m_nAvailable && !received.m_funds.m_b_funds_valid, "explicit funds and validity round trip");
-		Check(event.m_order.m_str_broker_order_id == received.m_order.m_str_broker_order_id && !received.m_order.m_b_fee_known, "raw identifier and unknown fee preserved");
+		Check(trade::protocol::ReadPush(pushed, received) && received.m_account_valid, "account metadata in order push");
+		Check(7777 == received.m_funds.m_available && !received.m_funds.m_funds_valid, "explicit funds and validity round trip");
+		Check(event.m_order.m_broker_order_id == received.m_order.m_broker_order_id && !received.m_order.m_fee_known, "raw identifier and unknown fee preserved");
 		Check(OrderStatus::Unknown == trade::protocol::OrderEvent(received).m_status, "unknown is not rejected");
 		received.m_order.m_status = trade::Status::Pending;
 		Check(OrderStatus::Pending == trade::protocol::OrderEvent(received).m_status, "pending is not accepted");
 		received.m_order.m_status = trade::Status::PartiallyFilled;
-		received.m_order.m_b_cancel_pending = true;
+		received.m_order.m_cancel_pending = true;
 		Check(OrderStatus::Cancelling == trade::protocol::OrderEvent(received).m_status, "pending cancel is distinct");
 		trade::CAccountData cached;
 		cached.m_account = event.m_funds;
-		received.m_b_account_valid = false;
+		received.m_account_valid = false;
 		received.m_funds = {};
 		trade::UpdateAccountData(cached, received);
-		Check(7777 == cached.m_account.m_nAvailable, "missing account metadata cannot overwrite funds");
+		Check(7777 == cached.m_account.m_available, "missing account metadata cannot overwrite funds");
 		std::cout << "identity protocol tests passed\n";
 		return 0;
 	}

@@ -65,8 +65,8 @@ struct CStrategyEvent
 struct CStrategyStockInstance
 {
 	CSecurity m_security;
-	std::unique_ptr<CStrategyContext> m_p_context;
-	std::unique_ptr<IStrategy> m_p_strategy;
+	std::unique_ptr<CStrategyContext> m_context;
+	std::unique_ptr<IStrategy> m_strategy;
 };
 
 // 保存一份策略配置的股票实例、生命周期、事件队列、活动订单及运行指标。
@@ -76,24 +76,24 @@ struct CStrategyRuntime
 	CStrategyConfig m_config;
 	std::vector<CStrategyStockInstance> m_securities;
 	std::atomic<StrategyState> m_state{ StrategyState::Created };
-	std::atomic_bool m_b_accept_market_events{ false };
-	std::atomic_bool m_b_removing{ false };
+	std::atomic_bool m_accept_market_events{ false };
+	std::atomic_bool m_removing{ false };
 
-	std::mutex m_mtx_events;
-	std::condition_variable m_cv_idle;
+	std::mutex m_events_mutex;
+	std::condition_variable m_idle_condition;
 	std::deque<CStrategyEvent> m_events;
-	bool m_b_scheduled{ false };
-	bool m_b_executing_callback{ false };
+	bool m_scheduled{ false };
+	bool m_executing_callback{ false };
 
-	std::mutex m_mtx_orders;
+	std::mutex m_orders_mutex;
 	std::unordered_set<_TyOrderId> m_active_order_ids;
 
-	std::mutex m_mtx_metrics;
+	std::mutex m_metrics_mutex;
 	std::uint64_t m_last_event_sequence{ 0 };
 	std::uint64_t m_dropped_market_events{ 0 };
 	std::int64_t m_last_callback_duration_us{ 0 };
 	std::int64_t m_max_callback_duration_us{ 0 };
-	std::string m_str_last_error;
+	std::string m_last_error;
 	std::string m_business_state;
 	std::string m_details_json;
 	std::map<std::string, std::pair<std::string, std::string>> m_security_details;
@@ -198,23 +198,23 @@ private:
 	bool EnqueueEvent(const std::shared_ptr<CStrategyRuntime>& runtime, CStrategyEvent&& ev);
 
 private:
-	std::mutex m_mtx_account_users;
+	std::mutex m_account_users_mutex;
 	std::unordered_map<_TyAccount, std::unordered_set<_TyStrategyId>, CAccountHash> m_running_strategies;
-	std::mutex m_mtx_operations;
+	std::mutex m_operations_mutex;
 	CIndicator& m_indicator;
 	CStrategyExecutionManager m_execution;
-	CHQService* m_p_hq_service{ nullptr };
+	CHQService* m_hq_service{ nullptr };
 	// Borrowed from CBootLoader; trading callbacks are stopped before destruction.
-	CTradeService* m_p_trade_service{ nullptr };
-	CAccountService* m_p_account_service{ nullptr };
+	CTradeService* m_trade_service{ nullptr };
+	CAccountService* m_account_service{ nullptr };
 
-	mutable std::shared_mutex m_mtx_strategies;
+	mutable std::shared_mutex m_strategies_mutex;
 	std::unordered_map<_TyStrategyId, std::shared_ptr<CStrategyRuntime>> m_runtimes;
 
-	mutable std::shared_mutex m_mtx_routes;
+	mutable std::shared_mutex m_routes_mutex;
 	std::unordered_map<std::string, std::unordered_set<_TyStrategyId>> m_market_routes;
 
-	mutable std::shared_mutex m_mtx_orders;
+	mutable std::shared_mutex m_orders_mutex;
 	using _TyOrderRouteIndex = std::pair<_TyAccount, _TyOrderId>;
 
 	struct COrderRouteHash
@@ -225,16 +225,16 @@ private:
 	std::unordered_map<_TyOrderRouteIndex, _TyStrategyId, COrderRouteHash> m_order_routes;
 	std::unordered_map<_TyOrderRouteIndex, _TyStrategyId, COrderRouteHash> m_client_order_routes;
 
-	std::mutex m_mtx_signals;
+	std::mutex m_signals_mutex;
 	std::unordered_map<CSignalKey, SignalState, CSignalKeyHash> m_signals;
 
-	std::mutex m_mtx_handlers;
+	std::mutex m_handlers_mutex;
 	std::vector<_TyStateHandler> m_state_handlers;
 
 	std::atomic_uint64_t m_instance_id{ 1 };
-	std::atomic_bool m_b_market_available{ false };
-	std::atomic_bool m_b_stopping{ false };
-	std::string m_str_last_error;
+	std::atomic_bool m_market_available{ false };
+	std::atomic_bool m_stopping{ false };
+	std::string m_last_error;
 };
 
 #endif

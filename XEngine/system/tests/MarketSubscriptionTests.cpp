@@ -160,7 +160,7 @@ public:
 			Check(1 == sent.size(), "strategies share one upstream subscribe");
 			market.OnRequest(ClientRequest(quote, true, 101));
 			Check(responses.empty(), "terminal joining an in-flight strategy subscription waits for ACK");
-			Check(!market.m_upstream_subscriptions.at(quote.String()).m_bConfirmed, "write success does not confirm subscription");
+			Check(!market.m_upstream_subscriptions.at(quote.String()).m_confirmed, "write success does not confirm subscription");
 			market.OnReply(Reply(sent.back()));
 			Check(1 == responses.size() && !responses.back().GetErrorInfo().has_value(), "shared ACK completes terminal subscription");
 			market.Release(HQOrigin::Strategy, 1);
@@ -181,7 +181,7 @@ public:
 			market.HandleClientDisconnected(7070);
 			Check(4 == sent.size(), "terminal disconnect retains the strategy subscription");
 			market.OnSessionState(SessionState::Disconnected, "offline");
-			Check(!market.m_upstream_subscriptions.at(quote.String()).m_bConfirmed, "disconnect invalidates confirmation");
+			Check(!market.m_upstream_subscriptions.at(quote.String()).m_confirmed, "disconnect invalidates confirmation");
 			market.OnSessionState(SessionState::Ready, "");
 			Check(5 == sent.size(), "reconnect restores shared strategy demand exactly once");
 			market.OnReply(Reply(sent.back()));
@@ -218,7 +218,7 @@ public:
 			market.OnReply(Reply(sent.back(), false));
 			Check(responses.back().GetErrorInfo().has_value(), "per-item rejection fails terminal even without top-level error");
 			Check(!market.m_subscriptions.IsSubscribed(FmtHQSubID(HQOrigin::Client, 7070), quote), "rejection rolls back terminal demand");
-			Check(market.HasDemand(quote) && !market.m_upstream_subscriptions.at(quote.String()).m_bConfirmed, "strategy demand remains unconfirmed for reconnect");
+			Check(market.HasDemand(quote) && !market.m_upstream_subscriptions.at(quote.String()).m_confirmed, "strategy demand remains unconfirmed for reconnect");
 			market.OnSessionState(SessionState::Disconnected, "offline");
 			market.OnSessionState(SessionState::Ready, "");
 			Check(2 == sent.size(), "reconnect retries retained strategy demand");

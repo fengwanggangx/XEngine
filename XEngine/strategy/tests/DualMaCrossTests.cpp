@@ -111,7 +111,7 @@ namespace
 		{
 			const COrderIntent& order = context.m_orders[index];
 			Check((42 == order.m_id) && (index + 1 == order.m_signal_id) && (100 == order.m_quantity), "strategy routing and quantity unchanged");
-			Check((OrderType::Limit == order.m_order_type) && (2 == order.m_n_price_scale) && (Exchange::sse == order.m_security.m_market), "limit order and original security preserved");
+			Check((OrderType::Limit == order.m_order_type) && (2 == order.m_price_scale) && (Exchange::sse == order.m_security.m_market), "limit order and original security preserved");
 			Check((OrderSide::Buy == order.m_side ? PositionEffect::Open : PositionEffect::Close) == order.m_position_effect, "position effect unchanged");
 		}
 		Check(600 == context.m_orders.front().m_price, "order uses original fixed-point price");
@@ -175,7 +175,7 @@ namespace
 		Feed(strategy, 9900);
 		strategy.OnStart();
 		Feed(strategy, 60000, 1, 4);
-		Check((1 == context.m_orders.size()) && (60000 == context.m_orders.back().m_price) && (4 == context.m_orders.back().m_n_price_scale), "pause preserves warmup and mixed scales normalize consistently");
+		Check((1 == context.m_orders.size()) && (60000 == context.m_orders.back().m_price) && (4 == context.m_orders.back().m_price_scale), "pause preserves warmup and mixed scales normalize consistently");
 		strategy.OnStop();
 		strategy.OnStart();
 		Feed(strategy, 500);

@@ -2,5 +2,5 @@
 
 CDualMaCrossStrategy::CDualMaCrossStrategy(CIndicator& indicator) : CConfiguredStrategy(strategy::Kind::DualMaCross)
 {
-	m_p_indicator = &indicator;
+	m_indicator = &indicator;
 }

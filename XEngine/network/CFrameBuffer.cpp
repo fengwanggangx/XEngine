@@ -10,13 +10,13 @@ namespace net
 
 	std::optional<std::vector<std::string>> CFrameBuffer::Decode(const void* pData, std::size_t nLength)
 	{
-		if (m_bError || ((nullptr == pData) && (0 != nLength)))
+		if (m_error || ((nullptr == pData) && (0 != nLength)))
 		{
 			return std::nullopt;
 		}
 		if (nLength > (std::numeric_limits<std::size_t>::max)() - m_recv_buffer.size())
 		{
-			m_bError = true;
+			m_error = true;
 			return std::nullopt;
 		}
 		if (0 != nLength)
@@ -35,9 +35,9 @@ namespace net
 										 (static_cast<std::uint32_t>(m_recv_buffer[nOffset + 2]) << 8) |
 										 static_cast<std::uint32_t>(m_recv_buffer[nOffset + 3]);
 			// 帧长度为 0 或超过允许的最大帧长度
-			if ((0 == nFrameLength) || (nFrameLength > m_n_max_frame_size))
+			if ((0 == nFrameLength) || (nFrameLength > m_max_frame_size))
 			{
-				m_bError = true;
+				m_error = true;
 				return std::nullopt;
 			}
 			// 保留半包，等待下次数据
@@ -60,18 +60,18 @@ namespace net
 	void CFrameBuffer::Reset()
 	{
 		m_recv_buffer.clear();
-		m_bError = false;
+		m_error = false;
 	}
 
 	bool CFrameBuffer::HasError() const
 	{
-		return m_bError;
+		return m_error;
 	}
 
 	std::optional<std::string> CFrameBuffer::Encode(const std::string& strPayload)
 	{
 		std::size_t sz = strPayload.size();
-		if (strPayload.empty() || (sz > m_n_max_frame_size))
+		if (strPayload.empty() || (sz > m_max_frame_size))
 		{
 			return std::nullopt;
 		}

@@ -16,6 +16,6 @@ public:
 	std::size_t Count(db::em_database t) const;
 
 private:
-	std::unique_ptr<db::CODBC> m_pODBC{ nullptr };
+	std::unique_ptr<db::CODBC> m_odbc{ nullptr };
 };
 #endif

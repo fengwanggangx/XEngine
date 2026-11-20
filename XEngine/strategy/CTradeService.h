@@ -67,13 +67,13 @@ private:
 	bool SendRequest(CRequest&& request);
 	bool DispatchReply(const CRequest& origin, const CRequest& reply);
 
-	std::mutex m_mtx_requests;
+	std::mutex m_requests_mutex;
 	std::unordered_map<_TyRequestId, CPending> m_pending;
-	CSession* m_p_session{ nullptr };
-	CAccountService* m_p_account_service{ nullptr };
-	std::atomic_bool m_b_running{ false };
-	std::string m_str_last_error;
-	mutable std::mutex m_mtx_state;
+	CSession* m_session{ nullptr };
+	CAccountService* m_account_service{ nullptr };
+	std::atomic_bool m_running{ false };
+	std::string m_last_error;
+	mutable std::mutex m_state_mutex;
 	std::map<_TyAccount, trade::CAccountData> m_snapshots;
 
 	struct CSync
@@ -83,7 +83,7 @@ private:
 		std::array<std::uint64_t, 5> m_versions{};
 		std::uint64_t m_cycle{ 0 };
 		std::size_t m_completed{ 0 };
-		bool m_b_overflow{ false };
+		bool m_overflow{ false };
 	};
 
 	std::unordered_map<_TyAccount, CSync, CAccountHash> m_syncing;
@@ -99,12 +99,12 @@ private:
 	std::uint64_t m_generation{ 0 };
 	std::unordered_map<_TyAccount, std::uint64_t, CAccountHash> m_account_epochs;
 	std::uint64_t m_next_account_epoch{ static_cast<std::uint64_t>(std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now().time_since_epoch()).count()) };
-	std::atomic_uint64_t m_n_next_sync_id{ 1 };
+	std::atomic_uint64_t m_next_sync_id{ 1 };
 	std::jthread m_refresh;
-	std::mutex m_mtx_wait;
+	std::mutex m_wait_mutex;
 	std::condition_variable m_wake;
 
-	std::mutex m_mtx_handlers;
+	std::mutex m_handlers_mutex;
 	_TyStrategyReplyHandler m_strategy_reply_handler;
 	_TyEventHandler m_event_handler;
 	_TyRequestNotify m_push_handler;

@@ -15,23 +15,23 @@ enum class TradeAccountState
 struct CAccountInfo
 {
 	std::uint64_t m_broker_id{ 0 };
-	std::string m_str_site;
-	std::string m_str_account;
-	std::string m_str_broker_name;
-	std::string m_str_name;
+	std::string m_site;
+	std::string m_account;
+	std::string m_broker_name;
+	std::string m_name;
 	TradeAccountState m_state{ TradeAccountState::Disconnected };
-	std::string m_str_last_error;
+	std::string m_last_error;
 };
 
 inline _TyAccount FmtAccount(const CAccountInfo& info)
 {
-	return { info.m_broker_id, info.m_str_account };
+	return { info.m_broker_id, info.m_account };
 }
 
 inline CAccountInfo FmtAccountInfo(const _TyAccount& account)
 {
 	CAccountInfo info;
 	info.m_broker_id = account.first;
-	info.m_str_account = account.second;
+	info.m_account = account.second;
 	return info;
 }

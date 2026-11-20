@@ -27,7 +27,7 @@ public:
 	int QuotePriority(const _TyQuoteData& data) const override;
 
 protected:
-	CIndicator* m_p_indicator{ nullptr };
+	CIndicator* m_indicator{ nullptr };
 
 private:
 	bool Protection() const;
@@ -46,7 +46,7 @@ private:
 	std::string m_signature;
 	strategy::Kind m_kind;
 	strategy::CSettings m_settings;
-	IStrategyContext* m_p_context{ nullptr };
+	IStrategyContext* m_context{ nullptr };
 	CStrategyConfig m_config;
 	CSecurity m_security;
 	std::string m_phase{ "监控" };

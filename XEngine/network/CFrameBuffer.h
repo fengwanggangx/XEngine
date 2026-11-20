@@ -27,9 +27,9 @@ namespace net
 		std::optional<std::vector<std::string>> Decode(const void* pData, std::size_t nLength);
 
 	private:
-		static const std::size_t m_n_max_frame_size{ 8 * 1024 * 1024 };
+		static const std::size_t m_max_frame_size{ 8 * 1024 * 1024 };
 		std::vector<std::uint8_t> m_recv_buffer;
-		bool m_bError{ false };
+		bool m_error{ false };
 	};
 } // namespace net
 #endif

@@ -133,14 +133,14 @@ namespace
 
 	struct AsyncResponseContext
 	{
-		evhttp_request* m_pRequest{ nullptr };
+		evhttp_request* m_request{ nullptr };
 		std::unique_ptr<net::CHttpResponseData> m_response;
 	};
 
 	void AsyncResponse_Callback(evutil_socket_t, short, void* pArg)
 	{
 		std::unique_ptr<AsyncResponseContext> context(static_cast<AsyncResponseContext*>(pArg));
-		if ((nullptr == context) || (nullptr == context->m_pRequest) || (nullptr == context->m_response))
+		if ((nullptr == context) || (nullptr == context->m_request) || (nullptr == context->m_response))
 		{
 			return;
 		}
@@ -148,7 +148,7 @@ namespace
 		// evhttp_send_reply() 会在响应数据写完后通过 evhttp_send_done()
 		// 自动释放 request。这里不能再用 unique_ptr/evhttp_request_free()，
 		// 否则会在事件循环中形成二次释放。
-		evhttp_request* pRequest = context->m_pRequest;
+		evhttp_request* pRequest = context->m_request;
 		evkeyvalq* pHeaders = evhttp_request_get_output_headers(pRequest);
 		for (const auto& item : context->m_response->m_headers)
 		{
@@ -158,9 +158,9 @@ namespace
 		evbuffer* pBuffer = evbuffer_new();
 		if (nullptr != pBuffer)
 		{
-			evbuffer_add(pBuffer, context->m_response->m_strBody.data(), context->m_response->m_strBody.size());
+			evbuffer_add(pBuffer, context->m_response->m_body.data(), context->m_response->m_body.size());
 		}
-		evhttp_send_reply(pRequest, context->m_response->m_nStatus, nullptr, pBuffer);
+		evhttp_send_reply(pRequest, context->m_response->m_status, nullptr, pBuffer);
 		if (nullptr != pBuffer)
 		{
 			evbuffer_free(pBuffer);
@@ -197,7 +197,7 @@ namespace net
 		event_base* m_base{ nullptr };
 		evhttp_request* m_request{ nullptr };
 		evhttp_connection* m_connection{ nullptr };
-		std::mutex m_mtx_state;
+		std::mutex m_state_mutex;
 		std::deque<std::string> m_messages;
 		std::function<void()> m_close_handler;
 		CloseContext* m_close_context{ nullptr };
@@ -236,7 +236,7 @@ namespace net
 			if (0 != event_base_once(m_base, -1, EV_TIMEOUT, Drain_Callback, pContext, &timeout))
 			{
 				delete pContext;
-				std::lock_guard<std::mutex> lock(m_mtx_state);
+				std::lock_guard<std::mutex> lock(m_state_mutex);
 				m_scheduled = false;
 				return false;
 			}
@@ -247,7 +247,7 @@ namespace net
 		{
 			bool bSchedule = false;
 			{
-				std::lock_guard<std::mutex> lock(m_mtx_state);
+				std::lock_guard<std::mutex> lock(m_state_mutex);
 				if (m_closed || m_close_requested)
 				{
 					return false;
@@ -266,7 +266,7 @@ namespace net
 		{
 			bool bSchedule = false;
 			{
-				std::lock_guard<std::mutex> lock(m_mtx_state);
+				std::lock_guard<std::mutex> lock(m_state_mutex);
 				if (m_closed || m_close_requested)
 				{
 					return;
@@ -289,7 +289,7 @@ namespace net
 			std::deque<std::string> pending;
 			bool bClose = false;
 			{
-				std::lock_guard<std::mutex> lock(m_mtx_state);
+				std::lock_guard<std::mutex> lock(m_state_mutex);
 				if (m_closed)
 				{
 					m_scheduled = false;
@@ -321,7 +321,7 @@ namespace net
 			std::function<void()> func;
 			evhttp_request* pRequest = nullptr;
 			{
-				std::lock_guard<std::mutex> lock(m_mtx_state);
+				std::lock_guard<std::mutex> lock(m_state_mutex);
 				if (m_closed)
 				{
 					return;
@@ -354,7 +354,7 @@ namespace net
 			std::function<void()> func;
 			evhttp_request* pRequest = nullptr;
 			{
-				std::lock_guard<std::mutex> lock(m_mtx_state);
+				std::lock_guard<std::mutex> lock(m_state_mutex);
 				if (m_close_context == pContext)
 				{
 					m_close_context = nullptr;
@@ -397,17 +397,17 @@ namespace net
 
 	const std::string& CHttpRequest::GetPath() const
 	{
-		return m_strPath;
+		return m_path;
 	}
 
 	const std::string& CHttpRequest::GetUri() const
 	{
-		return m_strURI;
+		return m_uri;
 	}
 
 	const std::string& CHttpRequest::GetBody() const
 	{
-		return m_strBody;
+		return m_body;
 	}
 
 	std::string CHttpRequest::GetHeader(const std::string& strName) const
@@ -446,7 +446,7 @@ namespace net
 	{
 		if (nullptr != m_state)
 		{
-			std::lock_guard<std::mutex> lock(m_state->m_mtx_state);
+			std::lock_guard<std::mutex> lock(m_state->m_state_mutex);
 			if (!m_state->m_closed)
 			{
 				m_state->m_close_handler = std::move(func);
@@ -554,7 +554,7 @@ namespace net
 		return (nullptr != m_state) && (0 != m_state->m_mode.load());
 	}
 
-	CHttpServer::CHttpServer(int nPort) : m_nPort(nPort)
+	CHttpServer::CHttpServer(int nPort) : m_port(nPort)
 	{
 	}
 
@@ -565,22 +565,22 @@ namespace net
 
 	int CHttpServer::Initialize()
 	{
-		if ((nullptr == GetNet()) || (nullptr != m_pHttp) || (m_nPort < 0) || (m_nPort > 65535))
+		if ((nullptr == GetNet()) || (nullptr != m_http) || (m_port < 0) || (m_port > 65535))
 		{
 			return -1;
 		}
-		m_pHttp = evhttp_new(GetNet());
-		if (nullptr == m_pHttp)
+		m_http = evhttp_new(GetNet());
+		if (nullptr == m_http)
 		{
 			return -2;
 		}
-		evhttp_set_max_body_size(m_pHttp, 4 * 1024 * 1024);
-		evhttp_set_gencb(m_pHttp, CHttpServer::Request_Callback, this);
-		m_pListener = evhttp_bind_socket_with_handle(m_pHttp, "0.0.0.0", static_cast<ev_uint16_t>(m_nPort));
-		if (nullptr == m_pListener)
+		evhttp_set_max_body_size(m_http, 4 * 1024 * 1024);
+		evhttp_set_gencb(m_http, CHttpServer::Request_Callback, this);
+		m_listener = evhttp_bind_socket_with_handle(m_http, "0.0.0.0", static_cast<ev_uint16_t>(m_port));
+		if (nullptr == m_listener)
 		{
-			evhttp_free(m_pHttp);
-			m_pHttp = nullptr;
+			evhttp_free(m_http);
+			m_http = nullptr;
 			return -3;
 		}
 		return 0;
@@ -617,14 +617,14 @@ namespace net
 		{
 			return HTTP_BADREQUEST;
 		}
-		request.m_strURI = pURI;
+		request.m_uri = pURI;
 
 		// 结构化Uri
-		evhttp_uri* pFmtURI = evhttp_uri_parse(request.m_strURI.c_str());
+		evhttp_uri* pFmtURI = evhttp_uri_parse(request.m_uri.c_str());
 		if (nullptr != pFmtURI)
 		{
 			const char* pPath = evhttp_uri_get_path(pFmtURI);
-			request.m_strPath = ((nullptr == pPath) || ('\0' == *pPath)) ? "/" : DecodeURI(pPath);
+			request.m_path = ((nullptr == pPath) || ('\0' == *pPath)) ? "/" : DecodeURI(pPath);
 			ParseQuery(evhttp_uri_get_query(pFmtURI), request.m_queries);
 			evhttp_uri_free(pFmtURI);
 		}
@@ -650,13 +650,13 @@ namespace net
 			return HTTP_BADREQUEST;
 		}
 		std::size_t nLength = evbuffer_get_length(pInput);
-		request.m_strBody.resize(nLength);
+		request.m_body.resize(nLength);
 		if (nLength > 0)
 		{
-			const ev_ssize_t nCopied = evbuffer_copyout(pInput, request.m_strBody.data(), nLength);
+			const ev_ssize_t nCopied = evbuffer_copyout(pInput, request.m_body.data(), nLength);
 			if ((nCopied < 0) || (static_cast<std::size_t>(nCopied) != nLength))
 			{
-				request.m_strBody.clear();
+				request.m_body.clear();
 				return HTTP_BADREQUEST;
 			}
 		}
@@ -673,7 +673,7 @@ namespace net
 			return;
 		}
 
-		const std::string strRouteKey = FmtRouteKey(request.m_method, request.m_strPath);
+		const std::string strRouteKey = FmtRouteKey(request.m_method, request.m_path);
 		const auto mIter = m_handlers.find(strRouteKey);
 		if (m_handlers.end() != mIter)
 		{
@@ -690,15 +690,15 @@ namespace net
 					if (nullptr == response)
 					{
 						response = std::make_unique<CHttpResponseData>();
-						response->m_nStatus = HTTP_INTERNAL;
-						response->m_strBody = "Internal Server Error";
+						response->m_status = HTTP_INTERNAL;
+						response->m_body = "Internal Server Error";
 					}
 				}
 				catch (...)
 				{
 					response = std::make_unique<CHttpResponseData>();
-					response->m_nStatus = HTTP_INTERNAL;
-					response->m_strBody = "Internal Server Error";
+					response->m_status = HTTP_INTERNAL;
+					response->m_body = "Internal Server Error";
 				}
 
 				if (!PostAsyncResponse(pBase, pRequest, std::move(response)))
@@ -710,7 +710,7 @@ namespace net
 		}
 
 		bool bPathExists = false;
-		const std::string strSuffix = " " + request.m_strPath;
+		const std::string strSuffix = " " + request.m_path;
 		for (const auto& item : m_handlers)
 		{
 			if ((item.first.size() >= strSuffix.size()) && (0 == item.first.compare(item.first.size() - strSuffix.size(), strSuffix.size(), strSuffix)))
@@ -724,7 +724,7 @@ namespace net
 
 	void CHttpServer::RegisterStream(const std::shared_ptr<CHttpStream::State>& state)
 	{
-		std::lock_guard<std::mutex> lock(m_mtx_streams);
+		std::lock_guard<std::mutex> lock(m_streams_mutex);
 		m_streams.erase(std::remove_if(m_streams.begin(), m_streams.end(), [](const auto& item)
 		{
 			return item.expired();
@@ -737,7 +737,7 @@ namespace net
 	{
 		std::vector<std::shared_ptr<CHttpStream::State>> streams;
 		{
-			std::lock_guard<std::mutex> lock(m_mtx_streams);
+			std::lock_guard<std::mutex> lock(m_streams_mutex);
 			for (const auto& item : m_streams)
 			{
 				if (auto state = item.lock())
@@ -751,11 +751,11 @@ namespace net
 		{
 			state->CloseOnEventThread();
 		}
-		m_pListener = nullptr;
-		if (nullptr != m_pHttp)
+		m_listener = nullptr;
+		if (nullptr != m_http)
 		{
-			evhttp_free(m_pHttp);
-			m_pHttp = nullptr;
+			evhttp_free(m_http);
+			m_http = nullptr;
 		}
 	}
 } // namespace net

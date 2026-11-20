@@ -12,28 +12,28 @@ namespace trade::protocol
 		wire.set_request_id(row.m_request_id);
 		wire.set_strategy_id(row.m_id);
 		wire.set_signal_id(row.m_signal_id);
-		wire.set_security(row.m_strSecurity);
+		wire.set_security(row.m_security);
 		wire.set_side(static_cast<int>(row.m_side));
 		wire.set_state(static_cast<int>(row.m_status));
-		wire.set_price(row.m_nPrice);
-		wire.set_price_scale(row.m_n_price_scale);
-		wire.set_quantity(row.m_nQuantity);
-		wire.set_filled_quantity(row.m_nFilled);
-		wire.set_frozen(row.m_nFrozen);
-		wire.set_turnover(row.m_nTurnover);
-		wire.set_fee(row.m_nFee);
-		wire.set_time_ms(row.m_nTime);
-		wire.set_rule_version(row.m_str_rule_version);
-		wire.set_broker_order_id(row.m_str_broker_order_id);
-		wire.set_trading_day(row.m_nDay);
-		wire.set_raw_status(row.m_str_raw_status);
-		wire.set_broker_error(row.m_strError);
-		wire.set_cancel_pending(row.m_b_cancel_pending);
+		wire.set_price(row.m_price);
+		wire.set_price_scale(row.m_price_scale);
+		wire.set_quantity(row.m_quantity);
+		wire.set_filled_quantity(row.m_filled);
+		wire.set_frozen(row.m_frozen);
+		wire.set_turnover(row.m_turnover);
+		wire.set_fee(row.m_fee);
+		wire.set_time_ms(row.m_time);
+		wire.set_rule_version(row.m_rule_version);
+		wire.set_broker_order_id(row.m_broker_order_id);
+		wire.set_trading_day(row.m_day);
+		wire.set_raw_status(row.m_raw_status);
+		wire.set_broker_error(row.m_error_message);
+		wire.set_cancel_pending(row.m_cancel_pending);
 		wire.set_extended_fields(true);
-		wire.set_fee_known(row.m_b_fee_known);
-		wire.set_frozen_known(row.m_b_frozen_known);
+		wire.set_fee_known(row.m_fee_known);
+		wire.set_frozen_known(row.m_frozen_known);
 		wire.set_sdk_client_id(row.m_sdk_client_id);
-		wire.set_broker_time(row.m_n_broker_time);
+		wire.set_broker_time(row.m_broker_time);
 	}
 
 	void WriteTrade(const trade::CTrade& row, request::TradeRecord& wire)
@@ -41,34 +41,34 @@ namespace trade::protocol
 		SetAccountIdentity(row.m_account, wire);
 		wire.set_trade_id(row.m_trade_id);
 		wire.set_order_id(row.m_order_id);
-		wire.set_security(row.m_strSecurity);
+		wire.set_security(row.m_security);
 		wire.set_side(static_cast<int>(row.m_side));
-		wire.set_price(row.m_nPrice);
-		wire.set_price_scale(row.m_n_price_scale);
-		wire.set_quantity(row.m_nQuantity);
-		wire.set_fee(row.m_nFee);
-		wire.set_time_ms(row.m_nTime);
-		wire.set_broker_trade_id(row.m_str_broker_trade_id);
-		wire.set_broker_order_id(row.m_str_broker_order_id);
-		wire.set_trading_day(row.m_nDay);
+		wire.set_price(row.m_price);
+		wire.set_price_scale(row.m_price_scale);
+		wire.set_quantity(row.m_quantity);
+		wire.set_fee(row.m_fee);
+		wire.set_time_ms(row.m_time);
+		wire.set_broker_trade_id(row.m_broker_trade_id);
+		wire.set_broker_order_id(row.m_broker_order_id);
+		wire.set_trading_day(row.m_day);
 		wire.set_report_index(row.m_report_index);
 		wire.set_market(row.m_market);
 		wire.set_extended_fields(true);
-		wire.set_fee_known(row.m_b_fee_known);
+		wire.set_fee_known(row.m_fee_known);
 	}
 
 	void WritePosition(const trade::CPosition& row, request::TradePositionRecord& wire)
 	{
 		SetAccountIdentity(row.m_account, wire);
-		wire.set_security(row.m_strSecurity);
-		wire.set_total_quantity(row.m_nTotal);
-		wire.set_available_quantity(row.m_nAvailable);
-		wire.set_frozen_quantity(row.m_nFrozen);
-		wire.set_today_quantity(row.m_nToday);
-		wire.set_book_cost_cents(row.m_nCost);
+		wire.set_security(row.m_security);
+		wire.set_total_quantity(row.m_total);
+		wire.set_available_quantity(row.m_available);
+		wire.set_frozen_quantity(row.m_frozen);
+		wire.set_today_quantity(row.m_today);
+		wire.set_book_cost_cents(row.m_cost);
 		wire.set_extended_fields(true);
-		wire.set_frozen_known(row.m_b_frozen_known);
-		wire.set_cost_known(row.m_b_cost_known);
+		wire.set_frozen_known(row.m_frozen_known);
+		wire.set_cost_known(row.m_cost_known);
 	}
 
 	CSecurity Security(const std::string& strValue)
@@ -80,15 +80,15 @@ namespace trade::protocol
 	void WriteFunds(const CFunds& row, bool bReady, request::TradeAccountInfo& wire)
 	{
 		SetAccountIdentity(row.m_account, wire);
-		wire.set_balance(row.m_nBalance);
-		wire.set_frozen(row.m_nFrozen);
-		wire.set_available(row.m_b_explicit_available ? row.m_nAvailable : row.m_nBalance - row.m_nFrozen);
+		wire.set_balance(row.m_balance);
+		wire.set_frozen(row.m_frozen);
+		wire.set_available(row.m_explicit_available ? row.m_available : row.m_balance - row.m_frozen);
 		wire.set_extended_fields(true);
-		wire.set_funds_valid(row.m_b_funds_valid);
-		wire.set_frozen_known(row.m_b_frozen_known);
-		wire.set_account_state(row.m_nState);
-		wire.set_available_snapshot(bReady && row.m_bConnected && row.m_b_funds_valid);
-		wire.set_connected(row.m_bConnected);
+		wire.set_funds_valid(row.m_funds_valid);
+		wire.set_frozen_known(row.m_frozen_known);
+		wire.set_account_state(row.m_state);
+		wire.set_available_snapshot(bReady && row.m_connected && row.m_funds_valid);
+		wire.set_connected(row.m_connected);
 	}
 
 	void WriteReply(const CCounterReply& reply, ::CRequest& response)
@@ -98,10 +98,10 @@ namespace trade::protocol
 		SetAccountIdentity(reply.m_account, wire);
 		wire.set_operation(static_cast<int>(reply.m_operation));
 		wire.set_error_code(static_cast<int>(reply.m_result.m_error));
-		wire.set_error_message(reply.m_result.m_strMessage);
+		wire.set_error_message(reply.m_result.m_message);
 		wire.set_watermark(reply.m_version);
-		wire.set_server_time_ms(reply.m_nTime);
-		response.SetErrorInfo(static_cast<int>(reply.m_result.m_error), reply.m_result.m_strMessage);
+		wire.set_server_time_ms(reply.m_time);
+		response.SetErrorInfo(static_cast<int>(reply.m_result.m_error), reply.m_result.m_message);
 		if (reply.m_result.Ok())
 		{
 			std::visit([&wire](const auto& value)
@@ -151,10 +151,10 @@ namespace trade::protocol
 		wire.set_request_id(event.m_request_id);
 		SetAccountIdentity(event.m_account, wire);
 		wire.set_kind(static_cast<int>(event.m_kind));
-		wire.set_connected(event.m_funds.m_bConnected);
+		wire.set_connected(event.m_funds.m_connected);
 		wire.set_extended_fields(true);
-		wire.set_account_valid(event.m_b_account_valid);
-		if (event.m_b_account_valid)
+		wire.set_account_valid(event.m_account_valid);
+		if (event.m_account_valid)
 		{
 			WriteFunds(event.m_funds, true, *wire.mutable_account_snapshot());
 		}
@@ -187,10 +187,10 @@ namespace trade::protocol
 		order.m_signal_id = row.m_signal_id;
 		order.m_client_order_id = row.m_client_id;
 		order.m_order_id = row.m_order_id;
-		order.m_security = Security(row.m_strSecurity);
-		order.m_quantity = row.m_nQuantity;
-		order.m_filled_quantity = row.m_nFilled;
-		order.m_event_time_ms = row.m_nTime;
+		order.m_security = Security(row.m_security);
+		order.m_quantity = row.m_quantity;
+		order.m_filled_quantity = row.m_filled;
+		order.m_event_time_ms = row.m_time;
 		switch (row.m_status)
 		{
 		case trade::Status::Pending:
@@ -217,7 +217,7 @@ namespace trade::protocol
 		default:
 			order.m_status = OrderStatus::Rejected;
 		}
-		if (row.m_b_cancel_pending && trade::IsActive(row.m_status))
+		if (row.m_cancel_pending && trade::IsActive(row.m_status))
 		{
 			order.m_status = OrderStatus::Cancelling;
 		}
@@ -233,13 +233,13 @@ namespace trade::protocol
 		trade.m_signal_id = event.m_order.m_signal_id;
 		trade.m_client_order_id = event.m_order.m_client_id;
 		trade.m_order_id = event.m_order.m_order_id;
-		trade.m_str_trade_id = std::to_string(event.m_trade.m_trade_id);
-		trade.m_security = Security(event.m_trade.m_strSecurity);
+		trade.m_trade_id = std::to_string(event.m_trade.m_trade_id);
+		trade.m_security = Security(event.m_trade.m_security);
 		trade.m_side = trade::Side::Buy == event.m_trade.m_side ? OrderSide::Buy : OrderSide::Sell;
-		trade.m_price = event.m_trade.m_nPrice;
-		trade.m_n_price_scale = event.m_trade.m_n_price_scale;
-		trade.m_quantity = event.m_trade.m_nQuantity;
-		trade.m_trade_time_ms = event.m_trade.m_nTime;
+		trade.m_price = event.m_trade.m_price;
+		trade.m_price_scale = event.m_trade.m_price_scale;
+		trade.m_quantity = event.m_trade.m_quantity;
+		trade.m_trade_time_ms = event.m_trade.m_time;
 		return trade;
 	}
 
@@ -247,11 +247,11 @@ namespace trade::protocol
 	{
 		request::TradeAccountRecord payload;
 		SetAccountIdentity(FmtAccount(info), payload);
-		payload.set_site(info.m_str_site);
-		payload.set_broker_name(info.m_str_broker_name);
-		payload.set_name(info.m_str_name);
+		payload.set_site(info.m_site);
+		payload.set_broker_name(info.m_broker_name);
+		payload.set_name(info.m_name);
 		payload.set_state(static_cast<request::TradeAccountState>(info.m_state));
-		payload.set_last_error(info.m_str_last_error);
+		payload.set_last_error(info.m_last_error);
 		return payload;
 	}
 
@@ -302,7 +302,7 @@ namespace trade::protocol
 		}
 		break;
 		}
-		if (event.m_b_account_valid)
+		if (event.m_account_valid)
 		{
 			request::TradeAccountInfo funds;
 			WriteFunds(event.m_funds, true, funds);
@@ -325,27 +325,27 @@ namespace trade::protocol
 			row.m_request_id = wire.request_id();
 			row.m_id = wire.strategy_id();
 			row.m_signal_id = wire.signal_id();
-			row.m_strSecurity = wire.security();
-			row.m_nPrice = wire.price();
-			row.m_n_price_scale = wire.price_scale();
-			row.m_nQuantity = wire.quantity();
-			row.m_nFilled = wire.filled_quantity();
-			row.m_nFrozen = wire.frozen();
-			row.m_nTurnover = wire.turnover();
-			row.m_nFee = wire.fee();
-			row.m_nTime = wire.time_ms();
-			row.m_str_rule_version = wire.rule_version();
+			row.m_security = wire.security();
+			row.m_price = wire.price();
+			row.m_price_scale = wire.price_scale();
+			row.m_quantity = wire.quantity();
+			row.m_filled = wire.filled_quantity();
+			row.m_frozen = wire.frozen();
+			row.m_turnover = wire.turnover();
+			row.m_fee = wire.fee();
+			row.m_time = wire.time_ms();
+			row.m_rule_version = wire.rule_version();
 			row.m_side = static_cast<Side>(wire.side());
 			row.m_status = static_cast<Status>(wire.state());
-			row.m_str_broker_order_id = wire.broker_order_id();
-			row.m_nDay = wire.trading_day();
-			row.m_str_raw_status = wire.raw_status();
-			row.m_strError = wire.broker_error();
-			row.m_b_cancel_pending = wire.cancel_pending();
-			row.m_b_fee_known = !wire.extended_fields() || wire.fee_known();
-			row.m_b_frozen_known = !wire.extended_fields() || wire.frozen_known();
+			row.m_broker_order_id = wire.broker_order_id();
+			row.m_day = wire.trading_day();
+			row.m_raw_status = wire.raw_status();
+			row.m_error_message = wire.broker_error();
+			row.m_cancel_pending = wire.cancel_pending();
+			row.m_fee_known = !wire.extended_fields() || wire.fee_known();
+			row.m_frozen_known = !wire.extended_fields() || wire.frozen_known();
 			row.m_sdk_client_id = wire.sdk_client_id();
-			row.m_n_broker_time = wire.broker_time();
+			row.m_broker_time = wire.broker_time();
 			return row;
 		}
 
@@ -355,38 +355,38 @@ namespace trade::protocol
 			row.m_account = FmtAccount(wire);
 			row.m_order_id = wire.order_id();
 			row.m_trade_id = wire.trade_id();
-			row.m_strSecurity = wire.security();
-			row.m_nPrice = wire.price();
-			row.m_n_price_scale = wire.price_scale();
-			row.m_nQuantity = wire.quantity();
-			row.m_nFee = wire.fee();
-			row.m_nTime = wire.time_ms();
+			row.m_security = wire.security();
+			row.m_price = wire.price();
+			row.m_price_scale = wire.price_scale();
+			row.m_quantity = wire.quantity();
+			row.m_fee = wire.fee();
+			row.m_time = wire.time_ms();
 			row.m_side = static_cast<Side>(wire.side());
-			row.m_str_broker_trade_id = wire.broker_trade_id();
-			row.m_str_broker_order_id = wire.broker_order_id();
-			row.m_nDay = wire.trading_day();
+			row.m_broker_trade_id = wire.broker_trade_id();
+			row.m_broker_order_id = wire.broker_order_id();
+			row.m_day = wire.trading_day();
 			row.m_report_index = wire.report_index();
 			row.m_market = wire.market();
-			row.m_b_fee_known = !wire.extended_fields() || wire.fee_known();
+			row.m_fee_known = !wire.extended_fields() || wire.fee_known();
 			return row;
 		}
 
 		CPosition ReadPosition(const request::TradePositionRecord& wire)
 		{
 			CPosition row{ FmtAccount(wire), wire.security(), wire.total_quantity(), wire.available_quantity(), wire.frozen_quantity(), wire.today_quantity(), wire.book_cost_cents() };
-			row.m_b_cost_known = !wire.extended_fields() || wire.cost_known();
-			row.m_b_frozen_known = !wire.extended_fields() || wire.frozen_known();
+			row.m_cost_known = !wire.extended_fields() || wire.cost_known();
+			row.m_frozen_known = !wire.extended_fields() || wire.frozen_known();
 			return row;
 		}
 
 		CFunds ReadFunds(const request::TradeAccountInfo& wire)
 		{
 			CFunds row{ FmtAccount(wire), wire.balance(), wire.frozen(), wire.connected(), true };
-			row.m_nAvailable = wire.available();
-			row.m_b_explicit_available = true;
-			row.m_b_funds_valid = !wire.extended_fields() || wire.funds_valid();
-			row.m_b_frozen_known = !wire.extended_fields() || wire.frozen_known();
-			row.m_nState = wire.account_state();
+			row.m_available = wire.available();
+			row.m_explicit_available = true;
+			row.m_funds_valid = !wire.extended_fields() || wire.funds_valid();
+			row.m_frozen_known = !wire.extended_fields() || wire.frozen_known();
+			row.m_state = wire.account_state();
 			return row;
 		}
 
@@ -401,8 +401,8 @@ namespace trade::protocol
 			event.m_request_id = wire.request_id();
 			event.m_kind = static_cast<EventTy>(wire.kind());
 			event.m_funds.m_account = event.m_account;
-			event.m_funds.m_bConnected = wire.connected();
-			event.m_b_account_valid = !wire.extended_fields() || wire.account_valid();
+			event.m_funds.m_connected = wire.connected();
+			event.m_account_valid = !wire.extended_fields() || wire.account_valid();
 			if (wire.has_account_snapshot())
 			{
 				event.m_funds = ReadFunds(wire.account_snapshot());
@@ -456,8 +456,8 @@ namespace trade::protocol
 		{
 			const CLoginParam& params = std::get<CLoginParam>(request.m_param);
 			wire.SetType(_TyRequest::TRADE_ACCOUNT_LOGIN);
-			wire.SetExtraData("password", params.m_strPassword);
-			wire.SetExtraData("site", params.m_strSite);
+			wire.SetExtraData("password", params.m_password);
+			wire.SetExtraData("site", params.m_site);
 			break;
 		}
 		case Operation::Connect:
@@ -471,12 +471,12 @@ namespace trade::protocol
 			const CSubmitParam& params = std::get<CSubmitParam>(request.m_param);
 			wire.SetType(_TyRequest::TRADE_ORDER_SUBMIT);
 			wire.SetExtraData("client_order_id", std::to_string(params.m_order.m_client_id));
-			wire.SetExtraData("security", params.m_order.m_strSecurity);
+			wire.SetExtraData("security", params.m_order.m_security);
 			wire.SetExtraData("side", Side::Buy == params.m_order.m_side ? "buy" : "sell");
 			wire.SetExtraData("order_type", "limit");
-			wire.SetExtraData("price", std::to_string(params.m_order.m_nPrice));
-			wire.SetExtraData("price_scale", std::to_string(params.m_order.m_n_price_scale));
-			wire.SetExtraData("quantity", std::to_string(params.m_order.m_nQuantity));
+			wire.SetExtraData("price", std::to_string(params.m_order.m_price));
+			wire.SetExtraData("price_scale", std::to_string(params.m_order.m_price_scale));
+			wire.SetExtraData("quantity", std::to_string(params.m_order.m_quantity));
 			wire.SetExtraData("strategy_id", std::to_string(params.m_order.m_id));
 			wire.SetExtraData("signal_id", std::to_string(params.m_order.m_signal_id));
 			break;
@@ -524,7 +524,7 @@ namespace trade::protocol
 		reply.m_request_id = wire.request_id();
 		reply.m_operation = static_cast<Operation>(wire.operation());
 		reply.m_version = wire.watermark();
-		reply.m_nTime = wire.server_time_ms();
+		reply.m_time = wire.server_time_ms();
 		reply.m_result = { static_cast<Error>(wire.error_code()), wire.error_message() };
 		if (!reply.m_result.Ok())
 		{
@@ -612,7 +612,7 @@ namespace trade::protocol
 		utility::to_number(response.GetExtraData("request_id"), event.m_request_id);
 		event.m_funds.m_account = event.m_account;
 		const request::RequestData& data = response.GetData();
-		event.m_b_account_valid = data.has_event_account();
+		event.m_account_valid = data.has_event_account();
 		if (data.has_event_account())
 		{
 			event.m_funds = ReadFunds(data.event_account());
@@ -625,8 +625,8 @@ namespace trade::protocol
 				return false;
 			}
 			event.m_kind = EventTy::Session;
-			event.m_funds.m_bConnected = request::ACCOUNT_CONNECTED == data.account().state();
-			event.m_funds.m_nState = static_cast<int>(data.account().state());
+			event.m_funds.m_connected = request::ACCOUNT_CONNECTED == data.account().state();
+			event.m_funds.m_state = static_cast<int>(data.account().state());
 			return event.m_account == FmtAccount(data.account());
 		case _TyRequest::TRADE_ORDER_PUSH:
 			if (!data.has_trade_orders() || 1 != data.trade_orders().orders_size())
@@ -650,7 +650,7 @@ namespace trade::protocol
 				return false;
 			}
 			event.m_kind = EventTy::Funds;
-			event.m_b_account_valid = true;
+			event.m_account_valid = true;
 			event.m_funds = ReadFunds(data.account_info());
 			return event.m_account == event.m_funds.m_account;
 		case _TyRequest::TRADE_POSITION_PUSH:

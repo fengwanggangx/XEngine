@@ -38,7 +38,7 @@ namespace net
 		void OnEvent(struct bufferevent* pEvent, short events) override;
 
 	private:
-		int m_nPort{ -1 };
+		int m_port{ -1 };
 		std::unique_ptr<_TyDistributor> m_dispatcher;
 	};
 } // namespace net

@@ -6,7 +6,7 @@
 #include <charconv>
 #include <set>
 
-CAccountService::CAccountService(CSession* pSession) : m_p_session(pSession)
+CAccountService::CAccountService(CSession* pSession) : m_session(pSession)
 {
 }
 
@@ -17,19 +17,19 @@ CAccountService::~CAccountService()
 
 bool CAccountService::Initialize()
 {
-	if (nullptr == m_p_session)
+	if (nullptr == m_session)
 	{
-		m_str_last_error = "Broker session is unavailable";
+		m_last_error = "Broker session is unavailable";
 		return false;
 	}
-	m_b_stopping.store(false);
+	m_stopping.store(false);
 	m_refresh = std::jthread([this](std::stop_token stop)
 	{
 		while (!stop.stop_requested())
 		{
 			RefreshPending();
 			RefreshAccounts();
-			std::unique_lock<std::mutex> lock(m_mtx_wait);
+			std::unique_lock<std::mutex> lock(m_wait_mutex);
 			m_wake.wait_for(lock, std::chrono::seconds(1), [&stop]()
 			{
 				return stop.stop_requested();
@@ -41,7 +41,7 @@ bool CAccountService::Initialize()
 
 void CAccountService::Stop()
 {
-	if (m_b_stopping.exchange(true))
+	if (m_stopping.exchange(true))
 	{
 		return;
 	}
@@ -56,19 +56,19 @@ void CAccountService::Stop()
 
 bool CAccountService::IsConnected(const _TyAccount& account) const
 {
-	std::shared_lock<std::shared_mutex> lock(m_mtx_accounts);
+	std::shared_lock<std::shared_mutex> lock(m_accounts_mutex);
 	const auto mIter = m_accounts.find(account);
-	return m_accounts.end() != mIter && mIter->second.m_b_at_account_list && !mIter->second.m_b_disconnecting && TradeAccountState::Connected == mIter->second.m_info.m_state;
+	return m_accounts.end() != mIter && mIter->second.m_at_account_list && !mIter->second.m_disconnecting && TradeAccountState::Connected == mIter->second.m_info.m_state;
 }
 
 std::vector<_TyAccount> CAccountService::GetAccounts() const
 {
-	std::shared_lock<std::shared_mutex> lock(m_mtx_accounts);
+	std::shared_lock<std::shared_mutex> lock(m_accounts_mutex);
 	std::vector<_TyAccount> accounts;
 	accounts.reserve(m_accounts.size());
 	for (const auto& entry : m_accounts)
 	{
-		if (entry.second.m_b_at_account_list)
+		if (entry.second.m_at_account_list)
 		{
 			accounts.emplace_back(entry.first);
 		}
@@ -78,16 +78,16 @@ std::vector<_TyAccount> CAccountService::GetAccounts() const
 
 bool CAccountService::IsInUse(const _TyAccount& account) const
 {
-	std::shared_lock<std::shared_mutex> lock(m_mtx_accounts);
+	std::shared_lock<std::shared_mutex> lock(m_accounts_mutex);
 	const auto mIter = m_accounts.find(account);
 	return m_accounts.end() != mIter && 0 != mIter->second.m_use_count;
 }
 
 CAccountInfo CAccountService::GetAccountInfo(const _TyAccount& account) const
 {
-	std::shared_lock<std::shared_mutex> lock(m_mtx_accounts);
+	std::shared_lock<std::shared_mutex> lock(m_accounts_mutex);
 	const auto mIter = m_accounts.find(account);
-	if (m_accounts.end() == mIter || !mIter->second.m_b_at_account_list)
+	if (m_accounts.end() == mIter || !mIter->second.m_at_account_list)
 	{
 		return FmtAccountInfo(account);
 	}
@@ -96,13 +96,13 @@ CAccountInfo CAccountService::GetAccountInfo(const _TyAccount& account) const
 
 void CAccountService::SetPushHandler(_TyRequestNotify&& handler)
 {
-	std::unique_lock<std::shared_mutex> lock(m_mtx_accounts);
+	std::unique_lock<std::shared_mutex> lock(m_accounts_mutex);
 	m_push_handler = std::move(handler);
 }
 
 void CAccountService::SetAccountStateHandler(_TyAccountStateHandler&& handler)
 {
-	std::unique_lock<std::shared_mutex> lock(m_mtx_accounts);
+	std::unique_lock<std::shared_mutex> lock(m_accounts_mutex);
 	m_account_state_handler = std::move(handler);
 }
 
@@ -111,7 +111,7 @@ void CAccountService::NotifyState(const CAccountInfo& info)
 	_TyAccountStateHandler stateHandler;
 	_TyRequestNotify pushHandler;
 	{
-		std::shared_lock<std::shared_mutex> lock(m_mtx_accounts);
+		std::shared_lock<std::shared_mutex> lock(m_accounts_mutex);
 		stateHandler = m_account_state_handler;
 		pushHandler = m_push_handler;
 	}
@@ -126,8 +126,8 @@ void CAccountService::NotifyState(const CAccountInfo& info)
 		ev.m_kind = trade::EventTy::Session;
 		ev.m_account = account;
 		ev.m_funds.m_account = account;
-		ev.m_funds.m_bConnected = TradeAccountState::Connected == info.m_state;
-		ev.m_funds.m_nState = static_cast<int>(info.m_state);
+		ev.m_funds.m_connected = TradeAccountState::Connected == info.m_state;
+		ev.m_funds.m_state = static_cast<int>(info.m_state);
 		pushHandler(trade::protocol::Push(ev, info));
 	}
 }
@@ -140,13 +140,13 @@ void CAccountService::OnBrokerEvent(const trade::CCounterEvent& event)
 	}
 	CAccountInfo info;
 	{
-		std::unique_lock<std::shared_mutex> lock(m_mtx_accounts);
+		std::unique_lock<std::shared_mutex> lock(m_accounts_mutex);
 		const auto mIter = m_accounts.find(event.m_account);
 		if (m_accounts.end() == mIter)
 		{
 			return;
 		}
-		mIter->second.m_info.m_state = 0 != event.m_funds.m_nState ? static_cast<TradeAccountState>(event.m_funds.m_nState) : (event.m_funds.m_bConnected ? TradeAccountState::Connected : TradeAccountState::Disconnected);
+		mIter->second.m_info.m_state = 0 != event.m_funds.m_state ? static_cast<TradeAccountState>(event.m_funds.m_state) : (event.m_funds.m_connected ? TradeAccountState::Connected : TradeAccountState::Disconnected);
 		info = mIter->second.m_info;
 	}
 	NotifyState(info);
@@ -160,7 +160,7 @@ void CAccountService::OnBrokerState(SessionState state, const std::string&)
 	}
 	std::vector<_TyAccount> accounts;
 	{
-		std::unique_lock<std::shared_mutex> lock(m_mtx_accounts);
+		std::unique_lock<std::shared_mutex> lock(m_accounts_mutex);
 		++m_broker_connect_id;
 		for (const auto& entry : m_accounts)
 		{
@@ -179,16 +179,16 @@ void CAccountService::OnBrokerState(SessionState state, const std::string&)
 
 bool CAccountService::HasAccount(const _TyAccount& account) const
 {
-	std::shared_lock<std::shared_mutex> lock(m_mtx_accounts);
+	std::shared_lock<std::shared_mutex> lock(m_accounts_mutex);
 	const auto mIter = m_accounts.find(account);
-	return m_accounts.end() != mIter && mIter->second.m_b_at_account_list;
+	return m_accounts.end() != mIter && mIter->second.m_at_account_list;
 }
 
 bool CAccountService::AcquireAccount(const _TyAccount& account)
 {
-	std::unique_lock<std::shared_mutex> lock(m_mtx_accounts);
+	std::unique_lock<std::shared_mutex> lock(m_accounts_mutex);
 	const auto mIter = m_accounts.find(account);
-	if ((m_accounts.end() == mIter) || !mIter->second.m_b_at_account_list || mIter->second.m_b_disconnecting || (TradeAccountState::Connected != mIter->second.m_info.m_state))
+	if ((m_accounts.end() == mIter) || !mIter->second.m_at_account_list || mIter->second.m_disconnecting || (TradeAccountState::Connected != mIter->second.m_info.m_state))
 	{
 		return false;
 	}
@@ -198,14 +198,14 @@ bool CAccountService::AcquireAccount(const _TyAccount& account)
 
 void CAccountService::ReleaseAccount(const _TyAccount& account)
 {
-	std::unique_lock<std::shared_mutex> lock(m_mtx_accounts);
+	std::unique_lock<std::shared_mutex> lock(m_accounts_mutex);
 	const auto mIter = m_accounts.find(account);
 	if (m_accounts.end() == mIter || 0 == mIter->second.m_use_count)
 	{
 		return;
 	}
 	--mIter->second.m_use_count;
-	if (!mIter->second.m_b_at_account_list && !mIter->second.m_b_disconnecting && 0 == mIter->second.m_use_count)
+	if (!mIter->second.m_at_account_list && !mIter->second.m_disconnecting && 0 == mIter->second.m_use_count)
 	{
 		m_accounts.erase(mIter);
 	}
@@ -213,14 +213,14 @@ void CAccountService::ReleaseAccount(const _TyAccount& account)
 
 void CAccountService::FinishDisconnect(const _TyAccount& account)
 {
-	std::unique_lock<std::shared_mutex> lock(m_mtx_accounts);
+	std::unique_lock<std::shared_mutex> lock(m_accounts_mutex);
 	const auto mIter = m_accounts.find(account);
 	if (m_accounts.end() == mIter)
 	{
 		return;
 	}
-	mIter->second.m_b_disconnecting = false;
-	if (!mIter->second.m_b_at_account_list && 0 == mIter->second.m_use_count)
+	mIter->second.m_disconnecting = false;
+	if (!mIter->second.m_at_account_list && 0 == mIter->second.m_use_count)
 	{
 		m_accounts.erase(mIter);
 	}
@@ -228,7 +228,7 @@ void CAccountService::FinishDisconnect(const _TyAccount& account)
 
 const std::string& CAccountService::GetLastError() const
 {
-	return m_str_last_error;
+	return m_last_error;
 }
 
 bool CAccountService::OnRequest(const CRequest& req, const std::string& actor)
@@ -240,22 +240,22 @@ bool CAccountService::OnRequest(const CRequest& req, const std::string& actor)
 	{
 		bool blocked = false;
 		{
-			std::unique_lock<std::shared_mutex> lock(m_mtx_accounts);
+			std::unique_lock<std::shared_mutex> lock(m_accounts_mutex);
 			const auto mIter = m_accounts.find(bDisconnectingAccount);
-			blocked = m_accounts.end() != mIter && (mIter->second.m_b_disconnecting || 0 != mIter->second.m_use_count);
+			blocked = m_accounts.end() != mIter && (mIter->second.m_disconnecting || 0 != mIter->second.m_use_count);
 			if (!blocked)
 			{
 				if (m_accounts.end() == mIter)
 				{
 					CAccountRuntime runtime;
 					runtime.m_info = FmtAccountInfo(bDisconnectingAccount);
-					runtime.m_b_at_account_list = false;
-					runtime.m_b_disconnecting = true;
+					runtime.m_at_account_list = false;
+					runtime.m_disconnecting = true;
 					m_accounts.emplace(bDisconnectingAccount, std::move(runtime));
 				}
 				else
 				{
-					mIter->second.m_b_disconnecting = true;
+					mIter->second.m_disconnecting = true;
 				}
 			}
 		}
@@ -303,13 +303,13 @@ bool CAccountService::OnAccountReply(const CRequest& origin, const CRequest& rep
 
 void CAccountService::RefreshAccounts()
 {
-	if (!m_p_session->IsAuthenticated())
+	if (!m_session->IsAuthenticated())
 	{
 		return;
 	}
 	std::uint64_t brokerConnectId = 0;
 	{
-		std::shared_lock<std::shared_mutex> lock(m_mtx_accounts);
+		std::shared_lock<std::shared_mutex> lock(m_accounts_mutex);
 		brokerConnectId = m_broker_connect_id;
 	}
 	CRequest query;
@@ -326,7 +326,7 @@ void CAccountService::OnAccountListReply(const CRequest& response, std::uint64_t
 	}
 	std::vector<CAccountInfo> changes;
 	{
-		std::unique_lock<std::shared_mutex> lock(m_mtx_accounts);
+		std::unique_lock<std::shared_mutex> lock(m_accounts_mutex);
 		if (brokerConnectId != m_broker_connect_id)
 		{
 			return;
@@ -338,30 +338,30 @@ void CAccountService::OnAccountListReply(const CRequest& response, std::uint64_t
 			_TyAccount account = FmtAccount(row);
 			accounts.emplace(account);
 			CAccountInfo info = FmtAccountInfo(account);
-			info.m_str_name = row.name();
-			info.m_str_broker_name = row.broker_name();
+			info.m_name = row.name();
+			info.m_broker_name = row.broker_name();
 			info.m_state = static_cast<TradeAccountState>(row.state());
 			const auto mIter = m_accounts.find(account);
-			if (m_accounts.end() == mIter || !mIter->second.m_b_at_account_list || info.m_state != mIter->second.m_info.m_state)
+			if (m_accounts.end() == mIter || !mIter->second.m_at_account_list || info.m_state != mIter->second.m_info.m_state)
 			{
 				changes.emplace_back(info);
 			}
 			CAccountRuntime& runtime = m_accounts[account];
 			runtime.m_info = std::move(info);
-			runtime.m_b_at_account_list = true;
+			runtime.m_at_account_list = true;
 		}
 		for (auto& entry : m_accounts)
 		{
-			if (!container::with(accounts, entry.first) && entry.second.m_b_at_account_list)
+			if (!container::with(accounts, entry.first) && entry.second.m_at_account_list)
 			{
-				entry.second.m_b_at_account_list = false;
+				entry.second.m_at_account_list = false;
 				entry.second.m_info.m_state = TradeAccountState::Disconnected;
 				changes.emplace_back(entry.second.m_info);
 			}
 		}
 		std::erase_if(m_accounts, [](const auto& entry)
 		{
-			return !entry.second.m_b_at_account_list && !entry.second.m_b_disconnecting && 0 == entry.second.m_use_count;
+			return !entry.second.m_at_account_list && !entry.second.m_disconnecting && 0 == entry.second.m_use_count;
 		});
 	}
 	for (const auto& info : changes)
@@ -372,7 +372,7 @@ void CAccountService::OnAccountListReply(const CRequest& response, std::uint64_t
 
 bool CAccountService::SendRequest(CRequest&& request)
 {
-	if ((m_b_stopping.load()) || !m_p_session->IsAuthenticated())
+	if ((m_stopping.load()) || !m_session->IsAuthenticated())
 	{
 		return false;
 	}
@@ -381,8 +381,8 @@ bool CAccountService::SendRequest(CRequest&& request)
 	request.SetExtraData("source_request_id", std::to_string(request.GetId()));
 	request.SetId(nId);
 	{
-		std::unique_lock<std::shared_mutex> lock(m_mtx_requests);
-		if (!m_p_session->IsAuthenticated() || m_b_stopping.load())
+		std::unique_lock<std::shared_mutex> lock(m_requests_mutex);
+		if (!m_session->IsAuthenticated() || m_stopping.load())
 		{
 			return false;
 		}
@@ -392,7 +392,7 @@ bool CAccountService::SendRequest(CRequest&& request)
 		}
 		m_pending.emplace(nId, CPending{ std::move(origin), std::chrono::steady_clock::now() + std::chrono::seconds(_TyRequest::TRADE_ACCOUNT_LOGIN == request.GetType() ? 60 : 15) });
 	}
-	if (!m_p_session->SendRequest(request))
+	if (!m_session->SendRequest(request))
 	{
 		// A write failure may follow a partial write. Complete as uncertain, never retry.
 		CRequest response;
@@ -406,7 +406,7 @@ bool CAccountService::SendRequest(CRequest&& request)
 
 bool CAccountService::OnReply(const CRequest& req)
 {
-	if (m_b_stopping.load())
+	if (m_stopping.load())
 	{
 		return false;
 	}
@@ -426,7 +426,7 @@ bool CAccountService::OnReply(const CRequest& req)
 	}
 	CRequest origin;
 	{
-		std::unique_lock<std::shared_mutex> lock(m_mtx_requests);
+		std::unique_lock<std::shared_mutex> lock(m_requests_mutex);
 		const auto mIter = m_pending.find(req.GetId());
 		if (m_pending.end() == mIter || req.GetType() != mIter->second.m_origin.GetType())
 		{
@@ -471,7 +471,7 @@ void CAccountService::FailPending()
 {
 	std::unordered_map<_TyRequestId, CPending> pending;
 	{
-		std::unique_lock<std::shared_mutex> lock(m_mtx_requests);
+		std::unique_lock<std::shared_mutex> lock(m_requests_mutex);
 		pending.swap(m_pending);
 	}
 	for (const auto& item : pending)
@@ -488,7 +488,7 @@ void CAccountService::RefreshPending()
 {
 	std::vector<std::pair<std::uint64_t, _TyRequest>> expired;
 	{
-		std::shared_lock<std::shared_mutex> lock(m_mtx_requests);
+		std::shared_lock<std::shared_mutex> lock(m_requests_mutex);
 		for (const auto& item : m_pending)
 		{
 			if (item.second.m_deadline <= std::chrono::steady_clock::now())

@@ -34,7 +34,7 @@ class CBrokerServiceTests
 
 	static void Prepare(CTradeService& service, std::uint64_t nCycle)
 	{
-		service.m_p_account_service->m_accounts[TestAccount(1)].m_info.m_state = TradeAccountState::Connected;
+		service.m_account_service->m_accounts[TestAccount(1)].m_info.m_state = TradeAccountState::Connected;
 		CTradeService::CSync& pending = service.m_syncing[TestAccount(1)];
 		pending.m_cycle = nCycle;
 		pending.m_completed = 3;
@@ -124,10 +124,10 @@ class CBrokerServiceTests
 		TestStrategyReplies(service, accounts);
 		session.NotifyState(SessionState::Ready, "test ready");
 		accounts.m_accounts[TestAccount(1)].m_info.m_state = TradeAccountState::Connected;
-		service.m_snapshots[TestAccount(1)].m_bReady = true;
+		service.m_snapshots[TestAccount(1)].m_ready = true;
 		service.m_snapshots[TestAccount(1)].m_account.m_account = TestAccount(1);
-		service.m_snapshots[TestAccount(1)].m_account.m_bConnected = true;
-		service.m_snapshots[TestAccount(1)].m_account.m_b_funds_valid = true;
+		service.m_snapshots[TestAccount(1)].m_account.m_connected = true;
+		service.m_snapshots[TestAccount(1)].m_account.m_funds_valid = true;
 		service.SetStrategyReplyHandler([&replies, &lastError](const CRequest&, const trade::CCounterReply& reply)
 		{
 			++replies;
@@ -155,7 +155,7 @@ class CBrokerServiceTests
 		runtime->m_config.m_account = TestAccount(1);
 		runtime->m_config.m_event_queue_limit = 100;
 		runtime->m_state.store(StrategyState::Stopped);
-		runtime->m_b_scheduled = true;
+		runtime->m_scheduled = true;
 		strategies.m_runtimes.emplace(7, runtime);
 		strategies.m_signals[{ 7, 8 }] = SignalState::Pending;
 
@@ -168,7 +168,7 @@ class CBrokerServiceTests
 			{
 				m_runtimes.clear();
 				m_runtime.m_events.clear();
-				m_runtime.m_b_scheduled = false;
+				m_runtime.m_scheduled = false;
 			}
 		};
 
@@ -201,7 +201,7 @@ class CBrokerServiceTests
 		strategies.OnReply(origin, reply);
 		Check(1 == runtime->m_events.size(), "deleted strategy reply is ignored");
 		runtime->m_events.clear();
-		runtime->m_b_scheduled = false;
+		runtime->m_scheduled = false;
 	}
 
 public:
@@ -211,7 +211,7 @@ public:
 		CSession session(CLoginInfo{});
 		CAccountService accounts(&session);
 		CTradeService service(&accounts, &session);
-		service.m_b_running.store(true);
+		service.m_running.store(true);
 		CAccountInfo info = FmtAccountInfo(TestAccount(1));
 		info.m_state = TradeAccountState::Connected;
 		accounts.m_accounts[TestAccount(1)].m_info = info;
@@ -234,9 +234,9 @@ public:
 		session.Dispatch(FundsPush(12, 120));
 		session.Dispatch(FundsPush(12, 999));
 		service.CompleteQuery(Trades(20), 0, 1);
-		Check(service.Snapshot(TestAccount(1)).m_bReady && 120 == service.Snapshot(TestAccount(1)).m_account.m_nBalance && 20 == service.Snapshot(TestAccount(1)).m_version && 1 == nFunds, "funds use their own watermark even below the trades watermark");
+		Check(service.Snapshot(TestAccount(1)).m_ready && 120 == service.Snapshot(TestAccount(1)).m_account.m_balance && 20 == service.Snapshot(TestAccount(1)).m_version && 1 == nFunds, "funds use their own watermark even below the trades watermark");
 		session.Dispatch(FundsPush(25, 150));
-		Check(150 == service.Snapshot(TestAccount(1)).m_account.m_nBalance && 2 == nFunds, "live push continues after queries");
+		Check(150 == service.Snapshot(TestAccount(1)).m_account.m_balance && 2 == nFunds, "live push continues after queries");
 		trade::CCounterReply query;
 		query.m_account = TestAccount(1);
 		query.m_operation = trade::Operation::Funds;
@@ -249,31 +249,31 @@ public:
 		ordinaryQuery.SetType(_TyRequest::TRADE_FUNDS_QUERY);
 		ordinaryQuery.SetExtraData("request_source", "Client");
 		service.DispatchReply(ordinaryQuery, response);
-		Check(25 == service.Snapshot(TestAccount(1)).m_version && 150 == service.Snapshot(TestAccount(1)).m_account.m_nBalance, "ordinary query never replaces account cache");
+		Check(25 == service.Snapshot(TestAccount(1)).m_version && 150 == service.Snapshot(TestAccount(1)).m_account.m_balance, "ordinary query never replaces account cache");
 		session.NotifyState(SessionState::Disconnected, "test disconnect");
 		Check(!accounts.IsConnected(TestAccount(1)) && !service.IsReady(TestAccount(1)), "disconnect invalidates account connectivity and trade readiness");
 		Prepare(service, 2);
 		service.CompleteQuery(Trades(200), 0, 1);
-		Check(!service.Snapshot(TestAccount(1)).m_bReady && service.m_syncing.contains(TestAccount(1)), "old connection cannot replace new queries");
+		Check(!service.Snapshot(TestAccount(1)).m_ready && service.m_syncing.contains(TestAccount(1)), "old connection cannot replace new queries");
 		service.CompleteQuery(Trades(200), service.m_generation, 1);
-		Check(!service.Snapshot(TestAccount(1)).m_bReady && service.m_syncing.contains(TestAccount(1)), "old query cycle cannot replace new queries");
+		Check(!service.Snapshot(TestAccount(1)).m_ready && service.m_syncing.contains(TestAccount(1)), "old query cycle cannot replace new queries");
 		service.CompleteQuery(Trades(30), service.m_generation, 2);
-		Check(service.Snapshot(TestAccount(1)).m_bReady && 30 == service.Snapshot(TestAccount(1)).m_version, "fresh reconnect restores all categories");
+		Check(service.Snapshot(TestAccount(1)).m_ready && 30 == service.Snapshot(TestAccount(1)).m_version, "fresh reconnect restores all categories");
 		session.NotifyState(SessionState::Disconnected, "test disconnect");
 		Prepare(service, 3);
-		service.m_syncing.at(TestAccount(1)).m_b_overflow = true;
+		service.m_syncing.at(TestAccount(1)).m_overflow = true;
 		service.CompleteQuery(Trades(40), service.m_generation, 3);
-		Check(!service.Snapshot(TestAccount(1)).m_bReady && !service.m_syncing.contains(TestAccount(1)), "buffer overflow leaves cache unavailable for retry");
+		Check(!service.Snapshot(TestAccount(1)).m_ready && !service.m_syncing.contains(TestAccount(1)), "buffer overflow leaves cache unavailable for retry");
 		Prepare(service, 4);
 		trade::CCounterReply failed = Trades(40);
 		failed.m_result = { trade::Error::Timeout, "query failed" };
 		service.CompleteQuery(failed, service.m_generation, 4);
-		Check(!service.Snapshot(TestAccount(1)).m_bReady && !service.m_syncing.contains(TestAccount(1)), "failed category never marks cache ready");
+		Check(!service.Snapshot(TestAccount(1)).m_ready && !service.m_syncing.contains(TestAccount(1)), "failed category never marks cache ready");
 
-		Check(!service.Snapshot(TestAccount(0)).m_bReady, "zero account cannot aggregate cache");
-		service.m_snapshots[TestAccount(1)].m_account.m_nBalance = 100;
-		service.m_snapshots[TestAccount(2)].m_account.m_nBalance = 200;
-		Check(100 == service.Snapshot(TestAccount(1)).m_account.m_nBalance && 200 == service.Snapshot(TestAccount(2)).m_account.m_nBalance, "trade service isolates account snapshots");
+		Check(!service.Snapshot(TestAccount(0)).m_ready, "zero account cannot aggregate cache");
+		service.m_snapshots[TestAccount(1)].m_account.m_balance = 100;
+		service.m_snapshots[TestAccount(2)].m_account.m_balance = 200;
+		Check(100 == service.Snapshot(TestAccount(1)).m_account.m_balance && 200 == service.Snapshot(TestAccount(2)).m_account.m_balance, "trade service isolates account snapshots");
 		CRequest catalogue;
 		catalogue.SetData(request::TradeAccountList{});
 		Prepare(service, 5);

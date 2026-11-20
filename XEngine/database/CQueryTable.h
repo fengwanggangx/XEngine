@@ -14,10 +14,10 @@ namespace db
 
 	struct CColumn
 	{
-		unsigned int m_uId{ 0 };
-		std::string m_strName;
+		unsigned int m_id{ 0 };
+		std::string m_name;
 		em_data_types m_type{ em_data_types::em_string };
-		int m_nDecimal{ -1 };
+		int m_decimal{ -1 };
 	};
 
 	class CTable final

@@ -7,8 +7,8 @@ namespace db
 {
 	CConnectParam::CConnectParam(const std::string& strHost, unsigned int nPort, const std::string& strAccount,
 		const std::string& strPasswd, const std::string& strDB, const std::string& strCharset)
-		: m_strHost(strHost), m_nPort(nPort), m_strAccount(strAccount), m_strPasswd(strPasswd), m_strDataBase(strDB),
-		  m_strCharset(strCharset)
+		: m_host(strHost), m_port(nPort), m_account(strAccount), m_password(strPasswd), m_database(strDB),
+		  m_charset(strCharset)
 	{
 	}
 
@@ -17,12 +17,12 @@ namespace db
 		std::vector<std::string> data;
 		if (utility::split(strParam, data, delimiter, false) == 6)
 		{
-			m_strHost = data[0];
-			utility::to_number(data[1], m_nPort);
-			m_strAccount = data[2];
-			m_strPasswd = data[3];
-			m_strDataBase = data[4];
-			m_strCharset = data[5];
+			m_host = data[0];
+			utility::to_number(data[1], m_port);
+			m_account = data[2];
+			m_password = data[3];
+			m_database = data[4];
+			m_charset = data[5];
 		}
 	}
 

@@ -29,8 +29,8 @@ namespace db
 		bool IsValid();
 
 	private:
-		std::mutex m_mtx_db;
-		MYSQL* m_pDB{ nullptr };
+		std::mutex m_db_mutex;
+		MYSQL* m_db{ nullptr };
 	};
 } // namespace db
 #endif

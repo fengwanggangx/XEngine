@@ -109,17 +109,17 @@ private:
 	bool RegisterTask(task_priority level, size_t priority, _Task&& task)
 	{
 		{
-			std::unique_lock<std::mutex> lck(m_mtx_tasks);
+			std::unique_lock<std::mutex> lck(m_tasks_mutex);
 			if (m_stop)
 			{
 				return false;
 			}
 			m_task_queue.emplace(level, priority, std::forward<_Task>(task));
-			++m_nTasks;
+			++m_tasks;
 		}
 
-		m_cond.notify_one();
-		if ((m_nAssistants > 0) && IsNeedAssistant()) // 增加辅助线程
+		m_task_ready.notify_one();
+		if ((m_assistants > 0) && IsNeedAssistant()) // 增加辅助线程
 		{
 			BuildNewThread(1);
 		}
@@ -129,12 +129,12 @@ private:
 	template <typename _Task>
 	bool RegisterTask(std::size_t idx, task_priority level, size_t priority, _Task&& task)
 	{
-		if (idx >= m_nWorkers)
+		if (idx >= m_worker_count)
 		{
 			return RegisterTask(level, priority, std::forward<_Task>(task));
 		}
 		{
-			std::unique_lock<std::mutex> lck(m_mtx_tasks);
+			std::unique_lock<std::mutex> lck(m_tasks_mutex);
 			if (m_stop)
 			{
 				return false;
@@ -144,10 +144,10 @@ private:
 				m_thread_task_queues.emplace_back();
 			}
 			m_thread_task_queues.at(idx).emplace(level, priority, std::forward<_Task>(task));
-			++m_nTasks;
+			++m_tasks;
 		}
 
-		m_cond.notify_all(); // 会有小规模惊群唤醒问题，线程数不多影响不大
+		m_task_ready.notify_all(); // 会有小规模惊群唤醒问题，线程数不多影响不大
 		return true;
 	}
 
@@ -166,22 +166,22 @@ private:
 	// 指定线程任务队列,主要用于时序任务
 	std::vector<_TyTaskQueue> m_thread_task_queues;
 
-	std::mutex m_mtx_tasks;
-	std::condition_variable m_cond;
+	std::mutex m_tasks_mutex;
+	std::condition_variable m_task_ready;
 
 	std::atomic_size_t m_thread_id{ 0 };
 
-	std::mutex m_mtx_workers;
+	std::mutex m_workers_mutex;
 	std::vector<std::thread> m_workers;
 
 private:
-	std::atomic_size_t m_nWorkers{ 0 };		// 当前线程数
-	std::atomic_size_t m_nTasks{ 0 };		// 当前任务数
+	std::atomic_size_t m_worker_count{ 0 }; // 当前线程数
+	std::atomic_size_t m_tasks{ 0 };		// 当前任务数
 	std::atomic_size_t m_busy_workers{ 0 }; // 忙碌线程数
 	bool m_stop{ false };					// 线程退出
 
 private:
-	std::size_t m_nCores{ 0 };		  // 核心线程数
-	std::size_t m_nAssistants{ 0 };	  // 辅助线程数
-	std::size_t m_n_max_workers{ 0 }; // 最大线程数
+	std::size_t m_cores{ 0 };		// 核心线程数
+	std::size_t m_assistants{ 0 };	// 辅助线程数
+	std::size_t m_max_workers{ 0 }; // 最大线程数
 };

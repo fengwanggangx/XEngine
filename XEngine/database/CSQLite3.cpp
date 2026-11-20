@@ -16,13 +16,13 @@ namespace db
 
 	int CSQLite3::Connect(const CConnectParam& param)
 	{
-		if (nullptr != m_pDB)
+		if (nullptr != m_db)
 		{
 			return SQLITE_OK;
 		}
 
 		sqlite3* pDB = nullptr;
-		int nRet = sqlite3_open_v2(param.m_strDataBase.c_str(), &pDB, SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE | SQLITE_OPEN_FULLMUTEX, nullptr);
+		int nRet = sqlite3_open_v2(param.m_database.c_str(), &pDB, SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE | SQLITE_OPEN_FULLMUTEX, nullptr);
 		if (SQLITE_OK != nRet)
 		{
 			if (nullptr != pDB)
@@ -32,45 +32,45 @@ namespace db
 			return nRet;
 		}
 
-		m_pDB = pDB;
+		m_db = pDB;
 		return SQLITE_OK;
 	}
 
 	int CSQLite3::Close()
 	{
-		if (nullptr == m_pDB)
+		if (nullptr == m_db)
 		{
 			return SQLITE_OK;
 		}
 
-		int nRet = sqlite3_close(static_cast<sqlite3*>(m_pDB));
+		int nRet = sqlite3_close(static_cast<sqlite3*>(m_db));
 		if (SQLITE_OK == nRet)
 		{
-			m_pDB = nullptr;
+			m_db = nullptr;
 		}
 		return nRet;
 	}
 
 	int CSQLite3::ExecUpdate(const std::string& strSQL)
 	{
-		if (nullptr == m_pDB)
+		if (nullptr == m_db)
 		{
 			return SQLITE_MISUSE;
 		}
-		return sqlite3_exec(static_cast<sqlite3*>(m_pDB), strSQL.c_str(), nullptr, nullptr, nullptr);
+		return sqlite3_exec(static_cast<sqlite3*>(m_db), strSQL.c_str(), nullptr, nullptr, nullptr);
 	}
 
 	const CTable& CSQLite3::ExecQuery(const std::string& strSQL)
 	{
 		thread_local CTable table;
 		table.Clear();
-		if (nullptr == m_pDB)
+		if (nullptr == m_db)
 		{
 			return table;
 		}
 
 		sqlite3_stmt* pStatement = nullptr;
-		int nRet = sqlite3_prepare_v2(static_cast<sqlite3*>(m_pDB), strSQL.c_str(), -1, &pStatement, nullptr);
+		int nRet = sqlite3_prepare_v2(static_cast<sqlite3*>(m_db), strSQL.c_str(), -1, &pStatement, nullptr);
 		auto statement = std::unique_ptr<sqlite3_stmt, decltype(&sqlite3_finalize)>(pStatement, sqlite3_finalize);
 		if (SQLITE_OK != nRet)
 		{
@@ -83,8 +83,8 @@ namespace db
 		{
 			table.m_columns.emplace_back();
 			CColumn& column = table.m_columns.back();
-			column.m_uId = i;
-			column.m_strName = sqlite3_column_name(statement.get(), i);
+			column.m_id = i;
+			column.m_name = sqlite3_column_name(statement.get(), i);
 		}
 
 		while (SQLITE_ROW == sqlite3_step(statement.get()))

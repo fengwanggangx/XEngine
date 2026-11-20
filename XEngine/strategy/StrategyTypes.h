@@ -49,13 +49,13 @@ struct CStrategyConfig
 {
 	_TyAccount m_account{};
 	_TyStrategyId m_id{ 0 };
-	std::string m_str_type;
+	std::string m_type;
 	std::uint64_t m_revision{ 1 };
-	std::string m_str_name;
+	std::string m_name;
 	std::unordered_map<std::string, std::string> m_params;
 	std::vector<CQuoteInfo> m_subscriptions;
 	std::size_t m_event_queue_limit{ 4096 };
-	bool m_b_auto_start{ false };
+	bool m_auto_start{ false };
 
 	bool IsValid() const;
 };
@@ -72,17 +72,17 @@ struct CTimerEvent
 struct CStrategySnapshot
 {
 	_TyStrategyId m_id{ 0 };
-	std::string m_str_type;
-	std::string m_str_name;
+	std::string m_type;
+	std::string m_name;
 	StrategyState m_state{ StrategyState::Created };
-	bool m_b_market_available{ false };
+	bool m_market_available{ false };
 	std::size_t m_queue_length{ 0 };
 	std::size_t m_active_order_count{ 0 };
 	std::uint64_t m_last_event_sequence{ 0 };
 	std::uint64_t m_dropped_market_events{ 0 };
 	std::int64_t m_last_callback_duration_us{ 0 };
 	std::int64_t m_max_callback_duration_us{ 0 };
-	std::string m_str_last_error;
+	std::string m_last_error;
 	std::string m_business_state;
 	std::string m_details_json;
 };

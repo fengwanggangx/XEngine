@@ -52,8 +52,8 @@ private:
 	{
 		CAccountInfo m_info;
 		std::size_t m_use_count{ 0 };
-		bool m_b_at_account_list{ true };
-		bool m_b_disconnecting{ false };
+		bool m_at_account_list{ true };
+		bool m_disconnecting{ false };
 	};
 
 	void FinishDisconnect(const _TyAccount& account);
@@ -67,17 +67,17 @@ private:
 
 	bool DispatchReply(const CRequest& origin, const CRequest& reply);
 
-	std::shared_mutex m_mtx_requests;
+	std::shared_mutex m_requests_mutex;
 	std::unordered_map<_TyRequestId, CPending> m_pending;
-	CSession* m_p_session{ nullptr };
-	mutable std::shared_mutex m_mtx_accounts;
+	CSession* m_session{ nullptr };
+	mutable std::shared_mutex m_accounts_mutex;
 	std::map<_TyAccount, CAccountRuntime> m_accounts;
 	_TyRequestNotify m_push_handler;
 	_TyAccountStateHandler m_account_state_handler;
 	std::uint64_t m_broker_connect_id{ 0 };
-	std::atomic_bool m_b_stopping{ false };
+	std::atomic_bool m_stopping{ false };
 	std::jthread m_refresh;
-	std::mutex m_mtx_wait;
+	std::mutex m_wait_mutex;
 	std::condition_variable m_wake;
-	std::string m_str_last_error;
+	std::string m_last_error;
 };

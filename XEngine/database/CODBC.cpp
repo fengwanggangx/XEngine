@@ -76,7 +76,7 @@ namespace db
 			dbs.emplace_back(std::move(db));
 		}
 
-		std::unique_lock<std::shared_mutex> lck(m_mtx_pool);
+		std::unique_lock<std::shared_mutex> lck(m_pool_mutex);
 		auto& pool = m_pool[t];
 		pool.reserve(pool.size() + dbs.size());
 		for (auto& v : dbs)
@@ -91,7 +91,7 @@ namespace db
 		std::vector<std::unique_ptr<IDataBase>> dbs;
 		bool bBusy = false;
 		{
-			std::unique_lock<std::shared_mutex> lock(m_mtx_pool);
+			std::unique_lock<std::shared_mutex> lock(m_pool_mutex);
 			for (auto& item : m_pool)
 			{
 				auto& pool = item.second;
@@ -130,7 +130,7 @@ namespace db
 		std::vector<std::unique_ptr<IDataBase>> dbs;
 		bool bBusy = false;
 		{
-			std::unique_lock<std::shared_mutex> lock(m_mtx_pool);
+			std::unique_lock<std::shared_mutex> lock(m_pool_mutex);
 			auto mIter = m_pool.find(t);
 			if (m_pool.end() == mIter)
 			{
@@ -163,7 +163,7 @@ namespace db
 	{
 		IDataBase* pDB = nullptr;
 		{
-			std::unique_lock<std::shared_mutex> lock(m_mtx_pool);
+			std::unique_lock<std::shared_mutex> lock(m_pool_mutex);
 			const auto mIter = m_pool.find(t);
 			if (m_pool.end() != mIter)
 			{
@@ -190,7 +190,7 @@ namespace db
 			{
 				return;
 			}
-			std::unique_lock<std::shared_mutex> lck(m_mtx_pool);
+			std::unique_lock<std::shared_mutex> lck(m_pool_mutex);
 			pDatabase->m_status = status::free;
 		};
 		return _TyDBPtr(pDB, std::move(releasor));
@@ -198,7 +198,7 @@ namespace db
 
 	std::size_t CODBC::Count(em_database t) const
 	{
-		std::shared_lock<std::shared_mutex> lck(m_mtx_pool);
+		std::shared_lock<std::shared_mutex> lck(m_pool_mutex);
 		const auto mIter = m_pool.find(t);
 		return m_pool.end() == mIter ? 0 : mIter->second.size();
 	}
