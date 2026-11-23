@@ -1,3 +1,4 @@
+#include "../log/CLogger.h"
 #include "TradeRequestRouting.h"
 #include "CStrategyService.h"
 
@@ -330,7 +331,7 @@ void CStrategyService::OnReply(const CRequest& origin, const trade::CCounterRepl
 	std::uint64_t instanceId = 0;
 	if (!tradingroute::ReadNumber(origin, "strategy_id", strategyId) || !tradingroute::ReadNumber(origin, "strategy_instance_id", instanceId))
 	{
-		std::cerr << "Invalid strategy reply routing metadata\n";
+		CLogger::Write(Level::Error, "strategy", "Invalid strategy reply routing metadata");
 		return;
 	}
 	std::shared_ptr<CStrategyRuntime> runtime = FindRuntime(strategyId);
@@ -372,7 +373,7 @@ void CStrategyService::OnReply(const CRequest& origin, const trade::CCounterRepl
 	std::uint64_t quantity = 0;
 	if (!tradingroute::ReadNumber(origin, "signal_id", event.m_signal_id) || !tradingroute::ReadNumber(origin, "client_order_id", event.m_client_order_id) || !tradingroute::ReadNumber(origin, "quantity", quantity) || static_cast<std::uint64_t>((std::numeric_limits<std::int64_t>::max)()) < quantity)
 	{
-		std::cerr << "Invalid rejected strategy order metadata\n";
+		CLogger::Write(Level::Error, "strategy", "Invalid rejected strategy order metadata");
 		return;
 	}
 	event.m_quantity = static_cast<std::int64_t>(quantity);

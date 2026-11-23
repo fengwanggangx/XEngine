@@ -1,4 +1,5 @@
-﻿#include "CStrategyContext.h"
+﻿#include "../log/CLogger.h"
+#include "CStrategyContext.h"
 
 #include "CStrategyService.h"
 #include "CTradeService.h"
@@ -59,8 +60,22 @@ CAccountSnapshot CStrategyContext::GetAccount() const
 
 void CStrategyContext::WriteLog(LogLevel level, const std::string& strMessage)
 {
-	std::ostream& stream = LogLevel::Error == level ? std::cerr : std::cout;
-	stream << "[strategy:" << m_id << "] " << strMessage << '\n';
+	Level severity = Level::Info;
+	switch (level)
+	{
+	case LogLevel::Debug:
+		severity = Level::Debug;
+		break;
+	case LogLevel::Warning:
+		severity = Level::Warning;
+		break;
+	case LogLevel::Error:
+		severity = Level::Error;
+		break;
+	case LogLevel::Info:
+		break;
+	}
+	CLogger::Write(severity, "strategy", '[', m_id, "] ", strMessage);
 }
 
 bool CStrategyContext::IsMarketAvailable() const

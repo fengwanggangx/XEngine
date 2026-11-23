@@ -1,3 +1,4 @@
+#include "../log/CLogger.h"
 #include "CMySQL.h"
 #include <unordered_map>
 #include <mysql/mysql.h>
@@ -25,7 +26,7 @@ namespace db
 		}
 		if (param.m_database.empty() || (std::string::npos != param.m_database.find('\0')))
 		{
-			std::cerr << "MySQL database name is invalid\n";
+			CLogger::Write(Level::Error, "database", "MySQL database name is invalid");
 			return 1;
 		}
 		if (nullptr == m_db)
@@ -48,7 +49,7 @@ namespace db
 		mysql_options(m_db, MYSQL_SET_CHARSET_NAME, param.m_charset.c_str());
 		if (nullptr == mysql_real_connect(m_db, param.m_host.c_str(), param.m_account.c_str(), param.m_password.c_str(), nullptr, param.m_port, nullptr, 0))
 		{
-			std::cerr << "MySQL connection failed: " << mysql_error(m_db) << '\n';
+			CLogger::Write(Level::Error, "database", "MySQL connection failed: ", mysql_error(m_db));
 			mysql_close(m_db);
 			m_db = nullptr;
 			return 1;
@@ -56,7 +57,7 @@ namespace db
 		std::string strSQL = "CREATE DATABASE IF NOT EXISTS `" + param.m_database + "` CHARACTER SET utf8mb4";
 		if ((0 != mysql_query(m_db, strSQL.c_str())) || (0 != mysql_select_db(m_db, param.m_database.c_str())))
 		{
-			std::cerr << "MySQL database initialization failed: " << mysql_error(m_db) << '\n';
+			CLogger::Write(Level::Error, "database", "MySQL database initialization failed: ", mysql_error(m_db));
 			mysql_close(m_db);
 			m_db = nullptr;
 			return 1;

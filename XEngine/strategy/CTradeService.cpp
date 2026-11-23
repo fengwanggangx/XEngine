@@ -1,3 +1,4 @@
+#include "../log/CLogger.h"
 #include "CTradeService.h"
 #include "../trade/ExecutionRulesWire.h"
 #include "TradeRequestRouting.h"
@@ -735,7 +736,7 @@ bool CTradeService::DispatchReply(const CRequest& origin, const CRequest& respon
 	}
 	if ("Strategy" != source && "AccountSync" != source)
 	{
-		std::cerr << "Invalid trade request source\n";
+		CLogger::Write(Level::Error, "strategy", "Invalid trade request source");
 		return false;
 	}
 	std::uint64_t generation = 0;
@@ -743,7 +744,7 @@ bool CTradeService::DispatchReply(const CRequest& origin, const CRequest& respon
 	_TyAccount account;
 	if (!tradingroute::ReadNumber(origin, "broker_connect_id", generation) || !FmtAccount(origin, account) || ("AccountSync" == source && !tradingroute::ReadNumber(origin, "sync_cycle", cycle)))
 	{
-		std::cerr << "Invalid trade request routing metadata\n";
+		CLogger::Write(Level::Error, "strategy", "Invalid trade request routing metadata");
 		return false;
 	}
 	trade::Operation operation;
@@ -772,7 +773,7 @@ bool CTradeService::DispatchReply(const CRequest& origin, const CRequest& respon
 	}
 	if (("Strategy" == source && trade::Operation::Submit != operation && trade::Operation::Cancel != operation) || ("AccountSync" == source && (trade::Operation::Funds > operation || trade::Operation::Trades < operation)))
 	{
-		std::cerr << "Invalid trade request source/operation\n";
+		CLogger::Write(Level::Error, "strategy", "Invalid trade request source/operation");
 		return false;
 	}
 	trade::CCounterReply reply;

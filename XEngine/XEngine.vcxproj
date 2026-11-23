@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003" DefaultTargets="Build" ToolsVersion="Current">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug|ARM">
@@ -198,7 +198,7 @@
   </ItemGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
-      <AdditionalIncludeDirectories>./request;./include/debug/libevent;./include/debug/protobuf;./include/debug/mysql;./include/debug/ini;./include/debug/sqlite;./include/debug/rapidjson;%(ClCompile.AdditionalIncludeDirectories);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>./request;./include/debug/libevent;./include/debug/spdlog;./include/debug/protobuf;./include/debug/mysql;./include/debug/ini;./include/debug/sqlite;./include/debug/rapidjson;%(ClCompile.AdditionalIncludeDirectories);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <CppLanguageStandard>c++20</CppLanguageStandard>
       <PreprocessorDefinitions>XENGINE_DEBUG_BUILD;PROTOBUF_USE_DLLS;_SILENCE_STDEXT_HASH_DEPRECATION_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
@@ -211,7 +211,7 @@
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
-      <AdditionalIncludeDirectories>./request;./include/release/libevent;./include/release/protobuf;./include/release/mysql;./include/release/ini;./include/release/sqlite;./include/release/rapidjson;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>./request;./include/release/libevent;./include/release/spdlog;./include/release/protobuf;./include/release/mysql;./include/release/ini;./include/release/sqlite;./include/release/rapidjson;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <CppLanguageStandard>c++20</CppLanguageStandard>
       <PreprocessorDefinitions>%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
@@ -263,6 +263,10 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="strategy\strategies\CPriceBreakoutStrategy.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="log\CLogger.h" />
+    <ClCompile Include="log\CLogger.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets" />

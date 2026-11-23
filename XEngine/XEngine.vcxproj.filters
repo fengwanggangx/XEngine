@@ -1221,28 +1221,62 @@
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="strategy\strategies\CConfiguredStrategy.cpp" />
+    <ClCompile Include="strategy\strategies\CConfiguredStrategy.cpp">
+      <Filter>strategy\strategies</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="strategy\StrategySettings.h" />
-    <ClInclude Include="common\numeric.h" />
+    <ClInclude Include="strategy\StrategySettings.h">
+      <Filter>strategy</Filter>
+    </ClInclude>
+    <ClInclude Include="common\numeric.h">
+      <Filter>common</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="trade\OrderRules.h" />
+    <ClInclude Include="trade\OrderRules.h">
+      <Filter>trade</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="trade\ExecutionRulesWire.h" />
+    <ClInclude Include="trade\ExecutionRulesWire.h">
+      <Filter>trade</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="strategy\strategies\CConfiguredStrategy.h" />
+    <ClInclude Include="strategy\strategies\CConfiguredStrategy.h">
+      <Filter>strategy\strategies</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="strategy\strategies\CTakeProfitStopLossStrategy.h" />
+    <ClInclude Include="strategy\strategies\CTakeProfitStopLossStrategy.h">
+      <Filter>strategy\strategies</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="strategy\strategies\CTrailingTakeProfitStrategy.h" />
+    <ClInclude Include="strategy\strategies\CTrailingTakeProfitStrategy.h">
+      <Filter>strategy\strategies</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="strategy\strategies\CPriceBreakoutStrategy.h" />
+    <ClInclude Include="strategy\strategies\CPriceBreakoutStrategy.h">
+      <Filter>strategy\strategies</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="log">
+      <UniqueIdentifier>{802FFA5C-B075-4EB7-82DB-AAA645DFB8AE}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="database\CQueryTable.h">
+      <Filter>database</Filter>
+    </ClInclude>
+    <ClInclude Include="log\CLogger.h">
+      <Filter>log</Filter>
+    </ClInclude>
+    <ClCompile Include="log\CLogger.cpp">
+      <Filter>log</Filter>
+    </ClCompile>
   </ItemGroup>
 </Project>

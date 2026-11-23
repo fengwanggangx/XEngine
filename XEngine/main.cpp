@@ -1,3 +1,4 @@
+#include "log/CLogger.h"
 #include "./network/CHttpServer.h"
 #include "./network/CTcpServer.h"
 #include "./network/common_net.h"
@@ -52,18 +53,21 @@ void HttpTest(net::CHttpServer* pHttpServer)
 
 int main()
 {
+	CLogger::Initialize("xengine");
+	CLogger::Write(Level::Info, "startup", "Service starting");
 	CBootLoader boot;
 	if (!boot.Initialize())
 	{
-		std::cerr << boot.GetLastError() << '\n';
+		CLogger::Write(Level::Error, "startup", boot.GetLastError());
 		return boot.GetErrorCode();
 	}
 	HttpTest(&boot.GetHttpServer());
 	if (!boot.Run())
 	{
-		std::cerr << boot.GetLastError() << '\n';
+		CLogger::Write(Level::Error, "startup", boot.GetLastError());
 		return boot.GetErrorCode();
 	}
 	boot.Finalize();
+	CLogger::Write(Level::Info, "startup", "Service stopped");
 	return 0;
 }

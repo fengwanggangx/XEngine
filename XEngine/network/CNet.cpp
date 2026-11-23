@@ -1,3 +1,4 @@
+#include "../log/CLogger.h"
 #include "CNet.h"
 #include <iostream>
 #include <chrono>
@@ -55,7 +56,7 @@ namespace net
 			int nRet = event_base_dispatch(m_net);
 			if (-1 == nRet)
 			{
-				std::cerr << "事件循环错误" << std::endl;
+				CLogger::Write(Level::Error, "network", "事件循环错误");
 			}
 		}
 		else
@@ -65,7 +66,7 @@ namespace net
 				int nRet = event_base_loop(m_net, EVLOOP_NONBLOCK);
 				if (-1 == nRet)
 				{
-					std::cerr << "事件循环错误" << std::endl;
+					CLogger::Write(Level::Error, "network", "事件循环错误");
 					break;
 				}
 				std::this_thread::sleep_for(std::chrono::seconds(1));

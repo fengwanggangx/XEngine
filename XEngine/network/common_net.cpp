@@ -1,3 +1,4 @@
+#include "../log/CLogger.h"
 #include "CNet.h"
 #include "common_net.h"
 #include <iostream>
@@ -40,13 +41,13 @@ namespace net
 #if defined(_WIN32)
 		if (0 != evthread_use_windows_threads())
 		{
-			std::cout << "Failed to enable Windows threads support" << std::endl;
+			CLogger::Write(Level::Error, "network", "Failed to enable Windows threads support");
 			return false;
 		}
 #else
 		if (0 != evthread_use_pthreads())
 		{
-			std::cerr << "Failed to enable pthreads support" << std::endl;
+			CLogger::Write(Level::Error, "network", "Failed to enable pthreads support");
 			return false;
 		}
 #endif
