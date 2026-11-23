@@ -1,4 +1,4 @@
-<?xml version='1.0' encoding='utf-8'?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003" DefaultTargets="Build" ToolsVersion="Current">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug|ARM">
@@ -75,20 +75,22 @@
   <ImportGroup Label="PropertySheets" />
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <RemoteCompileLocalCopyObjectFiles>true</RemoteCompileLocalCopyObjectFiles>
+    <RemoteCompileLocalCopyObjectFiles>false</RemoteCompileLocalCopyObjectFiles>
     <CopyAdditionalIncludes>true</CopyAdditionalIncludes>
     <RemoteOutDir>$(RemoteProjectDir)exec/debug/</RemoteOutDir>
     <OutDir>$(ProjectDir)exec\debug\</OutDir>
     <RemoteDeployDir>$(RemoteProjectDir)</RemoteDeployDir>
+    <RemoteLinkLocalCopyOutput>false</RemoteLinkLocalCopyOutput>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <RemoteCompileLocalCopyObjectFiles>true</RemoteCompileLocalCopyObjectFiles>
+    <RemoteCompileLocalCopyObjectFiles>false</RemoteCompileLocalCopyObjectFiles>
     <CopyAdditionalIncludes>true</CopyAdditionalIncludes>
     <RemoteOutDir>$(RemoteProjectDir)exec/release/</RemoteOutDir>
     <LibraryPath>
     </LibraryPath>
     <OutDir>$(ProjectDir)exec\release\</OutDir>
     <RemoteDeployDir>$(RemoteProjectDir)</RemoteDeployDir>
+    <RemoteLinkLocalCopyOutput>false</RemoteLinkLocalCopyOutput>
   </PropertyGroup>
   <ItemGroup>
     <ClCompile Include="strategy\CStrategyExecutionManager.cpp" />
