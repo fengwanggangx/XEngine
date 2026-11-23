@@ -1,17 +1,17 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="Current" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <RemoteTarget>1932303632;172.17.93.107 (username=, port=22, authentication=Password)</RemoteTarget>
     <PreLaunchCommand>export LD_LIBRARY_PATH=$(RemoteDeployDir)/libs/debug:$LD_LIBRARY_PATH</PreLaunchCommand>
     <DebuggerFlavor>LinuxDebugger</DebuggerFlavor>
-    <RemoteDebuggingTarget>1932303632;172.17.93.107 (username=, port=22, authentication=Password)</RemoteDebuggingTarget>
+    <RemoteDebuggingTarget>-540049051;106.55.20.91 (username=, port=22, authentication=Password)</RemoteDebuggingTarget>
     <RemoteDebuggerWorkingDirectory>$(RemoteOutDir)</RemoteDebuggerWorkingDirectory>
+    <RemoteTarget>-540049051;106.55.20.91 (username=, port=22, authentication=Password)</RemoteTarget>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <DebuggerFlavor>LinuxDebugger</DebuggerFlavor>
     <PreLaunchCommand>export LD_LIBRARY_PATH=$(RemoteDeployDir)/libs/release:$LD_LIBRARY_PATH</PreLaunchCommand>
     <RemoteDebuggerWorkingDirectory>$(RemoteOutDir)</RemoteDebuggerWorkingDirectory>
-    <RemoteTarget>703081229;10.9.21.200 (username=, port=22, authentication=Password)</RemoteTarget>
-    <RemoteDebuggingTarget>703081229;10.9.21.200 (username=, port=22, authentication=Password)</RemoteDebuggingTarget>
+    <RemoteTarget>-540049051;106.55.20.91 (username=, port=22, authentication=Password)</RemoteTarget>
+    <RemoteDebuggingTarget>-540049051;106.55.20.91 (username=, port=22, authentication=Password)</RemoteDebuggingTarget>
   </PropertyGroup>
 </Project>
