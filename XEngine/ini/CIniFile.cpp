@@ -1,8 +1,44 @@
 #include "CIniFile.h"
+#include <filesystem>
+#include <fstream>
 #include <mutex>
+#include <random>
 
 namespace ini
 {
+	namespace
+	{
+		bool SaveAtomically(const CSimpleIniA& parser, const std::filesystem::path& path)
+		{
+			std::string contents;
+			if (0 > parser.Save(contents))
+			{
+				return false;
+			}
+			std::error_code error;
+			std::random_device random;
+			std::filesystem::path temporary = path;
+			temporary += ".tmp-" + std::to_string(random()) + "-" + std::to_string(random());
+			if (!std::filesystem::create_directory(temporary, error))
+			{
+				return false;
+			}
+			std::filesystem::path staged = temporary / "config.ini";
+			std::ofstream output(staged, std::ios::binary);
+			output.write(contents.data(), static_cast<std::streamsize>(contents.size()));
+			output.close();
+			bool saved = output.good();
+			if (saved)
+			{
+				std::filesystem::rename(staged, path, error);
+				saved = !error;
+			}
+			std::filesystem::remove(staged, error);
+			std::filesystem::remove(temporary, error);
+			return saved;
+		}
+	}
+
 	std::vector<std::pair<std::string, std::string>> CIniFile::GetSection(const std::string& strSection) const
 	{
 		CSimpleIniA::TNamesDepend keys;
@@ -40,7 +76,8 @@ namespace ini
 			{
 				return false;
 			}
-			if (!oldKey.empty())
+			SI_NoCase<char> less;
+			if (!oldKey.empty() && (less(oldKey.c_str(), strKey.c_str()) || less(strKey.c_str(), oldKey.c_str())))
 			{
 				parser->Delete(strSection.c_str(), oldKey.c_str());
 			}
@@ -49,7 +86,7 @@ namespace ini
 		{
 			parser->Delete(strSection.c_str(), strKey.c_str());
 		}
-		if (0 > parser->SaveFile(m_file_name.c_str()))
+		if (!SaveAtomically(*parser, m_file_name))
 		{
 			return false;
 		}
@@ -65,7 +102,10 @@ namespace ini
 
 	CIniFile::~CIniFile()
 	{
-		Save();
+		if (m_updated.load())
+		{
+			Save();
+		}
 	}
 
 	bool CIniFile::Load(const std::string& strFile)
@@ -74,9 +114,10 @@ namespace ini
 		SI_Error ret = m_parser->LoadFile(strFile.c_str());
 		if (0 > ret)
 		{
-			if (SI_FILE == ret)
+			std::error_code error;
+			if ((SI_FILE == ret) && !std::filesystem::exists(strFile, error) && !error)
 			{
-				return 0 <= m_parser->SaveFile(strFile.c_str());
+				return SaveAtomically(*m_parser, strFile);
 			}
 			return false;
 		}
@@ -86,8 +127,7 @@ namespace ini
 	bool CIniFile::Save() const
 	{
 		std::unique_lock<std::shared_mutex> lck(m_parser_mutex);
-		SI_Error ret = m_parser->SaveFile(m_file_name.c_str());
-		return 0 <= ret;
+		return SaveAtomically(*m_parser, m_file_name);
 	}
 
 	int CIniFile::GetInt(const std::string& strSection, const std::string& strKey, int nDefault) const
@@ -117,7 +157,7 @@ namespace ini
 	bool CIniFile::SetInt(const std::string& strSection, const std::string& strKey, int nVal)
 	{
 		std::unique_lock<std::shared_mutex> lck(m_parser_mutex);
-		bool bRet = SI_FAIL != m_parser->SetLongValue(strSection.c_str(), strKey.c_str(), nVal);
+		bool bRet = 0 <= m_parser->SetLongValue(strSection.c_str(), strKey.c_str(), nVal);
 		m_updated = m_updated || bRet;
 		return bRet;
 	}
@@ -125,7 +165,7 @@ namespace ini
 	bool CIniFile::SetBool(const std::string& strSection, const std::string& strKey, bool bVal)
 	{
 		std::unique_lock<std::shared_mutex> lck(m_parser_mutex);
-		bool bRet = SI_FAIL != m_parser->SetBoolValue(strSection.c_str(), strKey.c_str(), bVal);
+		bool bRet = 0 <= m_parser->SetBoolValue(strSection.c_str(), strKey.c_str(), bVal);
 		m_updated = m_updated || bRet;
 		return bRet;
 	}
@@ -133,7 +173,7 @@ namespace ini
 	bool CIniFile::SetDouble(const std::string& strSection, const std::string& strKey, double fVal)
 	{
 		std::unique_lock<std::shared_mutex> lck(m_parser_mutex);
-		bool bRet = SI_FAIL != m_parser->SetDoubleValue(strSection.c_str(), strKey.c_str(), fVal);
+		bool bRet = 0 <= m_parser->SetDoubleValue(strSection.c_str(), strKey.c_str(), fVal);
 		m_updated = m_updated || bRet;
 		return bRet;
 	}
@@ -141,7 +181,7 @@ namespace ini
 	bool CIniFile::SetString(const std::string& strSection, const std::string& strKey, const std::string& strVal)
 	{
 		std::unique_lock<std::shared_mutex> lck(m_parser_mutex);
-		bool bRet = SI_FAIL != m_parser->SetValue(strSection.c_str(), strKey.c_str(), strVal.c_str());
+		bool bRet = 0 <= m_parser->SetValue(strSection.c_str(), strKey.c_str(), strVal.c_str());
 		m_updated = m_updated || bRet;
 		return bRet;
 	}

@@ -134,6 +134,7 @@ void CSession::ConnectionLoop()
 	int nReConnectSeconds = 1;
 	while (!m_stopping.load())
 	{
+		m_connectionAuthenticated.store(false);
 		NotifyState(1 == nReConnectSeconds ? SessionState::Connecting : SessionState::Reconnecting, 1 == nReConnectSeconds ? "Connecting to upstream" : "Reconnecting to upstream in " + std::to_string(nReConnectSeconds) + " seconds");
 		std::optional<CLoginInfo> info;
 		{
@@ -152,6 +153,10 @@ void CSession::ConnectionLoop()
 		{
 			{
 				std::lock_guard<std::mutex> lock(m_client_mutex);
+				if (m_stopping.load())
+				{
+					break;
+				}
 				m_client = std::move(pClient);
 			}
 			m_client->Start(true);
@@ -160,7 +165,7 @@ void CSession::ConnectionLoop()
 		{
 			CLogger::Write(Level::Error, "system", "upstream connection initialization failed: ", nRet);
 		}
-		bool bAuthed = IsAuthenticated();
+		bool bAuthed = m_connectionAuthenticated.load();
 		decltype(m_client) pClosedClient;
 		{
 			std::lock_guard<std::mutex> lock(m_client_mutex);
@@ -236,10 +241,11 @@ bool CSession::HandleAuthRequest(const CRequest& req)
 		bool bRetryWithCredentials = false;
 		{
 			std::lock_guard<std::mutex> lock(m_auth_mutex);
-			if (m_login.has_value() && !m_login->m_token.empty())
+			std::optional<CLoginInfo>& credentials = m_auth.has_value() ? m_auth : m_login;
+			if (credentials.has_value() && !credentials->m_token.empty())
 			{
-				m_login->m_token.clear();
-				bRetryWithCredentials = !m_login->m_user.empty() && !m_login->m_password.empty();
+				credentials->m_token.clear();
+				bRetryWithCredentials = !credentials->m_user.empty() && !credentials->m_password.empty();
 			}
 		}
 		if (bRetryWithCredentials)
@@ -264,6 +270,7 @@ bool CSession::HandleAuthRequest(const CRequest& req)
 			m_login->m_token = req.GetExtraData("token");
 		}
 	}
+	m_connectionAuthenticated.store(true);
 	m_state.store(SessionState::Ready);
 	{
 		std::lock_guard<std::mutex> lock(m_client_mutex);

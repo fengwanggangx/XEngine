@@ -62,7 +62,7 @@ namespace net
 		std::string m_addr;
 		int m_port{ -1 };
 
-		net::_TyConnectionId m_router_id{ 0 };
+		std::atomic<net::_TyConnectionId> m_router_id{ -1 };
 	};
 } // namespace net
 #endif

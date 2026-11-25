@@ -1022,8 +1022,14 @@ bool CStrategyService::RemoveStrategy(_TyStrategyId id)
 			return false;
 		}
 	}
-	runtime->m_removing.store(true);
-	runtime->m_accept_market_events.store(false);
+	{
+		std::lock_guard<std::mutex> lock(runtime->m_events_mutex);
+		if (runtime->m_removing.exchange(true))
+		{
+			return false;
+		}
+		runtime->m_accept_market_events.store(false);
+	}
 	RemoveRoutes(runtime->m_config);
 	WaitUntilIdle(runtime);
 	for (auto& stockInstance : runtime->m_securities)
@@ -1417,7 +1423,7 @@ bool CStrategyService::ExecuteControl(_TyStrategyId id, StrategyEventType type)
 
 bool CStrategyService::EnqueueEvent(const std::shared_ptr<CStrategyRuntime>& runtime, CStrategyEvent&& ev)
 {
-	if ((nullptr == runtime) || runtime->m_removing.load() || (ev.IsMarketEvent() && !runtime->m_accept_market_events.load()))
+	if (nullptr == runtime)
 	{
 		return false;
 	}
@@ -1425,6 +1431,10 @@ bool CStrategyService::EnqueueEvent(const std::shared_ptr<CStrategyRuntime>& run
 	bool bFault = false;
 	{
 		std::lock_guard<std::mutex> lock(runtime->m_events_mutex);
+		if (runtime->m_removing.load() || (ev.IsMarketEvent() && !runtime->m_accept_market_events.load()))
+		{
+			return false;
+		}
 		if (runtime->m_config.m_event_queue_limit <= runtime->m_events.size())
 		{
 			const auto vIter = std::find_if(runtime->m_events.begin(), runtime->m_events.end(), [](const CStrategyEvent& queuedEvent)
@@ -1433,6 +1443,10 @@ bool CStrategyService::EnqueueEvent(const std::shared_ptr<CStrategyRuntime>& run
 			});
 			if (runtime->m_events.end() != vIter)
 			{
+				if (nullptr != vIter->m_completion)
+				{
+					vIter->m_completion->set_value(false);
+				}
 				runtime->m_events.erase(vIter);
 				std::lock_guard<std::mutex> metricsLock(runtime->m_metrics_mutex);
 				++runtime->m_dropped_market_events;
@@ -1442,8 +1456,11 @@ bool CStrategyService::EnqueueEvent(const std::shared_ptr<CStrategyRuntime>& run
 				bFault = true;
 			}
 		}
-		runtime->m_events.emplace_back(std::move(ev));
-		if (!runtime->m_scheduled)
+		if (!bFault)
+		{
+			runtime->m_events.emplace_back(std::move(ev));
+		}
+		if (!bFault && !runtime->m_scheduled)
 		{
 			runtime->m_scheduled = true;
 			bSchedule = true;
@@ -1452,6 +1469,7 @@ bool CStrategyService::EnqueueEvent(const std::shared_ptr<CStrategyRuntime>& run
 	if (bFault)
 	{
 		HandleStrategyException(*runtime, "Strategy critical event queue exceeded hard limit");
+		return false;
 	}
 	if (bSchedule)
 	{
@@ -1626,25 +1644,31 @@ void CStrategyService::RouteMarketEvent(const std::string& strKey, CStrategyEven
 			}
 		}
 	}
-	std::sort(runtimes.begin(), runtimes.end(), [&ev](const auto& left, const auto& right)
+	std::vector<std::pair<int, std::shared_ptr<CStrategyRuntime>>> prioritized;
+	prioritized.reserve(runtimes.size());
+	for (auto& runtime : runtimes)
 	{
-		auto priority = [&ev](const std::shared_ptr<CStrategyRuntime>& runtime)
+		int priority = 3;
+		if (StrategyEventType::Quote == ev.m_type)
 		{
 			for (const auto& instance : runtime->m_securities)
 			{
 				if (ev.m_security == instance.m_security.String())
 				{
-					return instance.m_strategy->QuotePriority(std::get<_TyQuoteData>(ev.m_data));
+					priority = instance.m_strategy->QuotePriority(std::get<_TyQuoteData>(ev.m_data));
+					break;
 				}
 			}
-			return 3;
-		};
-		int a = StrategyEventType::Quote == ev.m_type ? priority(left) : 3;
-		int b = StrategyEventType::Quote == ev.m_type ? priority(right) : 3;
-		return a == b ? left->m_config.m_id < right->m_config.m_id : a < b;
-	});
-	for (const auto& runtime : runtimes)
+		}
+		prioritized.emplace_back(priority, std::move(runtime));
+	}
+	std::sort(prioritized.begin(), prioritized.end(), [](const auto& left, const auto& right)
 	{
+		return left.first == right.first ? left.second->m_config.m_id < right.second->m_config.m_id : left.first < right.first;
+	});
+	for (const auto& item : prioritized)
+	{
+		const std::shared_ptr<CStrategyRuntime>& runtime = item.second;
 		CStrategyEvent routedEvent = ev;
 		routedEvent.m_completion = std::make_shared<std::promise<bool>>();
 		std::future<bool> completion = routedEvent.m_completion->get_future();
@@ -1980,7 +2004,11 @@ bool CStrategyService::RequestHistory(_TyStrategyId id, const CSecurity& securit
 		std::map<std::int64_t, _TyBarData> ordered;
 		for (const auto& bar : response.GetData().query_response().bars())
 		{
-			ordered.insert_or_assign(bar.begin_time_ms(), bar);
+			const auto mIter = ordered.find(bar.begin_time_ms());
+			if ((ordered.end() == mIter) || (mIter->second.data_version() < bar.data_version()))
+			{
+				ordered.insert_or_assign(bar.begin_time_ms(), bar);
+			}
 		}
 		std::vector<_TyBarData> bars;
 		bars.reserve(ordered.size());

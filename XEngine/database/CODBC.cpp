@@ -7,6 +7,12 @@
 
 namespace db
 {
+	struct CPoolState
+	{
+		std::shared_mutex m_mtx_pool;
+		std::unordered_map<em_database, std::vector<std::unique_ptr<IDataBase>>> m_connections;
+	};
+
 	namespace
 	{
 		IDataBase* CreateDB(em_database t)
@@ -46,7 +52,7 @@ namespace db
 		}
 	} // namespace
 
-	CODBC::CODBC()
+	CODBC::CODBC() : m_poolState(std::make_shared<CPoolState>())
 	{
 	}
 
@@ -76,8 +82,8 @@ namespace db
 			dbs.emplace_back(std::move(db));
 		}
 
-		std::unique_lock<std::shared_mutex> lck(m_pool_mutex);
-		auto& pool = m_pool[t];
+		std::unique_lock<std::shared_mutex> lck(m_poolState->m_mtx_pool);
+		auto& pool = m_poolState->m_connections[t];
 		pool.reserve(pool.size() + dbs.size());
 		for (auto& v : dbs)
 		{
@@ -91,8 +97,8 @@ namespace db
 		std::vector<std::unique_ptr<IDataBase>> dbs;
 		bool bBusy = false;
 		{
-			std::unique_lock<std::shared_mutex> lock(m_pool_mutex);
-			for (auto& item : m_pool)
+			std::unique_lock<std::shared_mutex> lock(m_poolState->m_mtx_pool);
+			for (auto& item : m_poolState->m_connections)
 			{
 				auto& pool = item.second;
 				for (auto vIter = pool.begin(); vIter != pool.end();)
@@ -108,11 +114,11 @@ namespace db
 					vIter = pool.erase(vIter);
 				}
 			}
-			for (auto mIter = m_pool.begin(); mIter != m_pool.end();)
+			for (auto mIter = m_poolState->m_connections.begin(); mIter != m_poolState->m_connections.end();)
 			{
 				if (mIter->second.empty())
 				{
-					mIter = m_pool.erase(mIter);
+					mIter = m_poolState->m_connections.erase(mIter);
 				}
 				else
 				{
@@ -130,9 +136,9 @@ namespace db
 		std::vector<std::unique_ptr<IDataBase>> dbs;
 		bool bBusy = false;
 		{
-			std::unique_lock<std::shared_mutex> lock(m_pool_mutex);
-			auto mIter = m_pool.find(t);
-			if (m_pool.end() == mIter)
+			std::unique_lock<std::shared_mutex> lock(m_poolState->m_mtx_pool);
+			auto mIter = m_poolState->m_connections.find(t);
+			if (m_poolState->m_connections.end() == mIter)
 			{
 				return 0;
 			}
@@ -151,7 +157,7 @@ namespace db
 			}
 			if (pool.empty())
 			{
-				m_pool.erase(mIter);
+				m_poolState->m_connections.erase(mIter);
 			}
 		}
 
@@ -161,16 +167,29 @@ namespace db
 
 	_TyDBPtr CODBC::GetADataBase(em_database t)
 	{
+		_TyDBReleasor releasor = [poolState = m_poolState](IDataBase* pDatabase)
+		{
+			if (nullptr == pDatabase)
+			{
+				return;
+			}
+			std::unique_lock<std::shared_mutex> lck(poolState->m_mtx_pool);
+			pDatabase->m_status = status::free;
+		};
 		IDataBase* pDB = nullptr;
 		{
-			std::unique_lock<std::shared_mutex> lock(m_pool_mutex);
-			const auto mIter = m_pool.find(t);
-			if (m_pool.end() != mIter)
+			std::unique_lock<std::shared_mutex> lock(m_poolState->m_mtx_pool);
+			const auto mIter = m_poolState->m_connections.find(t);
+			if (m_poolState->m_connections.end() != mIter)
 			{
 				for (const auto& v : mIter->second)
 				{
 					if ((nullptr != v) && (status::free == v->m_status))
 					{
+						if ((em_database::mysql == t) && !static_cast<CMySQL*>(v.get())->IsOpen())
+						{
+							continue;
+						}
 						v->m_status = status::busy;
 						pDB = v.get();
 						break;
@@ -184,22 +203,13 @@ namespace db
 			return nullptr;
 		}
 
-		_TyDBReleasor releasor = [this](IDataBase* pDatabase)
-		{
-			if (nullptr == pDatabase)
-			{
-				return;
-			}
-			std::unique_lock<std::shared_mutex> lck(m_pool_mutex);
-			pDatabase->m_status = status::free;
-		};
 		return _TyDBPtr(pDB, std::move(releasor));
 	}
 
 	std::size_t CODBC::Count(em_database t) const
 	{
-		std::shared_lock<std::shared_mutex> lck(m_pool_mutex);
-		const auto mIter = m_pool.find(t);
-		return m_pool.end() == mIter ? 0 : mIter->second.size();
+		std::shared_lock<std::shared_mutex> lck(m_poolState->m_mtx_pool);
+		const auto mIter = m_poolState->m_connections.find(t);
+		return m_poolState->m_connections.end() == mIter ? 0 : mIter->second.size();
 	}
 } // namespace db

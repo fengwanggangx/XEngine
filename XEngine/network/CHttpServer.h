@@ -2,6 +2,7 @@
 #define __CHTTPSERVER_H__
 
 #include <functional>
+#include <future>
 #include <memory>
 #include <mutex>
 #include <string>
@@ -195,6 +196,8 @@ namespace net
 		void RegisterStream(const std::shared_ptr<CHttpStream::State>& state);
 
 	private:
+		struct CAsyncResponse;
+		std::vector<std::unique_ptr<CAsyncResponse>> m_responses;
 		int m_port{ -1 };
 		struct evhttp* m_http{ nullptr };
 		struct evhttp_bound_socket* m_listener{ nullptr };

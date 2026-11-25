@@ -54,7 +54,16 @@ namespace db
 			m_db = nullptr;
 			return 1;
 		}
-		std::string strSQL = "CREATE DATABASE IF NOT EXISTS `" + param.m_database + "` CHARACTER SET utf8mb4";
+		std::string strSQL = "CREATE DATABASE IF NOT EXISTS `";
+		for (char ch : param.m_database)
+		{
+			if ('`' == ch)
+			{
+				strSQL += ch;
+			}
+			strSQL += ch;
+		}
+		strSQL += "` CHARACTER SET utf8mb4";
 		if ((0 != mysql_query(m_db, strSQL.c_str())) || (0 != mysql_select_db(m_db, param.m_database.c_str())))
 		{
 			CLogger::Write(Level::Error, "database", "MySQL database initialization failed: ", mysql_error(m_db));
@@ -78,6 +87,12 @@ namespace db
 	bool CMySQL::IsValid()
 	{
 		return (nullptr != m_db) && (0 == mysql_ping(m_db));
+	}
+
+	bool CMySQL::IsOpen()
+	{
+		std::lock_guard<std::mutex> lock(m_db_mutex);
+		return nullptr != m_db;
 	}
 
 	int CMySQL::Close()
@@ -238,9 +253,13 @@ namespace db
 		{
 			return false;
 		}
-		bool bRet = 0 == mysql_commit(m_db);
-		mysql_autocommit(m_db, 1);
-		return bRet;
+		if ((0 != mysql_commit(m_db)) || (0 != mysql_autocommit(m_db, 1)))
+		{
+			mysql_close(m_db);
+			m_db = nullptr;
+			return false;
+		}
+		return true;
 	}
 
 	bool CMySQL::RollBackTransaction()
@@ -250,9 +269,13 @@ namespace db
 		{
 			return false;
 		}
-		bool bRet = 0 == mysql_rollback(m_db);
-		mysql_autocommit(m_db, 1);
-		return bRet;
+		if ((0 != mysql_rollback(m_db)) || (0 != mysql_autocommit(m_db, 1)))
+		{
+			mysql_close(m_db);
+			m_db = nullptr;
+			return false;
+		}
+		return true;
 	}
 
 } // namespace db

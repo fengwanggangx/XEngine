@@ -109,17 +109,19 @@ namespace net
 
 	bool CTcpClient::SendRequest(const CRequest& req)
 	{
-		if (!m_connected || (0 > m_router_id))
+		net::_TyConnectionId id = GetId();
+		if (!m_connected || (0 > id))
 		{
 			return false;
 		}
 
-		return net::SendRequest(GetId(), req);
+		return net::SendRequest(id, req);
 	}
 
 	bool CTcpClient::SetReadTimeout(int nSeconds)
 	{
-		return m_connected && (0 <= m_router_id) && CNetPool::InstancePtr()->SetReadTimeout(m_router_id, nSeconds);
+		net::_TyConnectionId id = GetId();
+		return m_connected && (0 <= id) && CNetPool::InstancePtr()->SetReadTimeout(id, nSeconds);
 	}
 
 	void CTcpClient::RegisterHandler(_TyHandler&& handler)

@@ -87,16 +87,22 @@ namespace db
 			column.m_name = sqlite3_column_name(statement.get(), i);
 		}
 
-		while (SQLITE_ROW == sqlite3_step(statement.get()))
+		while (SQLITE_ROW == (nRet = sqlite3_step(statement.get())))
 		{
 			table.m_rows.emplace_back();
 			_TyRow& row = table.m_rows.back();
 			row.reserve(nCols);
 			for (std::size_t i = 0; i < nCols; ++i)
 			{
-				const unsigned char* pszValue = sqlite3_column_text(statement.get(), i);
-				row.emplace_back(nullptr == pszValue ? "" : reinterpret_cast<const char*>(pszValue));
+				int type = sqlite3_column_type(statement.get(), i);
+				const void* pValue = SQLITE_BLOB == type ? sqlite3_column_blob(statement.get(), i) : sqlite3_column_text(statement.get(), i);
+				int length = sqlite3_column_bytes(statement.get(), i);
+				row.emplace_back(std::in_place_type<std::string>, nullptr == pValue ? "" : static_cast<const char*>(pValue), nullptr == pValue ? 0 : length);
 			}
+		}
+		if (SQLITE_DONE != nRet)
+		{
+			table.Clear();
 		}
 		return table;
 	}

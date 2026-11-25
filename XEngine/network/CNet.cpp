@@ -37,25 +37,28 @@ namespace net
 
 	void CNet::ShutDown()
 	{
-		if ((nullptr != m_net) && m_running)
+		if (nullptr != m_net)
 		{
-			event_base_loopbreak(m_net);
+			// A scheduled exit also applies if dispatch has not entered the loop yet.
+			event_base_loopexit(m_net, nullptr);
 			m_running.store(false);
 		}
 	}
 
-	void CNet::Start(bool bRealTime)
+	bool CNet::Start(bool bRealTime)
 	{
 		if ((nullptr == m_net) || m_running.load())
 		{
-			return;
+			return false;
 		}
 		m_running.store(true);
+		bool success = true;
 		if (bRealTime)
 		{
 			int nRet = event_base_dispatch(m_net);
 			if (-1 == nRet)
 			{
+				success = false;
 				CLogger::Write(Level::Error, "network", "事件循环错误");
 			}
 		}
@@ -67,6 +70,7 @@ namespace net
 				if (-1 == nRet)
 				{
 					CLogger::Write(Level::Error, "network", "事件循环错误");
+					success = false;
 					break;
 				}
 				std::this_thread::sleep_for(std::chrono::seconds(1));
@@ -74,5 +78,6 @@ namespace net
 		}
 
 		m_running.store(false);
+		return success;
 	}
 } // namespace net

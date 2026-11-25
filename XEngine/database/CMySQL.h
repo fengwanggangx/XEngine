@@ -15,6 +15,7 @@ namespace db
 	public:
 		int Connect(const db::CConnectParam& param) override;
 		int Close() override;
+		bool IsOpen();
 
 		int ExecUpdate(const std::string& strSQL) override;
 		int ExecScript(const std::string& strSQL) override;

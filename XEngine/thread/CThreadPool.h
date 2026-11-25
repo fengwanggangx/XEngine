@@ -178,7 +178,7 @@ private:
 	std::atomic_size_t m_worker_count{ 0 }; // 当前线程数
 	std::atomic_size_t m_tasks{ 0 };		// 当前任务数
 	std::atomic_size_t m_busy_workers{ 0 }; // 忙碌线程数
-	bool m_stop{ false };					// 线程退出
+	std::atomic_bool m_stop{ false };					// 线程退出
 
 private:
 	std::size_t m_cores{ 0 };		// 核心线程数

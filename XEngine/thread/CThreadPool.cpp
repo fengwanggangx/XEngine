@@ -1,4 +1,5 @@
 #include "CThreadPool.h"
+#include <algorithm>
 #if defined(WIN32) || defined(_WIN32) || defined(__WIN32) && !defined(__CYGWIN__)
 #include <windows.h>
 #else
@@ -58,7 +59,8 @@ CThreadPool::CThreadPool(std::size_t cores, std::size_t assistants)
 
 CThreadPool::CThreadPool(pool_type ty)
 {
-	SetWorkersCount(CalcBestPerformanceThreads(ty), (m_cores - 1) / 2);
+	std::size_t cores = (std::max)(std::size_t{ 1 }, CalcBestPerformanceThreads(ty));
+	SetWorkersCount(cores, (cores - 1) / 2);
 	BuildNewThread(m_cores);
 }
 
@@ -83,20 +85,17 @@ void CThreadPool::ShutDown()
 			return;
 		}
 		m_stop = true;
-		m_thread_task_queues.clear();
 	}
 	m_task_ready.notify_all();
 
+	std::vector<std::thread> workers;
 	{
 		std::unique_lock<std::mutex> lck(m_workers_mutex);
-		for (auto& w : m_workers)
-		{
-			if (w.joinable())
-			{
-				w.join();
-			}
-		}
-		m_workers.clear();
+		workers.swap(m_workers);
+	}
+	for (auto& worker : workers)
+	{
+		worker.join();
 	}
 	m_worker_count.store(0);
 	m_tasks.store(0);
@@ -172,7 +171,7 @@ bool CThreadPool::IsNeedAssistant()
 void CThreadPool::BuildNewThread(std::size_t threads)
 {
 	std::unique_lock<std::mutex> lck(m_workers_mutex);
-	if (m_worker_count >= m_max_workers)
+	if (m_stop.load() || m_worker_count >= m_max_workers)
 	{
 		return;
 	}

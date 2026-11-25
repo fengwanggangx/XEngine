@@ -11,11 +11,11 @@ CDBEngine::~CDBEngine()
 
 int CDBEngine::Initialize(db::em_database ty, const db::CConnectParam& param, int nCount)
 {
-	if (nullptr == m_odbc)
+	if ((nullptr == m_odbc) || (0 >= nCount))
 	{
 		return -1;
 	}
-	return m_odbc->Connect(ty, param, nCount);
+	return m_odbc->Connect(ty, param, static_cast<std::size_t>(nCount));
 }
 
 int CDBEngine::Close()

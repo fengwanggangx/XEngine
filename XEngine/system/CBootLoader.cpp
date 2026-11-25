@@ -79,12 +79,16 @@ bool CBootLoader::Initialize()
 	db::_TyDBPtr db = CDBEngine::InstanceRef().GetDBPtr(db::em_database::mysql);
 	if ((nullptr == db) || (0 != db->ExecSqlFile(m_exec / "sql" / "table_create.sql")))
 	{
+		db.reset();
+		Finalize();
 		m_error_code = 4;
 		m_last_error = "Failed to initialize MySQL tables";
 		return false;
 	}
 	if (0 != db->ExecSqlFile(m_exec / "sql" / "table_init.sql"))
 	{
+		db.reset();
+		Finalize();
 		m_error_code = 5;
 		m_last_error = "Failed to execute sql/table_init.sql";
 		return false;
@@ -96,6 +100,7 @@ bool CBootLoader::Initialize()
 	{
 		m_error_code = 3;
 		m_last_error = "Failed to reserve MySQL strategy execution connection";
+		Finalize();
 		return false;
 	}
 
@@ -105,6 +110,7 @@ bool CBootLoader::Initialize()
 	{
 		m_error_code = 6;
 		m_last_error = "HQMarket tcp_port && http_port is required in ini/system.ini";
+		Finalize();
 		return false;
 	}
 
@@ -142,6 +148,7 @@ bool CBootLoader::Initialize()
 	{
 		m_error_code = 8;
 		m_last_error = m_account_service->GetLastError();
+		Finalize();
 		return false;
 	}
 	m_trade_service = new CTradeService(m_account_service, m_broker);
@@ -149,6 +156,7 @@ bool CBootLoader::Initialize()
 	{
 		m_error_code = 9;
 		m_last_error = m_trade_service->GetLastError();
+		Finalize();
 		return false;
 	}
 	if (!m_indicator.Initialize(m_last_error))
@@ -212,9 +220,21 @@ bool CBootLoader::Run()
 		m_last_error = "HQMarket session configuration is invalid";
 		return false;
 	}
-	std::jthread tcpServerThread(std::bind_front(&net::CTcpServer::Start, m_tcp_server, true));
-	m_http_server->Start(true);
+	bool tcpSucceeded = false;
+	std::jthread tcpServerThread([this, &tcpSucceeded]()
+	{
+		tcpSucceeded = m_tcp_server->Start(true);
+		m_http_server->ShutDown();
+	});
+	bool httpSucceeded = m_http_server->Start(true);
 	m_tcp_server->ShutDown();
+	tcpServerThread.join();
+	if (!tcpSucceeded || !httpSucceeded)
+	{
+		m_error_code = 18;
+		m_last_error = !tcpSucceeded ? "TCP event loop failed" : "HTTP event loop failed";
+		return false;
+	}
 	return true;
 }
 

@@ -26,6 +26,7 @@ namespace
 	constexpr int UpstreamTimeout = 1008;
 	constexpr int TooManyPendingQueries = 1009;
 	constexpr std::size_t MaxPendingQueries = 256;
+	constexpr std::size_t MaxClientsPerQuery = 64;
 	constexpr std::size_t MaxPendingSubscriptions = 4096;
 	constexpr std::chrono::seconds UpstreamRequestTimeout{ 10 };
 } // namespace
@@ -229,10 +230,14 @@ bool CHQService::HandleQueryHQRequest(net::_TyConnectionId id, const CRequest& r
 		const auto mIter = m_pending_queries.find(strKey);
 		if (m_pending_queries.end() != mIter)
 		{
-			mIter->second.m_clients.emplace_back(CPendingQueryClient{ id, req.GetId(), std::move(handler) });
-			return true;
+			if (MaxClientsPerQuery > mIter->second.m_clients.size())
+			{
+				mIter->second.m_clients.emplace_back(CPendingQueryClient{ id, req.GetId(), std::move(handler) });
+				return true;
+			}
+			bTooManyPending = true;
 		}
-		if (MaxPendingQueries <= m_pending_queries.size())
+		else if (MaxPendingQueries <= m_pending_queries.size())
 		{
 			bTooManyPending = true;
 		}

@@ -84,6 +84,7 @@ private:
 
 private:
 	std::atomic_bool m_stopping{ false };
+	std::atomic_bool m_connectionAuthenticated{ false };
 	std::atomic<SessionState> m_state{ SessionState::Disconnected };
 
 	std::thread m_thread_conn;

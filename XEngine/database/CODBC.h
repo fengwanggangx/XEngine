@@ -32,8 +32,7 @@ namespace db
 		std::size_t Count(db::em_database t) const;
 
 	private:
-		mutable std::shared_mutex m_pool_mutex;
-		std::unordered_map<em_database, std::vector<std::unique_ptr<IDataBase>>> m_pool;
+		std::shared_ptr<CPoolState> m_poolState;
 	};
 
 } // namespace db

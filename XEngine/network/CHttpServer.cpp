@@ -131,15 +131,24 @@ namespace
 		return strRet;
 	}
 
-	struct AsyncResponseContext
+} // namespace
+
+namespace net
+{
+	struct CHttpServer::CAsyncResponse
 	{
 		evhttp_request* m_request{ nullptr };
-		std::unique_ptr<net::CHttpResponseData> m_response;
+		std::unique_ptr<CHttpResponseData> m_response;
+		std::unique_ptr<event, decltype(&event_free)> m_event{ nullptr, event_free };
+
+		std::future<void> m_task;
+
+		static void Complete(evutil_socket_t, short, void* pArg);
 	};
 
-	void AsyncResponse_Callback(evutil_socket_t, short, void* pArg)
+	void CHttpServer::CAsyncResponse::Complete(evutil_socket_t, short, void* pArg)
 	{
-		std::unique_ptr<AsyncResponseContext> context(static_cast<AsyncResponseContext*>(pArg));
+		CAsyncResponse* context = static_cast<CAsyncResponse*>(pArg);
 		if ((nullptr == context) || (nullptr == context->m_request) || (nullptr == context->m_response))
 		{
 			return;
@@ -148,7 +157,7 @@ namespace
 		// evhttp_send_reply() 会在响应数据写完后通过 evhttp_send_done()
 		// 自动释放 request。这里不能再用 unique_ptr/evhttp_request_free()，
 		// 否则会在事件循环中形成二次释放。
-		evhttp_request* pRequest = context->m_request;
+		evhttp_request* pRequest = std::exchange(context->m_request, nullptr);
 		evkeyvalq* pHeaders = evhttp_request_get_output_headers(pRequest);
 		for (const auto& item : context->m_response->m_headers)
 		{
@@ -167,21 +176,6 @@ namespace
 		}
 	}
 
-	bool PostAsyncResponse(event_base* pBase, evhttp_request* pRequest, std::unique_ptr<net::CHttpResponseData>&& response)
-	{
-		auto* pContext = new AsyncResponseContext{ pRequest, std::move(response) };
-		timeval timeout{ 0, 0 };
-		if (0 != event_base_once(pBase, -1, EV_TIMEOUT, AsyncResponse_Callback, pContext, &timeout))
-		{
-			delete pContext;
-			return false;
-		}
-		return true;
-	}
-} // namespace
-
-namespace net
-{
 	struct CHttpStream::State
 	{
 		struct CloseContext
@@ -677,11 +671,23 @@ namespace net
 		const auto mIter = m_handlers.find(strRouteKey);
 		if (m_handlers.end() != mIter)
 		{
-			// 确定要异步处理后才取得所有权。
-			evhttp_request_own(pRequest);
-			event_base* pBase = GetNet();
+			std::erase_if(m_responses, [](const auto& response)
+			{
+				return (nullptr == response->m_request) && (std::future_status::ready == response->m_task.wait_for(std::chrono::seconds(0)));
+			});
+			std::unique_ptr<CAsyncResponse> responseContext = std::make_unique<CAsyncResponse>();
+			CAsyncResponse* context = responseContext.get();
+			context->m_event.reset(event_new(GetNet(), -1, 0, CAsyncResponse::Complete, context));
+			if (nullptr == context->m_event)
+			{
+				evhttp_send_reply(pRequest, HTTP_INTERNAL, nullptr, nullptr);
+				return;
+			}
 			_TyHandler handler = mIter->second;
-			ThreadPoolPtr->PushTask(task_priority::em_normal, 0, [pBase, pRequest, handler = std::move(handler), request = std::move(request)]() mutable
+			m_responses.emplace_back(std::move(responseContext));
+			context->m_request = pRequest;
+			evhttp_request_own(pRequest);
+			context->m_task = ThreadPoolPtr->PushTask(task_priority::em_normal, 0, [context, handler = std::move(handler), request = std::move(request)]() mutable
 			{
 				std::unique_ptr<CHttpResponseData> response;
 				try
@@ -701,10 +707,8 @@ namespace net
 					response->m_body = "Internal Server Error";
 				}
 
-				if (!PostAsyncResponse(pBase, pRequest, std::move(response)))
-				{
-					evhttp_request_free(pRequest);
-				}
+				context->m_response = std::move(response);
+				event_active(context->m_event.get(), EV_TIMEOUT, 0);
 			});
 			return;
 		}
@@ -735,6 +739,14 @@ namespace net
 
 	void CHttpServer::Release()
 	{
+		for (const auto& response : m_responses)
+		{
+			if (response->m_task.valid())
+			{
+				response->m_task.wait();
+			}
+			response->m_event.reset();
+		}
 		std::vector<std::shared_ptr<CHttpStream::State>> streams;
 		{
 			std::lock_guard<std::mutex> lock(m_streams_mutex);
@@ -757,5 +769,13 @@ namespace net
 			evhttp_free(m_http);
 			m_http = nullptr;
 		}
+		for (const auto& response : m_responses)
+		{
+			if (nullptr != response->m_request)
+			{
+				evhttp_request_free(response->m_request);
+			}
+		}
+		m_responses.clear();
 	}
 } // namespace net

@@ -862,6 +862,7 @@ std::optional<trade::CExecutionRule> CTradeService::GetExecutionRules(const _TyA
 	WriteAccountIdentity(account, req);
 	req.SetExtraData("security", securityKey);
 	req.SetExtraData("request_source", "ExecutionRules");
+	_TyRequestId requestId = req.GetId();
 	{
 		std::lock_guard<std::mutex> lock(m_state_mutex);
 		CRuleCache& cache = m_rules[{ account, securityKey }];
@@ -881,9 +882,12 @@ std::optional<trade::CExecutionRule> CTradeService::GetExecutionRules(const _TyA
 	if (!SendRequest(std::move(req)))
 	{
 		std::lock_guard<std::mutex> lock(m_state_mutex);
-		CRuleCache& cache = m_rules[{ account, securityKey }];
-		cache.m_request_id = 0;
-		cache.m_retry = std::chrono::steady_clock::now() + std::chrono::seconds(5);
+		const auto mIter = m_rules.find({ account, securityKey });
+		if ((m_rules.end() != mIter) && (requestId == mIter->second.m_request_id))
+		{
+			mIter->second.m_request_id = 0;
+			mIter->second.m_retry = std::chrono::steady_clock::now() + std::chrono::seconds(5);
+		}
 	}
 	return std::nullopt;
 }

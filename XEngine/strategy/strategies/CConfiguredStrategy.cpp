@@ -361,10 +361,9 @@ std::int64_t CConfiguredStrategy::SellTarget(const CPositionSnapshot& position) 
 	}
 	if ("position_ratio" == m_settings.m_sell_mode)
 	{
-		if (!utility::MultiplyDivide(target, m_settings.m_sell_value, 1000000, target))
-		{
-			return 0;
-		}
+		constexpr std::int64_t ratioScale = 1000000;
+		// The configured ratio is at most 100%, so both terms and their sum fit.
+		target = target / ratioScale * m_settings.m_sell_value + target % ratioScale * m_settings.m_sell_value / ratioScale;
 	}
 	return target;
 }
@@ -392,13 +391,18 @@ std::int64_t CConfiguredStrategy::BuyQuantity(const CStrategyAccountView& view, 
 		return 0;
 	}
 	maximum /= 100;
+	std::int64_t debit = 0;
+	if ((maximum < rule.m_buy_minimum) || !trade::MaximumDebit(rule, price, rule.m_buy_minimum, debit) || (debit > budget))
+	{
+		return 0;
+	}
 	std::int64_t minimum = 0;
-	std::int64_t upper = maximum / rule.m_buy_step;
+	std::int64_t upper = (maximum - rule.m_buy_minimum) / rule.m_buy_step;
 	while (minimum < upper)
 	{
 		std::int64_t middle = minimum + (upper - minimum + 1) / 2;
-		std::int64_t debit = 0;
-		if (trade::MaximumDebit(rule, price, middle * rule.m_buy_step, debit) && (debit <= budget))
+		std::int64_t quantity = rule.m_buy_minimum + middle * rule.m_buy_step;
+		if (trade::MaximumDebit(rule, price, quantity, debit) && (debit <= budget))
 		{
 			minimum = middle;
 		}
@@ -407,13 +411,24 @@ std::int64_t CConfiguredStrategy::BuyQuantity(const CStrategyAccountView& view, 
 			upper = middle - 1;
 		}
 	}
-	return Rounded(minimum * rule.m_buy_step, rule.m_buy_minimum, rule.m_buy_step);
+	return rule.m_buy_minimum + minimum * rule.m_buy_step;
 }
 
 void CConfiguredStrategy::Submit(bool buy, const CStrategyAccountView& view, const trade::CExecutionRule& rules, std::int64_t quantity)
 {
 	const trade::CRule& rule = rules.m_rule;
-	std::int64_t price = m_price / Power(6 - rule.m_price_scale);
+	if ((0 > rule.m_price_scale) || (6 < rule.m_price_scale) || (buy && ((0 >= rule.m_buy_minimum) || (0 >= rule.m_buy_step))))
+	{
+		SetPhase("等待交易规则", "申报精度、最低数量或步长无效");
+		return;
+	}
+	std::int64_t factor = Power(6 - rule.m_price_scale);
+	std::int64_t price = m_price / factor;
+	if ((0 >= price) || (0 != m_price % factor))
+	{
+		SetPhase("等待有效价格");
+		return;
+	}
 	if (buy)
 	{
 		quantity = BuyQuantity(view, rules);
@@ -518,10 +533,15 @@ void CConfiguredStrategy::Tick()
 		}
 		m_done += record->m_filled_quantity;
 		m_pending = 0;
+		if (!m_task)
+		{
+			m_phase = strategy::Kind::DualMaCross == m_kind ? "监控" : "已完成";
+			m_reason.clear();
+		}
 		Persist(m_task);
 		if (!m_task)
 		{
-			SetPhase(strategy::Kind::DualMaCross == m_kind ? "监控" : "已完成");
+			SetPhase(m_phase);
 		}
 	}
 	if (!m_task)
@@ -859,7 +879,7 @@ void CConfiguredStrategy::OnBar(const _TyBarData& bar)
 
 void CConfiguredStrategy::OnHistory(const std::vector<_TyBarData>& data)
 {
-	if (strategy::Kind::DualMaCross != m_kind)
+	if (!m_running || (strategy::Kind::DualMaCross != m_kind))
 	{
 		return;
 	}
@@ -869,6 +889,12 @@ void CConfiguredStrategy::OnHistory(const std::vector<_TyBarData>& data)
 		std::int64_t latest = 0;
 		for (const auto& bar : data)
 		{
+			if (bar.completed() && (bar.begin_time_ms() == m_last_bar) && (bar.data_version() > m_bar_version))
+			{
+				m_history_ready = false;
+				m_context->RequestHistory(m_seed_begin);
+				return;
+			}
 			if (bar.completed() && (bar.begin_time_ms() > m_last_bar))
 			{
 				++fresh;
@@ -912,7 +938,7 @@ void CConfiguredStrategy::OnHistory(const std::vector<_TyBarData>& data)
 		m_phase = phase;
 		m_reason = reason;
 	}
-	if ("待处理" != m_phase)
+	if (("待处理" != m_phase) && ("结果待核实" != m_phase))
 	{
 		SetPhase(m_prices.size() < static_cast<std::size_t>(m_settings.m_long_window) ? "预热" : "监控");
 	}

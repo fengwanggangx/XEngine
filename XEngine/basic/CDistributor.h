@@ -34,27 +34,22 @@ public:
 			{
 				return;
 			}
-			RemoveCompletedTasks();
 			if constexpr (IsContainer<_Ty>)
 			{
-				{
-					std::unique_lock<std::shared_mutex> lock(m_data_mutex);
-					m_cache.reserve(m_cache.size() + data.size());
-					m_cache.insert(
-						m_cache.end(),
-						std::make_move_iterator(data.begin()),
-						std::make_move_iterator(data.end()));
-				}
+				m_cache.insert(m_cache.end(), std::make_move_iterator(data.begin()), std::make_move_iterator(data.end()));
 			}
 			else
 			{
-				std::unique_lock<std::shared_mutex> lock(m_data_mutex);
 				m_cache.emplace_back(std::move(data));
 			}
-			m_tasks.emplace_back(ThreadPoolPtr->PushTask(task_priority::em_normal, 0, [this]()
+			if (!m_scheduled)
 			{
-				return AsyncExecute();
-			}));
+				m_task = ThreadPoolPtr->PushTask(task_priority::em_normal, 0, [this]()
+				{
+					Drain();
+				});
+				m_scheduled = true;
+			}
 		}
 		else
 		{
@@ -79,13 +74,13 @@ public:
 		// 等待所有任务结束，因为异步任务如果捕获的资源可能在断线等情况下释放重置导致失效，因此释放前要等异步任务执行完成后释放
 		if constexpr (bAsyn)
 		{
-			std::vector<std::future<int>> tasks;
+			std::shared_future<void> task;
 			{
 				std::lock_guard<std::mutex> lock(m_tasks_mutex);
 				m_stopping = true;
-				tasks.swap(m_tasks);
+				task = m_task;
 			}
-			for (auto& task : tasks)
+			if (task.valid())
 			{
 				task.wait();
 			}
@@ -93,75 +88,77 @@ public:
 	}
 
 private:
-	void RemoveCompletedTasks()
+	void Drain()
 	{
-		m_tasks.erase(std::remove_if(m_tasks.begin(), m_tasks.end(), [](std::future<int>& task)
+		while (true)
 		{
-			return std::future_status::ready == task.wait_for(std::chrono::seconds(0));
-		}),
-			m_tasks.end());
-	}
-
-	int AsyncExecute()
-	{
-		_TyDataContainer data;
-		{
-			std::unique_lock<std::shared_mutex> lock(m_data_mutex);
-			data.swap(m_cache);
+			_TyDataContainer data;
+			{
+				std::lock_guard<std::mutex> lock(m_tasks_mutex);
+				if (m_cache.empty())
+				{
+					m_scheduled = false;
+					return;
+				}
+				data.swap(m_cache);
+			}
+			for (const auto& item : data)
+			{
+				ExecuteA(item);
+			}
 		}
-
-		return Execute(std::move(data));
 	}
 
-	int Execute(_Ty&& data)
+	void Execute(_Ty&& data)
 	{
-		int ret = 1;
 		if constexpr (IsContainer<_Ty>)
 		{
-			std::shared_lock<std::shared_mutex> lock(m_handler_mutex);
-			int nOK = ((1 << m_handler.size()) - 1);
-
-			std::size_t sz = data.size();
-			ret = ((1 << sz) - 1);
-			for (std::size_t i = 0; i < sz; ++i)
+			for (const auto& item : data)
 			{
-				if (ExecuteA(data.at(i)) != nOK)
-				{
-					ret &= ~(1 << i);
-				}
+				ExecuteA(item);
 			}
 		}
 		else
 		{
-			ret = ExecuteA(data);
+			ExecuteA(data);
 		}
-		return ret;
 	}
 
-	int ExecuteA(const _TyData& data)
+	void ExecuteA(const _TyData& data)
 	{
-		std::size_t sz = m_handler.size();
-		int ret = ((1 << sz) - 1);
-		for (std::size_t i = 0; i < sz; ++i)
+		std::shared_lock<std::shared_mutex> lock(m_handler_mutex);
+		for (const auto& handler : m_handler)
 		{
-			const auto& fun = m_handler.at(i);
-			if ((nullptr == fun) || !fun(data))
+			if (nullptr != handler)
 			{
-				ret &= ~(1 << i);
+				if constexpr (bAsyn)
+				{
+					try
+					{
+						handler(data);
+					}
+					catch (...)
+					{
+						// Keep draining subsequent events after a failed callback.
+					}
+				}
+				else
+				{
+					handler(data);
+				}
 			}
 		}
-		return ret;
 	}
 
 private:
-	std::shared_mutex m_data_mutex;
 	_TyDataContainer m_cache;
 
 	std::shared_mutex m_handler_mutex;
 	std::vector<_TyHandler> m_handler;
 
 	std::mutex m_tasks_mutex;
-	std::vector<std::future<int>> m_tasks;
+	std::shared_future<void> m_task;
+	bool m_scheduled{ false };
 	bool m_stopping{ false };
 };
 
