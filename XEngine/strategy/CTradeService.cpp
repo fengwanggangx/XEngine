@@ -422,6 +422,7 @@ bool CTradeService::ApplyEvent(trade::CAccountData& data, trade::CCounterEvent& 
 		ev.m_funds = data.m_account;
 	}
 	ev.m_account_valid = true;
+	ev.m_fundsVersion = data.m_funds_version;
 	if (trade::EventTy::Deal == ev.m_kind)
 	{
 		for (const auto& order : data.m_orders)

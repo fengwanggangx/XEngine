@@ -304,6 +304,7 @@ namespace trade::protocol
 		}
 		if (event.m_account_valid)
 		{
+			push.SetExtraData("funds_version", std::to_string(event.m_fundsVersion));
 			request::TradeAccountInfo funds;
 			WriteFunds(event.m_funds, true, funds);
 			push.SetEventAccount(funds);

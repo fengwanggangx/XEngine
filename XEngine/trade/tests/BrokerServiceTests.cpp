@@ -291,7 +291,15 @@ public:
 		order.m_sequence = 24;
 		order.m_order.m_order_id = 3;
 		order.m_account_valid = false;
+		std::string pushedFundsVersion;
+		service.SetPushHandler([&pushedFundsVersion](const CRequest& pushed)
+		{
+			pushedFundsVersion = pushed.GetExtraData("funds_version");
+			return true;
+		});
 		service.OnBrokerEvent(order);
+		service.SetPushHandler({});
+		Check("21" == pushedFundsVersion, "order push carries the actual cached funds version");
 		snapshot = service.Snapshot(order.m_account);
 		Check(21 == snapshot.m_funds_version && 24 == snapshot.m_orders_version, "order without broker funds cannot advance funds coverage");
 		session.Dispatch(FundsPush(23, 140));

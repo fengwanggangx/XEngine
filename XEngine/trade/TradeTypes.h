@@ -126,6 +126,7 @@ namespace trade
 		CFunds m_funds;
 		CPosition m_position;
 		bool m_account_valid{ true };
+		std::uint64_t m_fundsVersion{ 0 };
 	};
 
 	struct CLoginParam
