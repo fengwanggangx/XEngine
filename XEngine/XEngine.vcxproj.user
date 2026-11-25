@@ -3,7 +3,7 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <PreLaunchCommand>export LD_LIBRARY_PATH=$(RemoteDeployDir)/libs/debug:$LD_LIBRARY_PATH</PreLaunchCommand>
     <DebuggerFlavor>LinuxDebugger</DebuggerFlavor>
-    <RemoteDebuggingTarget>-540049051;106.55.20.91 (username=, port=22, authentication=Password)</RemoteDebuggingTarget>
+    <RemoteDebuggingTarget>1830625862;106.55.20.91 (username=, port=22, authentication=Password)</RemoteDebuggingTarget>
     <RemoteDebuggerWorkingDirectory>$(RemoteOutDir)</RemoteDebuggerWorkingDirectory>
     <RemoteTarget>-540049051;106.55.20.91 (username=, port=22, authentication=Password)</RemoteTarget>
   </PropertyGroup>
@@ -12,6 +12,6 @@
     <PreLaunchCommand>export LD_LIBRARY_PATH=$(RemoteDeployDir)/libs/release:$LD_LIBRARY_PATH</PreLaunchCommand>
     <RemoteDebuggerWorkingDirectory>$(RemoteOutDir)</RemoteDebuggerWorkingDirectory>
     <RemoteTarget>-540049051;106.55.20.91 (username=, port=22, authentication=Password)</RemoteTarget>
-    <RemoteDebuggingTarget>-540049051;106.55.20.91 (username=, port=22, authentication=Password)</RemoteDebuggingTarget>
+    <RemoteDebuggingTarget>1830625862;106.55.20.91 (username=, port=22, authentication=Password)</RemoteDebuggingTarget>
   </PropertyGroup>
 </Project>
