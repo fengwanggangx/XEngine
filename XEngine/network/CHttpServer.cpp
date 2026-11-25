@@ -126,7 +126,8 @@ namespace
 				break;
 			}
 			nBegin = nEnd + 1;
-		} while (nBegin <= strData.size());
+		}
+		while (nBegin <= strData.size());
 		strRet += "\n";
 		return strRet;
 	}

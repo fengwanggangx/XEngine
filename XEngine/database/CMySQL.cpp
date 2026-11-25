@@ -225,7 +225,8 @@ namespace db
 				{
 					nRet = mysql_errno(m_db);
 				}
-			} while (0 == nNextResult);
+			}
+			while (0 == nNextResult);
 		}
 
 		int nDisableRet = mysql_set_server_option(m_db, MYSQL_OPTION_MULTI_STATEMENTS_OFF);

@@ -19,7 +19,7 @@
 		return;                   \
 	}
 
-#define IS_NOT_NULLPTR(...) ((__VA_ARGS__) != nullptr)
+#define IS_NOT_NULLPTR(...) (nullptr != (__VA_ARGS__))
 
 #define IS_NULLPTR(...) (nullptr == (__VA_ARGS__))
 

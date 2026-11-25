@@ -37,7 +37,7 @@ namespace ini
 			std::filesystem::remove(temporary, error);
 			return saved;
 		}
-	}
+	} // namespace
 
 	std::vector<std::pair<std::string, std::string>> CIniFile::GetSection(const std::string& strSection) const
 	{
