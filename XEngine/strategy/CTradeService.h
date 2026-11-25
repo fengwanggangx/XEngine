@@ -2,7 +2,6 @@
 #include "CAccountService.h"
 #include "../trade/TradingTypes.h"
 #include "../trade/StrategyAccountView.h"
-#include <array>
 #include <optional>
 #include <unordered_map>
 
@@ -51,7 +50,7 @@ private:
 	void RefreshTrades();
 	void QueryAccount(const _TyAccount& account);
 	void PublishEvent(const trade::CCounterEvent& event);
-	void ApplyEvent(trade::CAccountData& data, trade::CCounterEvent& event);
+	bool ApplyEvent(trade::CAccountData& data, trade::CCounterEvent& event);
 	void CompleteQuery(const trade::CCounterReply& reply, std::uint64_t nGeneration, std::uint64_t nCycle);
 	void QueryNext(const _TyAccount& account, std::uint64_t nGeneration, std::uint64_t nCycle, trade::Operation operation);
 
@@ -80,7 +79,6 @@ private:
 	{
 		std::vector<trade::CCounterEvent> m_events;
 		trade::CAccountData m_data;
-		std::array<std::uint64_t, 5> m_versions{};
 		std::uint64_t m_cycle{ 0 };
 		std::size_t m_completed{ 0 };
 		bool m_overflow{ false };
@@ -109,5 +107,4 @@ private:
 	_TyEventHandler m_event_handler;
 	_TyRequestNotify m_push_handler;
 	_TyAccountReadyHandler m_account_ready_handler;
-	std::unordered_map<_TyAccount, std::uint64_t, CAccountHash> m_last_event_sequence;
 };

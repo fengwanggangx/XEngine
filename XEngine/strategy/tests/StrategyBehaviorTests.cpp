@@ -145,8 +145,12 @@ namespace
 			return m_execution.ReleaseExit(Account(), Security(), 42) && (!unlock || m_execution.UnlockBuys(Account(), Security(), 42));
 		}
 
-		bool CancelConflicts(bool = false) override
+		bool CancelConflicts(bool force = false) override
 		{
+			if (force)
+			{
+				m_checkpointAtCancel = LoadCheckpoint();
+			}
 			return true;
 		}
 
@@ -213,6 +217,7 @@ namespace
 		bool m_rules_available{ true };
 		std::int64_t m_now{ 1000000 };
 		std::vector<COrderIntent> m_orders;
+		std::string m_checkpointAtCancel;
 		std::string m_phase;
 		std::string m_reason;
 	};
@@ -293,6 +298,10 @@ namespace
 		context.Fill(strategy, 200, 0);
 		context.Quote(strategy, 940);
 		Check(1 == context.m_orders.size(), "unavailable residual remains protected");
+		Check(strategy.OnAction("pause_execution"), "pause remaining exit");
+		std::string paused = context.LoadCheckpoint();
+		Check(strategy.OnAction("resume_execution"), "resume remaining exit");
+		Check(!context.m_checkpointAtCancel.empty() && paused != context.m_checkpointAtCancel, "resume checkpoint is durable before canceling conflicts");
 		CTakeProfitStopLossStrategy recovered;
 		Check(recovered.Initialize(context, Config("take_profit_stop_loss", { { "stop_loss_value", "5" }, { "auto_rearm", "1" } })), "restore protected task checkpoint");
 		recovered.OnStart();

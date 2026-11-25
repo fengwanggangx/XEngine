@@ -129,11 +129,12 @@ class CServiceRoutingTests
 
 		market.m_subscriptions.Subscribe(FmtHQSubID(HQOrigin::Client, 7070), { quote });
 		strategies.m_market_available.store(true);
-		// Hold the synthetic runtime scheduled so no worker is needed to observe delivery.
 		std::shared_ptr<CStrategyRuntime> runtime = std::make_shared<CStrategyRuntime>();
 		runtime->m_accept_market_events.store(true);
-		runtime->m_scheduled = true;
 		runtime->m_config.m_event_queue_limit = 16;
+		std::unique_ptr<CRecordingStrategy> recording = std::make_unique<CRecordingStrategy>();
+		CRecordingStrategy& receiver = *recording;
+		runtime->m_securities.push_back({ CSecurity("600519", Exchange::sse), nullptr, std::move(recording) });
 		strategies.m_runtimes.emplace(7, runtime);
 		strategies.m_market_routes[quote.String()].insert(7);
 		_TyQuoteData data;
@@ -144,9 +145,18 @@ class CServiceRoutingTests
 		push.SetType(_TyRequest::MARKET_QUOTE_PUSH);
 		push.SetData(data);
 		bool bRouted = center.OnHQMarketReply(push);
-		bool bDelivered = LastResponse(event).GetData().has_quote() && 1 == runtime->m_events.size();
+		strategies.WaitUntilIdle(runtime);
+		bool bDelivered = LastResponse(event).GetData().has_quote() && 1 == receiver.m_quotes;
+		runtime->m_config.m_event_queue_limit = 1;
+		runtime->m_state.store(StrategyState::Running);
+		runtime->m_events.emplace_back().m_type = StrategyEventType::Timer;
+		runtime->m_events.emplace_back().m_type = StrategyEventType::Timer;
+		CStrategyEvent quoteEvent;
+		quoteEvent.m_type = StrategyEventType::Quote;
+		bool dropped = !strategies.EnqueueEvent(runtime, std::move(quoteEvent));
 		strategies.m_runtimes.clear();
 		strategies.m_market_routes.clear();
+		Check(dropped && StrategyState::Running == runtime->m_state.load() && 2 == runtime->m_events.size() && 1 == runtime->m_dropped_market_events, "incoming quote cannot fault a full critical queue");
 		Check(bRouted && bDelivered, "same market push reaches client and strategy even when client service handles it");
 
 		pending.m_deadline = std::chrono::steady_clock::time_point::min();
@@ -329,7 +339,16 @@ public:
 			engine.OnRequest(request);
 			CRequest response = LastResponse(event);
 			Check(123 == response.GetId() && type == response.GetType(), "direct account route preserves request identity");
-			Check("XBroker is unavailable" == response.GetErrorInfo()->second, "account route reaches trade service without a strategy service");
+			std::string expected = "交易账户数据库暂不可用";
+			if (_TyRequest::TRADE_FUNDS_QUERY == type)
+			{
+				expected = "交易账户不属于当前用户";
+			}
+			else if (_TyRequest::SUPPORTED_BROKER_QUERY == type)
+			{
+				expected = "XBroker is unavailable";
+			}
+			Check(expected == response.GetErrorInfo()->second, "account request follows its storage, ownership or broker route");
 		}
 		TestBrokerRouting(event, engine, accounts, trader);
 		TestMarketRouting(event, engine, market, strategies);
@@ -348,14 +367,14 @@ public:
 		Check(accounts.AcquireAccount(account), "multiple consumers can use one account");
 		request.SetType(_TyRequest::TRADE_ACCOUNT_DISCONNECT);
 		WriteAccountIdentity(account, request);
-		engine.OnRequest(request);
-		Check("Account is disconnecting or in use" == LastResponse(event).GetErrorInfo()->second, "direct account route preserves strategy disconnect guard");
+		accounts.OnRequest(request, "tester");
+		Check("Account is disconnecting or in use" == LastResponse(event).GetErrorInfo()->second, "account service preserves strategy disconnect guard");
 		accounts.ReleaseAccount(account);
-		engine.OnRequest(request);
+		accounts.OnRequest(request, "tester");
 		Check("Account is disconnecting or in use" == LastResponse(event).GetErrorInfo()->second, "remaining consumer still blocks disconnect");
 		accounts.ReleaseAccount(account);
 		accounts.ReleaseAccount(account);
-		engine.OnRequest(request);
+		accounts.OnRequest(request, "tester");
 		Check("XBroker is unavailable" == LastResponse(event).GetErrorInfo()->second, "disconnect forwards after strategies stop");
 		Check(accounts.AcquireAccount(account), "failed forwarding releases the disconnect guard");
 		accounts.ReleaseAccount(account);

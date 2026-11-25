@@ -40,7 +40,9 @@ class CBrokerServiceTests
 		pending.m_completed = 3;
 		pending.m_data.m_account = { TestAccount(1), 100, 0, true, true };
 		pending.m_data.m_version = 18;
-		pending.m_versions = { 10, 14, 18, 0, 10 };
+		pending.m_data.m_funds_version = 10;
+		pending.m_data.m_positions_version = 14;
+		pending.m_data.m_orders_version = 18;
 	}
 
 	static CRequest FundsPush(std::uint64_t nSequence, std::int64_t nBalance)
@@ -49,6 +51,7 @@ class CBrokerServiceTests
 		event.m_kind = trade::EventTy::Funds;
 		event.m_account = TestAccount(1);
 		event.m_sequence = nSequence;
+		event.m_account_valid = true;
 		event.m_funds = { TestAccount(1), nBalance, 0, true, true };
 		return trade::protocol::Push(event, {});
 	}
@@ -204,6 +207,37 @@ class CBrokerServiceTests
 		runtime->m_scheduled = false;
 	}
 
+	static void TestSynchronizationReplay(CTradeService& service)
+	{
+		int fills = 0;
+		service.SetEventHandler([&fills](const trade::CCounterEvent& event)
+		{
+			if (trade::EventTy::Deal == event.m_kind)
+			{
+				++fills;
+			}
+		});
+		Prepare(service, 76);
+		trade::CCounterEvent deal;
+		deal.m_account = TestAccount(1);
+		deal.m_kind = trade::EventTy::Deal;
+		deal.m_sequence = 21;
+		deal.m_trade.m_account = deal.m_account;
+		deal.m_trade.m_trade_id = 1;
+		deal.m_account_valid = true;
+		deal.m_funds = { deal.m_account, 120, 0, true, true };
+		CTradeService::CSync& pending = service.m_syncing.at(deal.m_account);
+		pending.m_data.m_account.m_funds_valid = false;
+		pending.m_events.emplace_back(deal);
+		trade::CCounterReply reply = Trades(20);
+		reply.m_data = std::vector<trade::CTrade>{ deal.m_trade };
+		service.CompleteQuery(reply, service.m_generation, 76);
+		trade::CAccountData snapshot = service.Snapshot(deal.m_account);
+		Check(snapshot.m_ready && snapshot.m_account.m_funds_valid && 21 == snapshot.m_funds_version, "readiness reflects newer funds after replay");
+		Check(1 == fills && 1 == snapshot.m_trades.size() && 21 == snapshot.m_tradesVersion, "query and replay deliver a fill once");
+		service.SetEventHandler({});
+	}
+
 public:
 	static void Run()
 	{
@@ -233,10 +267,45 @@ public:
 		session.Dispatch(FundsPush(9, 90));
 		session.Dispatch(FundsPush(12, 120));
 		session.Dispatch(FundsPush(12, 999));
+		trade::CCounterEvent order;
+		order.m_kind = trade::EventTy::Order;
+		order.m_account = TestAccount(1);
+		order.m_order.m_account = order.m_account;
+		order.m_order.m_order_id = 1;
+		order.m_account_valid = true;
+		order.m_funds = { order.m_account, 1, 0, true, true };
+		order.m_sequence = 19;
+		CTradeService::CSync& pending = service.m_syncing.at(order.m_account);
+		pending.m_data.m_funds_version = 21;
+		pending.m_data.m_account.m_balance = 120;
+		pending.m_data.m_version = 21;
+		pending.m_events.emplace_back(order);
 		service.CompleteQuery(Trades(20), 0, 1);
-		Check(service.Snapshot(TestAccount(1)).m_ready && 120 == service.Snapshot(TestAccount(1)).m_account.m_balance && 20 == service.Snapshot(TestAccount(1)).m_version && 1 == nFunds, "funds use their own watermark even below the trades watermark");
+		trade::CAccountData snapshot = service.Snapshot(order.m_account);
+		Check(120 == snapshot.m_account.m_balance && 21 == snapshot.m_funds_version && 19 == snapshot.m_orders_version && 1 == snapshot.m_orders.size() && 0 == nFunds, "replayed order preserves newer queried funds");
+		order.m_sequence = 20;
+		order.m_order.m_order_id = 2;
+		service.OnBrokerEvent(order);
+		snapshot = service.Snapshot(order.m_account);
+		Check(120 == snapshot.m_account.m_balance && 21 == snapshot.m_version && 20 == snapshot.m_orders_version && 2 == snapshot.m_orders.size(), "live order advances its category below the account watermark");
+		order.m_sequence = 24;
+		order.m_order.m_order_id = 3;
+		order.m_account_valid = false;
+		service.OnBrokerEvent(order);
+		snapshot = service.Snapshot(order.m_account);
+		Check(21 == snapshot.m_funds_version && 24 == snapshot.m_orders_version, "order without broker funds cannot advance funds coverage");
+		session.Dispatch(FundsPush(23, 140));
+		session.Dispatch(FundsPush(23, 999));
+		snapshot = service.Snapshot(order.m_account);
+		Check(23 == snapshot.m_funds_version && 24 == snapshot.m_version && 140 == snapshot.m_account.m_balance && 1 == nFunds, "late funds apply once below the order watermark");
+		order.m_account_valid = true;
+		order.m_funds.m_balance = 145;
+		order.m_order.m_order_id = 4;
+		service.OnBrokerEvent(order);
+		snapshot = service.Snapshot(order.m_account);
+		Check(24 == snapshot.m_funds_version && 145 == snapshot.m_account.m_balance && 3 == snapshot.m_orders.size() && 2 == nFunds, "new funds apply even when the accompanying order is stale");
 		session.Dispatch(FundsPush(25, 150));
-		Check(150 == service.Snapshot(TestAccount(1)).m_account.m_balance && 2 == nFunds, "live push continues after queries");
+		Check(150 == service.Snapshot(TestAccount(1)).m_account.m_balance && 3 == nFunds, "live push continues after queries");
 		trade::CCounterReply query;
 		query.m_account = TestAccount(1);
 		query.m_operation = trade::Operation::Funds;
@@ -285,6 +354,7 @@ public:
 		service.CompleteQuery(Trades(50), service.m_generation, 5);
 		Check(service.m_snapshots.empty(), "late query cannot recreate a removed account");
 
+		TestSynchronizationReplay(service);
 		TestRouting(service, accounts, session);
 	}
 };

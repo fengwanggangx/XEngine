@@ -1,4 +1,5 @@
 #pragma once
+#include <cstdint>
 #include <iostream>
 #include <queue>
 #include <thread>
@@ -37,7 +38,7 @@ public:
 	Task() = default;
 
 	template <typename _Fx>
-	Task(task_priority level, size_t priority, _Fx&& func) noexcept : m_level(level), m_priority(priority)
+	Task(task_priority level, size_t priority, std::uint64_t sequence, _Fx&& func) : m_level(level), m_priority(priority), m_sequence(sequence)
 	{
 		m_task = [f = std::forward<_Fx>(func)]() mutable
 		{
@@ -53,6 +54,7 @@ public:
 private:
 	task_priority m_level{ task_priority::em_normal };
 	size_t m_priority{ 0 };
+	std::uint64_t m_sequence{ 0 };
 	std::function<void()> m_task{ nullptr };
 };
 
@@ -61,7 +63,15 @@ struct TaskComparator
 	// 优先级高，先出栈
 	bool operator()(const Task& p1, const Task& p2)
 	{
-		return (int(p1.m_level) == int(p2.m_level)) ? (p1.m_priority < p2.m_priority) : (int(p1.m_level) < int(p2.m_level));
+		if (p1.m_level != p2.m_level)
+		{
+			return p1.m_level < p2.m_level;
+		}
+		if (p1.m_priority != p2.m_priority)
+		{
+			return p1.m_priority < p2.m_priority;
+		}
+		return p1.m_sequence > p2.m_sequence;
 	}
 };
 
@@ -114,7 +124,7 @@ private:
 			{
 				return false;
 			}
-			m_task_queue.emplace(level, priority, std::forward<_Task>(task));
+			m_task_queue.emplace(level, priority, m_nextSequence++, std::forward<_Task>(task));
 			++m_tasks;
 		}
 
@@ -143,7 +153,7 @@ private:
 			{
 				m_thread_task_queues.emplace_back();
 			}
-			m_thread_task_queues.at(idx).emplace(level, priority, std::forward<_Task>(task));
+			m_thread_task_queues.at(idx).emplace(level, priority, m_nextSequence++, std::forward<_Task>(task));
 			++m_tasks;
 		}
 
@@ -166,6 +176,7 @@ private:
 	// 指定线程任务队列,主要用于时序任务
 	std::vector<_TyTaskQueue> m_thread_task_queues;
 
+	std::uint64_t m_nextSequence{ 0 };
 	std::mutex m_tasks_mutex;
 	std::condition_variable m_task_ready;
 

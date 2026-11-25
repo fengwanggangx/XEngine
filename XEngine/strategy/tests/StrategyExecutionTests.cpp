@@ -151,6 +151,11 @@ namespace
 		Check(!journal.HasUnresolved(42), "release only after funds catch up");
 		Check(journal.MarkSubmission(prepared.m_client_order_id, true), "late transport completion is harmless");
 		Check(journal.GetRecords().empty(), "terminal history does not accumulate in the pending map");
+		trade::CAccountData stale = data;
+		stale.m_funds_version = 19;
+		Check(!journal.Reconcile(Account(), MakeStrategyAccountView(stale, Security())), "equal aggregate version cannot hide older funds");
+		COrderSubmitResult staleOrder = journal.Prepare(Intent(8, "600008"), MakeStrategyAccountView(stale, Security("600008")), 100500);
+		Check(!staleOrder.m_accepted && staleOrder.m_retryable, "outdated category requires a fresh snapshot before admission");
 		data.m_version = 10;
 		Check(!journal.Prepare(Intent(8, "600008"), MakeStrategyAccountView(data, Security("600008")), 100500).m_accepted, "reject older snapshot after newer evidence");
 	}

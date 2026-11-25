@@ -9,6 +9,7 @@
 #include <unordered_map>
 #include <vector>
 #include "CNet.h"
+#include "../thread/CThreadPool.h"
 
 /*
  * HTTP 请求格式示例：
@@ -197,6 +198,7 @@ namespace net
 
 	private:
 		struct CAsyncResponse;
+		CThreadPool m_httpWorkers{ 2 };
 		std::vector<std::unique_ptr<CAsyncResponse>> m_responses;
 		int m_port{ -1 };
 		struct evhttp* m_http{ nullptr };

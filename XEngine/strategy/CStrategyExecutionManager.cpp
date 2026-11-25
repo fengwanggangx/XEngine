@@ -7,6 +7,7 @@
 #include "../common/utility.h"
 
 #include <algorithm>
+#include <functional>
 #include "../common/container.h"
 #include <limits>
 #include <memory>
@@ -471,13 +472,13 @@ COrderSubmitResult CStrategyExecutionManager::Prepare(COrderIntent intent, const
 	{
 		return { false, false, 0, 0, "Invalid execution intent" };
 	}
-	if (!view.m_account.m_ready || (view.m_identity != intent.m_account) || (view.m_position.m_security != intent.m_security) || (view.m_account.m_version != view.m_position.m_version) || ((m_snapshot_epochs[intent.m_account] == view.m_connection_epoch) && (view.m_account.m_version < m_snapshot_versions[intent.m_account])))
+	if (!view.m_account.m_ready || (view.m_identity != intent.m_account) || (view.m_position.m_security != intent.m_security) || (view.m_account.m_version != view.m_position.m_version))
 	{
 		return { false, true, 0, 0, "A consistent account snapshot is required" };
 	}
 	if (!ReconcileWithoutLock(intent.m_account, view))
 	{
-		return { false, false, 0, 0, "Cannot reconcile execution journal: " + m_last_error };
+		return { false, m_healthy, 0, 0, m_healthy ? "A current account snapshot is required" : "Cannot reconcile execution journal: " + m_last_error };
 	}
 	if ((OrderSide::Buy == intent.m_side) && IsBuyLockedWithoutLock(intent.m_account, intent.m_security))
 	{
@@ -646,14 +647,16 @@ bool CStrategyExecutionManager::Reconcile(const _TyAccount& account, const CStra
 
 bool CStrategyExecutionManager::ReconcileWithoutLock(const _TyAccount& account, const CStrategyAccountView& view)
 {
-	if (!m_healthy || !view.m_account.m_ready || (account != view.m_identity) || (view.m_connection_epoch < m_snapshot_epochs[account]) || ((m_snapshot_epochs[account] == view.m_connection_epoch) && (view.m_account.m_version < m_snapshot_versions[account])))
+	std::uint64_t epoch = m_snapshot_epochs[account];
+	std::array<std::uint64_t, 4> versions{ view.m_account.m_version, view.m_funds_version, view.m_positions_version, view.m_orders_version };
+	std::array<std::uint64_t, 4>& previousVersions = m_snapshotVersions[account];
+	if (!m_healthy || !view.m_account.m_ready || (account != view.m_identity) || (view.m_connection_epoch < epoch) || ((view.m_connection_epoch == epoch) && !std::equal(previousVersions.begin(), previousVersions.end(), versions.begin(), std::less_equal<>{})))
 	{
 		return false;
 	}
-	m_snapshot_versions[account] = view.m_account.m_version;
 	try
 	{
-		if (view.m_connection_epoch != m_snapshot_epochs[account])
+		if (view.m_connection_epoch != epoch)
 		{
 			for (auto& [id, record] : m_records)
 			{
@@ -668,8 +671,8 @@ bool CStrategyExecutionManager::ReconcileWithoutLock(const _TyAccount& account, 
 				}
 			}
 			m_snapshot_epochs[account] = view.m_connection_epoch;
-			m_snapshot_versions[account] = view.m_account.m_version;
 		}
+		previousVersions = versions;
 		std::unordered_map<std::uint64_t, const trade::COrder*> orders;
 		for (const auto& order : view.m_orders)
 		{

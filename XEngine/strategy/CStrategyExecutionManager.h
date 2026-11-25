@@ -1,5 +1,7 @@
 #pragma once
 
+#include <array>
+
 #include "../trade/StrategyAccountView.h"
 
 #include "../database/CDBEngine.h"
@@ -89,7 +91,7 @@ private:
 	std::string m_last_error;
 	std::map<std::uint64_t, CExecutionRecord> m_records;
 	std::map<_TyLockKey, std::string> m_locks;
-	std::unordered_map<_TyAccount, std::uint64_t, CAccountHash> m_snapshot_versions;
+	std::unordered_map<_TyAccount, std::array<std::uint64_t, 4>, CAccountHash> m_snapshotVersions;
 	std::unordered_map<_TyAccount, std::uint64_t, CAccountHash> m_snapshot_epochs;
 	std::map<std::pair<_TyAccount, std::string>, _TyStrategyId> m_exit_owners;
 };

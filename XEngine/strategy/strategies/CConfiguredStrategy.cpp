@@ -998,8 +998,11 @@ bool CConfiguredStrategy::OnAction(const std::string& action)
 			m_pending = 0;
 		}
 		m_task_paused = false;
+		m_phase = "监控";
+		m_reason.clear();
+		Persist(true);
 		m_context->CancelConflicts(true);
-		SetPhase("监控");
+		SetPhase(m_phase);
 		Tick();
 		return true;
 	}

@@ -254,11 +254,6 @@ void CTradeService::CompleteQuery(const trade::CCounterReply& reply, std::uint64
 			return;
 		}
 		// Each category has its own query watermark; these are not an atomic snapshot.
-		pending->second.m_versions[nCategory] = reply.m_version;
-		if (0 == nCategory)
-		{
-			pending->second.m_versions[4] = reply.m_version;
-		}
 		data.m_version = std::max(data.m_version, reply.m_version);
 		data.m_time = std::max(data.m_time, reply.m_time);
 		switch (reply.m_operation)
@@ -276,6 +271,7 @@ void CTradeService::CompleteQuery(const trade::CCounterReply& reply, std::uint64
 			data.m_orders_version = reply.m_version;
 			break;
 		case trade::Operation::Trades:
+			data.m_tradesVersion = reply.m_version;
 			data.m_trades = std::get<std::vector<trade::CTrade>>(reply.m_data);
 			break;
 		default:
@@ -297,7 +293,6 @@ void CTradeService::CompleteQuery(const trade::CCounterReply& reply, std::uint64
 				previousTrades.emplace(row.m_trade_id);
 			}
 			cached = std::move(pending->second.m_data);
-			cached.m_ready = m_account_service->IsConnected(account) && cached.m_account.m_connected && cached.m_account.m_funds_valid;
 			// Reconcile complete state before the final session-ready notification.
 			for (const auto& order : cached.m_orders)
 			{
@@ -310,7 +305,7 @@ void CTradeService::CompleteQuery(const trade::CCounterReply& reply, std::uint64
 			}
 			for (const auto& row : cached.m_trades)
 			{
-				if (container::with(previousTrades, row.m_trade_id))
+				if (!previousTrades.emplace(row.m_trade_id).second)
 				{
 					continue;
 				}
@@ -335,33 +330,22 @@ void CTradeService::CompleteQuery(const trade::CCounterReply& reply, std::uint64
 			});
 			for (auto& ev : pending->second.m_events)
 			{
-				std::size_t nCategory = 0;
-				switch (ev.m_kind)
+				std::uint64_t fundsVersion = cached.m_funds_version;
+				if (0 == ev.m_sequence || !ApplyEvent(cached, ev))
 				{
-				case trade::EventTy::Position:
-					nCategory = 1;
-					break;
-				case trade::EventTy::Order:
-					nCategory = 2;
-					break;
-				case trade::EventTy::Deal:
-					nCategory = 3;
-					break;
-				case trade::EventTy::Session:
-					nCategory = 4;
-					break;
-				default:
-					break;
+					continue;
 				}
-				if (pending->second.m_versions[nCategory] < ev.m_sequence)
+				if (trade::EventTy::Deal == ev.m_kind && !previousTrades.emplace(ev.m_trade.m_trade_id).second)
 				{
-					std::uint64_t nVersion = cached.m_version;
-					ApplyEvent(cached, ev);
-					cached.m_version = std::max(nVersion, cached.m_version);
-					pending->second.m_versions[nCategory] = ev.m_sequence;
-					notifications.emplace_back(ev);
+					if (fundsVersion == cached.m_funds_version)
+					{
+						continue;
+					}
+					ev.m_kind = trade::EventTy::Funds;
 				}
+				notifications.emplace_back(std::move(ev));
 			}
+			cached.m_ready = m_account_service->IsConnected(account) && cached.m_account.m_connected && cached.m_account.m_funds_valid;
 			trade::CCounterEvent session;
 			session.m_account = account;
 			session.m_kind = trade::EventTy::Session;
@@ -397,37 +381,47 @@ trade::CAccountData CTradeService::Snapshot(const _TyAccount& account) const
 	return data;
 }
 
-void CTradeService::ApplyEvent(trade::CAccountData& data, trade::CCounterEvent& ev)
+bool CTradeService::ApplyEvent(trade::CAccountData& data, trade::CCounterEvent& ev)
 {
-	if (ev.m_account_valid && (0 != ev.m_sequence))
+	std::uint64_t* categoryVersion = &data.m_funds_version;
+	switch (ev.m_kind)
 	{
-		data.m_funds_version = std::max(data.m_funds_version, ev.m_sequence);
+	case trade::EventTy::Order:
+		categoryVersion = &data.m_orders_version;
+		break;
+	case trade::EventTy::Position:
+		categoryVersion = &data.m_positions_version;
+		break;
+	case trade::EventTy::Deal:
+		categoryVersion = &data.m_tradesVersion;
+		break;
+	default:
+		break;
 	}
-	if ((trade::EventTy::Position == ev.m_kind) && (0 != ev.m_sequence))
+	// A push can advance its row category and funds independently.
+	bool newFunds = ev.m_account_valid && (0 == ev.m_sequence || data.m_funds_version < ev.m_sequence);
+	bool newCategory = trade::EventTy::Funds != ev.m_kind && (0 == ev.m_sequence || *categoryVersion < ev.m_sequence);
+	if (!newFunds && !newCategory)
 	{
-		data.m_positions_version = std::max(data.m_positions_version, ev.m_sequence);
+		return false;
 	}
-	if ((trade::EventTy::Order == ev.m_kind) && (0 != ev.m_sequence))
+	if (newCategory)
 	{
-		data.m_orders_version = std::max(data.m_orders_version, ev.m_sequence);
+		*categoryVersion = (std::max)(*categoryVersion, ev.m_sequence);
 	}
-
-	if (trade::EventTy::Funds != ev.m_kind && !ev.m_account_valid)
+	else
 	{
-		bool bConnected = ev.m_funds.m_connected;
-		int state = ev.m_funds.m_state;
+		ev.m_kind = trade::EventTy::Funds;
+	}
+	if (newFunds)
+	{
+		data.m_funds_version = (std::max)(data.m_funds_version, ev.m_sequence);
+	}
+	else
+	{
 		ev.m_funds = data.m_account;
-		if (trade::EventTy::Session == ev.m_kind)
-		{
-			ev.m_funds.m_connected = bConnected;
-			ev.m_funds.m_state = state;
-			if (!bConnected)
-			{
-				ev.m_funds.m_funds_valid = false;
-			}
-		}
-		ev.m_account_valid = true;
 	}
+	ev.m_account_valid = true;
 	if (trade::EventTy::Deal == ev.m_kind)
 	{
 		for (const auto& order : data.m_orders)
@@ -441,10 +435,8 @@ void CTradeService::ApplyEvent(trade::CAccountData& data, trade::CCounterEvent& 
 	}
 	std::uint64_t previous = data.m_version;
 	trade::UpdateAccountData(data, ev);
-	if (0 == ev.m_sequence)
-	{
-		data.m_version = previous;
-	}
+	data.m_version = (std::max)(previous, ev.m_sequence);
+	return true;
 }
 
 void CTradeService::OnBrokerEvent(trade::CCounterEvent ev)
@@ -479,11 +471,10 @@ void CTradeService::OnBrokerEvent(trade::CCounterEvent ev)
 			return;
 		}
 		const auto mIter = m_snapshots.find(ev.m_account);
-		if (m_snapshots.end() == mIter || !mIter->second.m_ready || (0 != ev.m_sequence && ev.m_sequence <= mIter->second.m_version))
+		if (m_snapshots.end() == mIter || !mIter->second.m_ready || !ApplyEvent(mIter->second, ev))
 		{
 			return;
 		}
-		ApplyEvent(mIter->second, ev);
 	}
 	PublishEvent(ev);
 }
@@ -518,14 +509,6 @@ void CTradeService::PublishEvent(const trade::CCounterEvent& ev)
 	_TyAccountReadyHandler readyHandler;
 	{
 		std::lock_guard<std::mutex> lock(m_handlers_mutex);
-		if (0 != ev.m_sequence && ev.m_sequence <= m_last_event_sequence[ev.m_account])
-		{
-			return;
-		}
-		if (0 != ev.m_sequence)
-		{
-			m_last_event_sequence[ev.m_account] = ev.m_sequence;
-		}
 		eventHandler = m_event_handler;
 		pushHandler = m_push_handler;
 		readyHandler = m_account_ready_handler;
@@ -565,10 +548,6 @@ void CTradeService::OnBrokerState(SessionState state, const std::string&)
 			entry.second.m_account.m_connected = false;
 			entry.second.m_account.m_funds_valid = false;
 		}
-	}
-	{
-		std::lock_guard<std::mutex> lock(m_handlers_mutex);
-		m_last_event_sequence.clear();
 	}
 	FailPending();
 }
@@ -634,8 +613,6 @@ void CTradeService::OnAccountState(const _TyAccount& account)
 			}
 		}
 	}
-	std::lock_guard<std::mutex> lock(m_handlers_mutex);
-	m_last_event_sequence.erase(account);
 }
 
 bool CTradeService::SendRequest(CRequest&& request)

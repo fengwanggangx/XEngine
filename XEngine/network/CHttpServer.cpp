@@ -675,6 +675,12 @@ namespace net
 			{
 				return (nullptr == response->m_request) && (std::future_status::ready == response->m_task.wait_for(std::chrono::seconds(0)));
 			});
+			constexpr std::size_t maxPendingResponses = 128;
+			if (maxPendingResponses <= m_responses.size())
+			{
+				evhttp_send_error(pRequest, HTTP_SERVUNAVAIL, nullptr);
+				return;
+			}
 			std::unique_ptr<CAsyncResponse> responseContext = std::make_unique<CAsyncResponse>();
 			CAsyncResponse* context = responseContext.get();
 			context->m_event.reset(event_new(GetNet(), -1, 0, CAsyncResponse::Complete, context));
@@ -687,7 +693,7 @@ namespace net
 			m_responses.emplace_back(std::move(responseContext));
 			context->m_request = pRequest;
 			evhttp_request_own(pRequest);
-			context->m_task = ThreadPoolPtr->PushTask(task_priority::em_normal, 0, [context, handler = std::move(handler), request = std::move(request)]() mutable
+			context->m_task = m_httpWorkers.PushTask(task_priority::em_normal, 0, [context, handler = std::move(handler), request = std::move(request)]() mutable
 			{
 				std::unique_ptr<CHttpResponseData> response;
 				try

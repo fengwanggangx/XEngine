@@ -1451,6 +1451,12 @@ bool CStrategyService::EnqueueEvent(const std::shared_ptr<CStrategyRuntime>& run
 				std::lock_guard<std::mutex> metricsLock(runtime->m_metrics_mutex);
 				++runtime->m_dropped_market_events;
 			}
+			else if (ev.IsMarketEvent())
+			{
+				std::lock_guard<std::mutex> metricsLock(runtime->m_metrics_mutex);
+				++runtime->m_dropped_market_events;
+				return false;
+			}
 			else if ((runtime->m_config.m_event_queue_limit * 2) <= runtime->m_events.size())
 			{
 				bFault = true;
@@ -1803,7 +1809,11 @@ COrderSubmitResult CStrategyService::SubmitOrder(_TyStrategyId id, const COrderI
 	routed.m_client_order_id = prepared.m_client_order_id;
 	COrderSubmitResult result = SubmitTradingOrder(routed, runtime);
 	// SendStrategyRequest returns failure only before admitting the transport request.
-	m_execution.MarkSubmission(routed.m_client_order_id, result.m_accepted, !result.m_accepted);
+	if (!m_execution.MarkSubmission(routed.m_client_order_id, result.m_accepted, !result.m_accepted))
+	{
+		result.m_accepted = false;
+		result.m_reason = "Cannot persist submission state; reconcile before retry: " + m_execution.GetLastError();
+	}
 	result.m_client_order_id = routed.m_client_order_id;
 	result.m_retryable = false;
 	return result;

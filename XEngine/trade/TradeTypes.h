@@ -208,6 +208,7 @@ namespace trade
 		std::uint64_t m_funds_version{ 0 };
 		std::uint64_t m_positions_version{ 0 };
 		std::uint64_t m_orders_version{ 0 };
+		std::uint64_t m_tradesVersion{ 0 };
 	};
 
 	struct COperationReceipt
