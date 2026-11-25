@@ -41,6 +41,7 @@
     <MinimumVisualStudioVersion>15.0</MinimumVisualStudioVersion>
     <ApplicationType>Linux</ApplicationType>
     <ApplicationTypeRevision>1.0</ApplicationTypeRevision>
+    <RemoteCCompileToolExe Condition="'$(RemoteCCompileToolExe)' == ''">gcc</RemoteCCompileToolExe>
     <TargetLinuxPlatform>Generic</TargetLinuxPlatform>
     <LinuxProjectType>{D51BCBC9-82E9-4017-911E-C93873C4EA2B}</LinuxProjectType>
   </PropertyGroup>
@@ -269,5 +270,13 @@
     <ClCompile Include="log\CLogger.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <Target Name="AddReleaseLibrariesToRemoteCopy" BeforeTargets="_ConsolidateSourcesToCopy" Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <ItemGroup>
+      <ReleaseLibrary Include="$(ProjectDir)libs\release\*" />
+    </ItemGroup>
+    <PropertyGroup>
+      <AdditionalSourcesToCopyMapping>@(ReleaseLibrary->'%(FullPath):=$(RemoteProjectDir)libs/release/%(Filename)%(Extension)');$(AdditionalSourcesToCopyMapping)</AdditionalSourcesToCopyMapping>
+    </PropertyGroup>
+  </Target>
   <ImportGroup Label="ExtensionTargets" />
 </Project>
